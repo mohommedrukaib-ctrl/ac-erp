@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.aceerp.controller.SupplierController"
+      spacing="10">
+    <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Suppliers" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <TextField fx:id="searchField" promptText="Search suppliers..." prefWidth="250"/>
+        <Button text="+ Add Supplier" onAction="#onAdd"
+                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;"/>
+    </HBox>
+
+    <TableView fx:id="tableView" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colCode" text="Code" prefWidth="100"/>
+            <TableColumn fx:id="colName" text="Name" prefWidth="200"/>
+            <TableColumn fx:id="colContact" text="Contact" prefWidth="150"/>
+            <TableColumn fx:id="colPhone" text="Phone" prefWidth="130"/>
+            <TableColumn fx:id="colEmail" text="Email" prefWidth="180"/>
+            <TableColumn fx:id="colStatus" text="Status" prefWidth="80"/>
+        </columns>
+    </TableView>
+
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button text="Edit" onAction="#onEdit"/>
+        <Button text="Deactivate" onAction="#onDeactivate"
+                style="-fx-text-fill: #e74c3c;"/>
+    </HBox>
+</VBox>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.aceerp.controller.CustomerController"
+      spacing="10">
+    
+    <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+    <!-- Header & Actions -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Customers" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <TextField fx:id="searchField" promptText="Search customer by name, phone, code..." prefWidth="280"/>
+        <Button text="+ Add Customer" onAction="#handleAdd"
+                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;"/>
+    </HBox>
+
+    <!-- Customers Table -->
+    <TableView fx:id="customersTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colCode" text="Code" prefWidth="100"/>
+            <TableColumn fx:id="colName" text="Name" prefWidth="180"/>
+            <TableColumn fx:id="colPhone" text="Phone" prefWidth="120"/>
+            <TableColumn fx:id="colEmail" text="Email" prefWidth="160"/>
+            <TableColumn fx:id="colCity" text="City" prefWidth="110"/>
+            <TableColumn fx:id="colTax" text="Tax ID" prefWidth="110"/>
+            <TableColumn fx:id="colStatus" text="Status" prefWidth="80"/>
+        </columns>
+    </TableView>
+
+    <!-- Table Action Buttons -->
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button text="Edit Customer" onAction="#handleEdit"/>
+        <Button text="Deactivate" onAction="#handleDeactivate" style="-fx-text-fill: #e74c3c;"/>
+    </HBox>
+
+</VBox>

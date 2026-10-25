@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.aceerp.controller.ProductController"
+      spacing="0">
+
+    <!-- Tab 1: Product List | Tab 2: Stock Movements -->
+    <TabPane fx:id="mainTabs" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
+
+        <!-- ==================== TAB 1: PRODUCT LIST ==================== -->
+        <Tab text="Product List">
+            <VBox spacing="10">
+                <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+                <!-- Header -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Products" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <TextField fx:id="searchField" promptText="Search products..." prefWidth="250"/>
+                    <Button text="+ Add Product" onAction="#handleAdd"
+                            style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                </HBox>
+
+                <!-- Product table -->
+                <TableView fx:id="productsTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colCode" text="Code" prefWidth="100"/>
+                        <TableColumn fx:id="colName" text="Name" prefWidth="200"/>
+                        <TableColumn fx:id="colType" text="Type" prefWidth="100"/>
+                        <TableColumn fx:id="colBrand" text="Brand" prefWidth="100"/>
+                        <TableColumn fx:id="colPrice" text="Sell Price" prefWidth="100"/>
+                        <TableColumn fx:id="colStock" text="Stock" prefWidth="70"/>
+                        <TableColumn fx:id="colStatus" text="Status" prefWidth="80"/>
+                    </columns>
+                </TableView>
+
+                <!-- Action buttons -->
+                <HBox spacing="10" alignment="CENTER_RIGHT">
+                    <Button text="Edit" onAction="#handleEdit"/>
+                    <Button text="Deactivate" onAction="#handleDeactivate"
+                            style="-fx-text-fill: #e74c3c;"/>
+                </HBox>
+            </VBox>
+        </Tab>
+
+        <!-- ==================== TAB 2: STOCK MOVEMENTS ==================== -->
+        <Tab text="Stock Movements">
+            <VBox spacing="10">
+                <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+                <!-- Header with action buttons -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Stock Management" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button text="+ Stock In" onAction="#handleStockIn"
+                            style="-fx-background-color: #28a745; -fx-text-fill: white;"/>
+                    <Button text="- Stock Out" onAction="#handleStockOut"
+                            style="-fx-background-color: #dc3545; -fx-text-fill: white;"/>
+                    <Button text="Adjust" onAction="#handleAdjust"
+                            style="-fx-background-color: #ffc107; -fx-text-fill: black;"/>
+                </HBox>
+
+                <!-- Search and filter row -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <TextField fx:id="movementSearchField" promptText="Search movements..." prefWidth="250"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <ToggleButton fx:id="btnAll" text="All" selected="true"/>
+                    <ToggleButton fx:id="btnIn" text="In"/>
+                    <ToggleButton fx:id="btnOut" text="Out"/>
+                    <ToggleButton fx:id="btnAdjust" text="Adjust"/>
+                </HBox>
+
+                <!-- Movements table -->
+                <TableView fx:id="movementsTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colDate" text="Date" prefWidth="140"/>
+                        <TableColumn fx:id="colProduct" text="Product" prefWidth="180"/>
+                     <TableColumn fx:id="colMvType" text="Type" prefWidth="90"/>
+                        <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
+                        <TableColumn fx:id="colBefore" text="Before" prefWidth="65"/>
+                        <TableColumn fx:id="colAfter" text="After" prefWidth="65"/>
+                        <TableColumn fx:id="colRef" text="Reference" prefWidth="120"/>
+                        <TableColumn fx:id="colUser" text="User" prefWidth="90"/>
+                        <TableColumn fx:id="colNotes" text="Notes" prefWidth="150"/>
+                    </columns>
+                </TableView>
+
+                <!-- Low stock alerts -->
+                <VBox spacing="5"
+                      style="-fx-background-color: #fff3cd; -fx-padding: 10; -fx-border-color: #ffc107; -fx-border-radius: 5; -fx-background-radius: 5;">
+                    <Label text="Low Stock Alerts"
+                           style="-fx-font-weight: bold; -fx-text-fill: #856404;"/>
+                    <Label fx:id="lowStockLabel" text="Loading..."
+                           wrapText="true" style="-fx-text-fill: #856404;"/>
+                </VBox>
+            </VBox>
+        </Tab>
+    </TabPane>
+</VBox>

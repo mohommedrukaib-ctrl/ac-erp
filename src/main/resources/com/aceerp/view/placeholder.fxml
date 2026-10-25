@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.geometry.Insets?>
+
+<!--
+    Placeholder View
+    
+    Shown for modules that haven't been implemented yet.
+    Will be replaced with actual module views in future phases.
+-->
+<VBox xmlns:fx="http://javafx.com/fxml"
+      alignment="CENTER"
+      spacing="15">
+    <padding>
+        <Insets top="50" right="50" bottom="50" left="50"/>
+    </padding>
+
+    <Label text="🚧" style="-fx-font-size: 64px;"/>
+    <Label text="Module Under Development"
+           style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+    <Label text="This module will be available in an upcoming phase."
+           style="-fx-font-size: 14px; -fx-text-fill: #7f8c8d;"/>
+    <Label text="Navigate to the Dashboard for current features."
+           style="-fx-font-size: 13px; -fx-text-fill: #95a5a6; -fx-padding: 20 0 0 0;"/>
+</VBox>

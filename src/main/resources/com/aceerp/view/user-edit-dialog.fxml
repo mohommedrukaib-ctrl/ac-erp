@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.ChoiceBox?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.aceerp.controller.UserEditDialogController"
+      spacing="10"
+      prefWidth="420">
+    <padding>
+        <Insets top="20" right="25" bottom="20" left="25"/>
+    </padding>
+
+    <Label fx:id="titleLabel" text="Add New User" styleClass="dialog-title"/>
+
+    <VBox spacing="4">
+        <Label text="Username *" styleClass="field-label"/>
+        <TextField fx:id="usernameField"/>
+    </VBox>
+
+    <VBox spacing="4">
+        <Label text="Full Name *" styleClass="field-label"/>
+        <TextField fx:id="fullNameField"/>
+    </VBox>
+
+    <HBox spacing="10">
+        <VBox spacing="4" HBox.hgrow="ALWAYS">
+            <Label text="Email" styleClass="field-label"/>
+            <TextField fx:id="emailField"/>
+        </VBox>
+        <VBox spacing="4" HBox.hgrow="ALWAYS">
+            <Label text="Phone" styleClass="field-label"/>
+            <TextField fx:id="phoneField"/>
+        </VBox>
+    </HBox>
+
+    <VBox spacing="4">
+        <Label text="Role *" styleClass="field-label"/>
+        <ChoiceBox fx:id="roleChoice" maxWidth="Infinity"/>
+    </VBox>
+
+    <VBox spacing="4">
+        <Label text="Password" styleClass="field-label"/>
+        <PasswordField fx:id="passwordField"/>
+        <Label fx:id="passwordHintLabel" styleClass="field-hint"/>
+    </VBox>
+
+    <VBox spacing="4">
+        <Label text="Confirm Password" styleClass="field-label"/>
+        <PasswordField fx:id="passwordConfirmField"/>
+    </VBox>
+
+    <CheckBox fx:id="activeCheckBox" text="Account is active" selected="true"/>
+
+    <Label fx:id="errorLabel" styleClass="error-label" wrapText="true"/>
+
+    <HBox alignment="CENTER_RIGHT" spacing="10">
+        <padding><Insets top="10"/></padding>
+        <Button text="Cancel" onAction="#onCancel" styleClass="btn-secondary"/>
+        <Button text="Save" onAction="#onSave" styleClass="btn-primary"/>
+    </HBox>
+</VBox>

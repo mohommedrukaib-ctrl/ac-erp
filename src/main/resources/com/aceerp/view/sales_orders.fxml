@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox spacing="20" styleClass="content-area" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.aceerp.controller.SalesOrderController">
+    <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Sales Orders" style="-fx-font-size: 24; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="New Sales Order" onAction="#handleNewSalesOrder" styleClass="button-primary"/>
+    </HBox>
+
+    <HBox spacing="15" VBox.vgrow="ALWAYS">
+        <VBox spacing="10" prefWidth="300">
+            <TextField fx:id="searchField" promptText="Search Sales Orders..."/>
+            <ListView fx:id="salesOrderListView" VBox.vgrow="ALWAYS"/>
+        </VBox>
+
+        <VBox fx:id="detailsPane" spacing="15" HBox.hgrow="ALWAYS" style="-fx-background-color: white; -fx-padding: 20; -fx-border-color: #ddd;">
+            <GridPane hgap="15" vgap="15">
+                <Label text="Customer:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <TextField fx:id="customerSearchField" promptText="Type to search..." HBox.hgrow="ALWAYS"/>
+                    <Button text="+" onAction="#handleQuickAddCustomer" style="-fx-font-weight: bold; -fx-background-color: #28a745; -fx-text-fill: white;">
+                        <tooltip><Tooltip text="Quick Add Customer"/></tooltip>
+                    </Button>
+                </HBox>
+
+                <Label text="Phone:" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                <TextField fx:id="customerPhoneField" editable="false" promptText="Auto-filled" GridPane.columnIndex="3" GridPane.rowIndex="0" style="-fx-background-color: #f9f9f9;"/>
+
+                <Label text="Order Date:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                <DatePicker fx:id="orderDatePicker" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                <Label text="SO #:" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                <TextField fx:id="soNumberField" editable="false" GridPane.columnIndex="3" GridPane.rowIndex="1" style="-fx-background-color: #f9f9f9;"/>
+
+                <Label text="Status:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                <ComboBox fx:id="statusCombo" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+            </GridPane>
+
+            <Separator/>
+
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Order Items" style="-fx-font-weight: bold;"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button text="+ Add Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
+                <Button text="+ Add Blank Item" onAction="#handleAddEmptyLine" styleClass="btn-secondary"/>
+                <Button text="- Remove Item" onAction="#handleRemoveLine" styleClass="btn-danger"/>
+            </HBox>
+
+            <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" editable="true">
+                <columns>
+                    <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="250"/>
+                    <TableColumn fx:id="colQty" text="Qty" prefWidth="80"/>
+                    <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="120"/>
+                    <TableColumn fx:id="colTotal" text="Total" prefWidth="120"/>
+                </columns>
+            </TableView>
+
+            <HBox spacing="20" alignment="CENTER_RIGHT">
+                <VBox alignment="CENTER_RIGHT" spacing="5">
+                    <Label fx:id="totalLabel" text="" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
+                </VBox>
+            </HBox>
+
+            <HBox spacing="10" alignment="CENTER_RIGHT">
+                <Button text="Print Preview" onAction="#handlePrint" styleClass="button-secondary"/>
+                <Button text="Save Order" onAction="#handleSave" styleClass="button-success"/>
+            </HBox>
+        </VBox>
+    </HBox>
+</VBox>

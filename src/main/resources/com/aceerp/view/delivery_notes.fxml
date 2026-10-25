@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<SplitPane dividerPositions="0.25" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.aceerp.controller.DeliveryNoteController">
+    <!-- Left Sidebar: List of Delivery Notes -->
+    <VBox spacing="10" style="-fx-padding: 10;">
+        <Label text="Delivery Notes" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+        <ListView fx:id="dnListView" VBox.vgrow="ALWAYS"/>
+        <HBox spacing="10">
+            <Button text="+ New DN" onAction="#handleNewDN" styleClass="button-primary"/>
+            <Button text="Delete" onAction="#handleDeleteDN" styleClass="button-danger"/>
+        </HBox>
+    </VBox>
+
+    <!-- Right Content: DN Details & Dispatch Line Items -->
+    <VBox spacing="10" style="-fx-padding: 15;">
+        <Label text="Delivery Note Details (Stock Deduction)" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+        <GridPane hgap="10" vgap="10">
+            <Label text="DN Number:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+            <TextField fx:id="txtDnNumber" GridPane.columnIndex="1" GridPane.rowIndex="0" readOnly="true"/>
+
+            <Label text="Dispatch Date:" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+            <DatePicker fx:id="dpDispatchDate" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+
+            <Label text="Customer:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+            <TextField fx:id="txtCustomerSearch" promptText="Enter customer name..." GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+            <Label text="Driver Name:" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+            <TextField fx:id="txtDriverName" promptText="Driver name" GridPane.columnIndex="3" GridPane.rowIndex="1"/>
+
+            <Label text="Vehicle No:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+            <TextField fx:id="txtVehicleNo" promptText="Vehicle registration #" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+            <Label text="Status:" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+            <ComboBox fx:id="statusCombo" GridPane.columnIndex="3" GridPane.rowIndex="2"/>
+        </GridPane>
+
+        <Label text="Delivery Address:"/>
+        <TextArea fx:id="txtDeliveryAddress" prefRowCount="2" promptText="Destination address..."/>
+
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="Items to Ship:" style="-fx-font-weight: bold;"/>
+            <Button text="+ Add Product" onAction="#handleAddProduct"/>
+            <Button text="- Remove Item" onAction="#handleRemoveLine"/>
+        </HBox>
+
+        <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" editable="true">
+            <columns>
+                <TableColumn fx:id="colProduct" text="Product Name" prefWidth="250"/>
+                <TableColumn fx:id="colOrderedQty" text="Ordered Qty" prefWidth="120"/>
+                <TableColumn fx:id="colShippedQty" text="Shipped Qty (Deducted)" prefWidth="150"/>
+            </columns>
+        </TableView>
+
+        <Label text="Dispatch Notes:"/>
+        <TextArea fx:id="txtNotes" prefRowCount="2" promptText="Internal dispatch notes..."/>
+
+        <HBox spacing="10" alignment="CENTER_RIGHT">
+            <Button text="Print DN" onAction="#handlePrintPreview"/>
+            <Button text="Dispatch &amp; Save" onAction="#handleSaveDN" styleClass="button-success"/>
+        </HBox>
+    </VBox>
+</SplitPane>

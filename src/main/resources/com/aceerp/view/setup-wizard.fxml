@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.aceerp.controller.SetupWizardController"
+            prefWidth="720" prefHeight="680">
+
+    <top>
+        <VBox spacing="8" style="-fx-background-color: #1a5276;">
+            <padding>
+                <Insets top="20" right="30" bottom="15" left="30"/>
+            </padding>
+            <Label text="ACE ERP Setup Wizard"
+                   style="-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;"/>
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <Label fx:id="lblStep1" text="1. Database"
+                       style="-fx-text-fill: white; -fx-font-weight: bold;"/>
+                <Label text="  >  " style="-fx-text-fill: rgba(255,255,255,0.5);"/>
+                <Label fx:id="lblStep2" text="2. Admin"
+                       style="-fx-text-fill: rgba(255,255,255,0.5);"/>
+                <Label text="  >  " style="-fx-text-fill: rgba(255,255,255,0.5);"/>
+                <Label fx:id="lblStep3" text="3. Company"
+                       style="-fx-text-fill: rgba(255,255,255,0.5);"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <center>
+        <StackPane>
+            <padding>
+                <Insets top="20" right="40" bottom="10" left="40"/>
+            </padding>
+
+            <VBox fx:id="paneWelcome" spacing="12" alignment="CENTER_LEFT">
+                <Label text="Welcome to ACE ERP!"
+                       style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1a5276;"/>
+                <Label text="This wizard will guide you through the initial setup."
+                       wrapText="true" style="-fx-font-size: 14px;"/>
+                <Label text="You will configure:" wrapText="true"/>
+                <Label text="    1. Database connection" wrapText="true"/>
+                <Label text="    2. Administrator account" wrapText="true"/>
+                <Label text="    3. Company information" wrapText="true"/>
+                <Region prefHeight="20"/>
+                <Label text="Click Next to get started."
+                       style="-fx-text-fill: #7f8c8d;"/>
+            </VBox>
+
+            <VBox fx:id="paneDatabase" spacing="12" visible="false" managed="false">
+                <Label text="Database Connection"
+                       style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1a5276;"/>
+                <Label text="Enter your PostgreSQL server details. If the database does not exist, it will be created automatically."
+                       wrapText="true"/>
+                <GridPane hgap="10" vgap="12">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="130" prefWidth="130"/>
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="200"/>
+                    </columnConstraints>
+                    <Label text="Server / Host:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtDbHost" text="localhost"
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                    <Label text="Port:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtDbPort" text="5432" prefWidth="100"
+                               GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                    <Label text="Database Name:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtDbName" text="ace_erp"
+                               GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                    <Label text="Username:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtDbUser"
+                               GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                    <Label text="Password:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                    <PasswordField fx:id="txtDbPassword"
+                                   GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                </GridPane>
+                <HBox spacing="15" alignment="CENTER_LEFT">
+                    <Button fx:id="btnTestConnection" text="Test Connection"
+                            onAction="#handleTestConnection"
+                            style="-fx-background-color: #2980b9; -fx-text-fill: white; -fx-padding: 6 16;"/>
+                    <Label fx:id="lblDbStatus" wrapText="true"
+                           style="-fx-font-size: 13px;"/>
+                </HBox>
+            </VBox>
+
+            <VBox fx:id="paneAdmin" spacing="12" visible="false" managed="false">
+                <Label text="Create Administrator Account"
+                       style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1a5276;"/>
+                <Label text="Create the first Super Admin account."
+                       wrapText="true"/>
+                <GridPane hgap="10" vgap="12">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="140" prefWidth="140"/>
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="200"/>
+                    </columnConstraints>
+                    <Label text="Full Name:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtAdminFullName"
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                    <Label text="Username:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtAdminUsername"
+                               GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                    <Label text="Password:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                    <PasswordField fx:id="txtAdminPassword"
+                                   GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                    <Label text="Confirm Password:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                    <PasswordField fx:id="txtAdminConfirmPassword"
+                                   GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                </GridPane>
+                <Label fx:id="lblAdminStatus" wrapText="true"
+                       style="-fx-text-fill: #e74c3c; -fx-font-size: 13px;"/>
+            </VBox>
+
+            <VBox fx:id="paneCompany" spacing="12" visible="false" managed="false">
+                <Label text="Company Information"
+                       style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1a5276;"/>
+                <Label text="Enter your business details. You can change these later in Settings."
+                       wrapText="true"/>
+                <GridPane hgap="10" vgap="12">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="140" prefWidth="140"/>
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="200"/>
+                    </columnConstraints>
+                    <Label text="Business Name:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtCompanyName"
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                    <Label text="Currency Code:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtCurrencyCode" text="USD" prefWidth="100"
+                               GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                    <Label text="Currency Symbol:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtCurrencySymbol"
+                               GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                </GridPane>
+                <Label fx:id="lblCompanyStatus" wrapText="true"
+                       style="-fx-text-fill: #e74c3c; -fx-font-size: 13px;"/>
+            </VBox>
+
+        </StackPane>
+    </center>
+
+    <bottom>
+        <HBox spacing="10" alignment="CENTER_RIGHT"
+              style="-fx-border-color: #bdc3c7; -fx-border-width: 1 0 0 0;">
+            <padding>
+                <Insets top="15" right="40" bottom="20" left="40"/>
+            </padding>
+            <Button fx:id="btnBack" text="Back" onAction="#handleBack"
+                    visible="false"
+                    style="-fx-padding: 8 24;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="btnNext" text="Next" onAction="#handleNext"
+                    defaultButton="true"
+                    style="-fx-background-color: #1a5276; -fx-text-fill: white; -fx-padding: 8 32; -fx-font-weight: bold;"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>

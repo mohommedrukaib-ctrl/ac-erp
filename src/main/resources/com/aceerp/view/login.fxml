@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.Button?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.aceerp.controller.LoginController"
+           styleClass="login-root">
+
+    <VBox alignment="CENTER" maxWidth="380" styleClass="login-card" spacing="15">
+        <padding>
+            <Insets top="40" right="40" bottom="40" left="40"/>
+        </padding>
+
+        <Label text="❄" style="-fx-font-size: 56px; -fx-text-fill: #1a5276;"/>
+        <Label text="ACE ERP" styleClass="login-title"/>
+        <Label text="Air Conditioning Enterprise" styleClass="login-subtitle"/>
+
+        <VBox spacing="6">
+            <padding><Insets top="20"/></padding>
+            <Label text="Username" styleClass="field-label"/>
+            <TextField fx:id="usernameField" promptText="Enter your username" prefHeight="36"/>
+        </VBox>
+
+        <VBox spacing="6">
+            <Label text="Password" styleClass="field-label"/>
+            <PasswordField fx:id="passwordField" promptText="Enter your password" prefHeight="36"
+                           onAction="#onLogin"/>
+        </VBox>
+
+        <Label fx:id="errorLabel" styleClass="error-label" wrapText="true"/>
+
+        <Button fx:id="loginButton" text="Log In" onAction="#onLogin"
+                styleClass="btn-primary, btn-login" maxWidth="Infinity" prefHeight="40"/>
+
+        <Label text="v1.0.0" styleClass="login-version"/>
+    </VBox>
+</StackPane>

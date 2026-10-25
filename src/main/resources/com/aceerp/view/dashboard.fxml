@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.control.Label?>
+<?import javafx.geometry.Insets?>
+
+<!--
+    Dashboard View
+    
+    Shows summary cards with key business metrics.
+    Each card is an HBox styled as a "card" with an icon, count, and label.
+-->
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.aceerp.controller.DashboardController"
+      spacing="25"
+      styleClass="dashboard-container">
+    <padding>
+        <Insets top="30" right="30" bottom="30" left="30"/>
+    </padding>
+
+    <!-- Page Title -->
+    <HBox alignment="CENTER_LEFT" spacing="10">
+        <Label text="🏠" style="-fx-font-size: 24px;"/>
+        <Label text="Dashboard" styleClass="page-title"/>
+    </HBox>
+
+    <!-- Subtitle with database status -->
+    <HBox alignment="CENTER_LEFT" spacing="10">
+        <Label text="Database:" styleClass="dashboard-label"/>
+        <Label fx:id="dbStatusLabel" text="Checking..." styleClass="dashboard-label"/>
+    </HBox>
+
+    <!-- Summary Cards Row -->
+    <HBox spacing="20" alignment="CENTER_LEFT">
+
+        <!-- Customers Card -->
+        <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER"
+              prefWidth="200" prefHeight="120">
+            <Label text="👤" style="-fx-font-size: 28px;"/>
+            <Label fx:id="customerCountLabel" text="0" styleClass="dashboard-card-value"/>
+            <Label text="Customers" styleClass="dashboard-card-label"/>
+        </VBox>
+
+        <!-- Products Card -->
+        <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER"
+              prefWidth="200" prefHeight="120">
+            <Label text="📦" style="-fx-font-size: 28px;"/>
+            <Label fx:id="productCountLabel" text="0" styleClass="dashboard-card-value"/>
+            <Label text="Products" styleClass="dashboard-card-label"/>
+        </VBox>
+
+        <!-- Invoices Card -->
+        <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER"
+              prefWidth="200" prefHeight="120">
+            <Label text="📄" style="-fx-font-size: 28px;"/>
+            <Label fx:id="invoiceCountLabel" text="0" styleClass="dashboard-card-value"/>
+            <Label text="Invoices" styleClass="dashboard-card-label"/>
+        </VBox>
+
+        <!-- Revenue Card -->
+        <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER"
+              prefWidth="200" prefHeight="120">
+            <Label text="💰" style="-fx-font-size: 28px;"/>
+            <Label fx:id="revenueLabel" text="0.00" styleClass="dashboard-card-value"/>
+            <Label text="Monthly Revenue" styleClass="dashboard-card-label"/>
+        </VBox>
+
+    </HBox>
+
+    <!-- Quick Actions Section -->
+    <VBox spacing="10">
+        <Label text="Quick Actions" styleClass="section-title"/>
+        <HBox spacing="12">
+            <Label text="📄 New Invoice" styleClass="quick-action-btn"/>
+            <Label text="👤 New Customer" styleClass="quick-action-btn"/>
+            <Label text="📦 New Product" styleClass="quick-action-btn"/>
+            <Label text="🔧 New Service Job" styleClass="quick-action-btn"/>
+        </HBox>
+    </VBox>
+
+    <!-- Spacer to push content up -->
+    <Region VBox.vgrow="ALWAYS"/>
+
+</VBox>

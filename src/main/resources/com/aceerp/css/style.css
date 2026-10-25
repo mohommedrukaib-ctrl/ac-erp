@@ -1,0 +1,489 @@
+/*
+ * ==========================================================================
+ * ACE ERP Stylesheet
+ * ==========================================================================
+ * JavaFX CSS reference: https://openjfx.io/javadoc/21/javafx.graphics/javafx/scene/doc-files/cssref.html
+ * 
+ * Key differences from web CSS:
+ *   - Properties use "-fx-" prefix: -fx-background-color instead of background-color
+ *   - No flexbox/grid — JavaFX uses layout panes (HBox, VBox, BorderPane, etc.)
+ *   - Pseudo-classes differ: :hover works, but :focus is different
+ *   - Use "looked-up colors" instead of CSS variables
+ * ==========================================================================
+ */
+
+/* ===== Global / Root ===== */
+.root {
+    -fx-font-family: "Segoe UI", "Arial", "Helvetica", sans-serif;
+    -fx-font-size: 13px;
+
+    /* Color palette — accessible as looked-up colors by all child nodes */
+    -ace-primary: #1a5276;
+    -ace-primary-light: #2980b9;
+    -ace-primary-dark: #0e2f44;
+    -ace-accent: #2ecc71;
+    -ace-bg-light: #ecf0f1;
+    -ace-bg-white: #ffffff;
+    -ace-text-dark: #2c3e50;
+    -ace-text-light: #7f8c8d;
+    -ace-text-muted: #95a5a6;
+    -ace-border: #bdc3c7;
+    -ace-danger: #e74c3c;
+    -ace-warning: #f39c12;
+    -ace-success: #27ae60;
+    -ace-card-shadow: rgba(0, 0, 0, 0.08);
+}
+
+.root-pane {
+    -fx-background-color: -ace-bg-light;
+}
+
+
+/* ===== Header Bar ===== */
+.header-bar {
+    -fx-background-color: -ace-primary;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 8, 0, 0, 2);
+}
+
+.app-title {
+    -fx-text-fill: white;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+.user-info {
+    -fx-text-fill: #d5dbdb;
+    -fx-font-size: 12px;
+}
+
+
+/* ===== Universal Search Bar ===== */
+.search-field {
+    -fx-background-color: rgba(255, 255, 255, 0.15);
+    -fx-text-fill: white;
+    -fx-prompt-text-fill: rgba(255, 255, 255, 0.6);
+    -fx-background-radius: 20;
+    -fx-padding: 6 16 6 16;
+    -fx-font-size: 13px;
+    -fx-border-color: rgba(255, 255, 255, 0.2);
+    -fx-border-radius: 20;
+}
+
+.search-field:focused {
+    -fx-background-color: rgba(255, 255, 255, 0.25);
+    -fx-border-color: rgba(255, 255, 255, 0.5);
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.15), 8, 0, 0, 0);
+}
+
+/* Search Results Dropdown */
+.search-results-dropdown {
+    -fx-background-color: white;
+    -fx-border-color: #ddd;
+    -fx-border-width: 1;
+    -fx-border-radius: 0 0 8 8;
+    -fx-background-radius: 0 0 8 8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 12, 0, 0, 4);
+    -fx-max-height: 400;
+    -fx-padding: 5 0 5 0;
+}
+
+.search-category-header {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #7f8c8d;
+    -fx-background-color: #f7f9f9;
+    -fx-border-color: transparent transparent #ecf0f1 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.search-result-item {
+    -fx-background-color: transparent;
+    -fx-background-radius: 4;
+}
+
+.search-result-item:hover {
+    -fx-background-color: #eaf2f8;
+}
+
+.search-result-title {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2c3e50;
+}
+
+.search-result-subtitle {
+    -fx-font-size: 11px;
+    -fx-text-fill: #7f8c8d;
+}
+
+.search-no-results {
+    -fx-text-fill: #95a5a6;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+}
+
+
+/* ===== Sidebar ===== */
+.sidebar-scroll {
+    -fx-background-color: -ace-primary-dark;
+    -fx-border-color: transparent;
+}
+
+.sidebar-scroll > .viewport {
+    -fx-background-color: -ace-primary-dark;
+}
+
+.sidebar {
+    -fx-background-color: -ace-primary-dark;
+}
+
+.sidebar-heading {
+    -fx-text-fill: #5d6d7e;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-padding: 5 5 12 10;
+    /* letter spacing effect using padding */
+}
+
+.sidebar-item {
+    -fx-text-fill: #aeb6bf;
+    -fx-font-size: 13px;
+    -fx-padding: 10 12 10 12;
+    -fx-cursor: hand;
+    -fx-background-radius: 6;
+    -fx-background-color: transparent;
+}
+
+.sidebar-item:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+    -fx-text-fill: white;
+}
+
+.sidebar-item-active {
+    -fx-background-color: -ace-primary-light;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+
+/* ===== Content Area ===== */
+.content-area {
+    -fx-background-color: -ace-bg-light;
+}
+
+
+/* ===== Status Bar ===== */
+.status-bar {
+    -fx-background-color: #2c3e50;
+    -fx-border-color: #1a252f transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.status-text {
+    -fx-text-fill: #aab7b8;
+    -fx-font-size: 11px;
+}
+
+.version-text {
+    -fx-text-fill: #5d6d7e;
+    -fx-font-size: 11px;
+}
+
+
+/* ===== Dashboard ===== */
+.dashboard-container {
+    -fx-background-color: -ace-bg-light;
+}
+
+.page-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ace-text-dark;
+}
+
+.section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ace-text-dark;
+    -fx-padding: 10 0 5 0;
+}
+
+.dashboard-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: -ace-text-light;
+}
+
+/* Dashboard Cards */
+.dashboard-card {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-padding: 20;
+    -fx-effect: dropshadow(gaussian, -ace-card-shadow, 8, 0, 0, 2);
+    -fx-border-color: #e8e8e8;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+}
+
+.dashboard-card:hover {
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 12, 0, 0, 3);
+    -fx-border-color: -ace-primary-light;
+}
+
+.dashboard-card-value {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -ace-primary;
+}
+
+.dashboard-card-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: -ace-text-light;
+}
+
+/* Quick Action Buttons */
+.quick-action-btn {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-padding: 12 20 12 20;
+    -fx-font-size: 13px;
+    -fx-text-fill: -ace-text-dark;
+    -fx-cursor: hand;
+    -fx-border-color: #ddd;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, -ace-card-shadow, 4, 0, 0, 1);
+}
+
+.quick-action-btn:hover {
+    -fx-background-color: -ace-primary;
+    -fx-text-fill: white;
+    -fx-border-color: -ace-primary;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 8, 0, 0, 2);
+}
+
+
+/* ===== General Scroll Bars (style the ugly default scrollbars) ===== */
+.scroll-bar:vertical {
+    -fx-pref-width: 8;
+    -fx-background-color: transparent;
+}
+
+.scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(255, 255, 255, 0.2);
+    -fx-background-radius: 4;
+}
+
+.scroll-bar:vertical .thumb:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.4);
+}
+
+.scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar:vertical .increment-button,
+.scroll-bar:vertical .decrement-button {
+    -fx-pref-height: 0;
+    -fx-padding: 0;
+}
+
+.scroll-bar:vertical .increment-arrow,
+.scroll-bar:vertical .decrement-arrow {
+    -fx-shape: " ";
+    -fx-padding: 0;
+}
+
+/* =============================================================================
+   Phase 3 & 4: Auth, Setup Wizard, Settings
+   ============================================================================= */
+
+/* ===== Login Screen ===== */
+.login-root {
+    -fx-background-color: linear-gradient(to bottom right, #1a5276, #2980b9);
+}
+
+.login-card {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 20, 0, 0, 10);
+}
+
+.login-title {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1a5276;
+}
+
+.login-subtitle {
+    -fx-font-size: 12px;
+    -fx-text-fill: #7f8c8d;
+}
+
+.login-version {
+    -fx-font-size: 10px;
+    -fx-text-fill: #bdc3c7;
+    -fx-padding: 15 0 0 0;
+}
+
+.btn-login {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+
+/* ===== Setup Wizard ===== */
+.setup-root {
+    -fx-background-color: linear-gradient(to bottom right, #0e2f44, #1a5276);
+}
+
+.setup-container {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 24, 0, 0, 12);
+}
+
+.setup-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1a5276;
+}
+
+.setup-step-indicator {
+    -fx-font-size: 11px;
+    -fx-text-fill: #7f8c8d;
+    -fx-font-weight: bold;
+}
+
+.setup-heading {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2c3e50;
+}
+
+.setup-text {
+    -fx-font-size: 13px;
+    -fx-text-fill: #34495e;
+}
+
+.setup-bullet {
+    -fx-font-size: 13px;
+    -fx-text-fill: #27ae60;
+}
+
+.setup-hint {
+    -fx-font-size: 11px;
+    -fx-font-style: italic;
+    -fx-text-fill: #95a5a6;
+    -fx-padding: 10 0 0 0;
+}
+
+
+/* ===== Form Fields (shared across all forms) ===== */
+.field-label {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #34495e;
+}
+
+.field-hint {
+    -fx-font-size: 10px;
+    -fx-text-fill: #95a5a6;
+    -fx-font-style: italic;
+}
+
+.error-label {
+    -fx-text-fill: #e74c3c;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+
+/* ===== Buttons ===== */
+.btn-primary {
+    -fx-background-color: #1a5276;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 6;
+    -fx-padding: 8 18 8 18;
+    -fx-cursor: hand;
+}
+
+.btn-primary:hover {
+    -fx-background-color: #2980b9;
+}
+
+.btn-primary:disabled {
+    -fx-opacity: 0.6;
+}
+
+.btn-secondary {
+    -fx-background-color: #ecf0f1;
+    -fx-text-fill: #2c3e50;
+    -fx-background-radius: 6;
+    -fx-padding: 8 18 8 18;
+    -fx-cursor: hand;
+    -fx-border-color: #bdc3c7;
+    -fx-border-radius: 6;
+}
+
+.btn-secondary:hover {
+    -fx-background-color: #d5dbdb;
+}
+
+.btn-secondary:disabled {
+    -fx-opacity: 0.5;
+}
+
+.btn-danger {
+    -fx-background-color: #e74c3c;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 6;
+    -fx-padding: 8 18 8 18;
+    -fx-cursor: hand;
+}
+
+.btn-danger:hover {
+    -fx-background-color: #c0392b;
+}
+
+.btn-danger:disabled {
+    -fx-opacity: 0.5;
+}
+
+
+/* ===== Logout Link ===== */
+.logout-link {
+    -fx-text-fill: #d5dbdb;
+    -fx-font-size: 12px;
+    -fx-border-color: transparent;
+}
+
+.logout-link:hover {
+    -fx-text-fill: white;
+    -fx-underline: true;
+}
+
+
+/* ===== Dialog Title ===== */
+.dialog-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2c3e50;
+    -fx-padding: 0 0 10 0;
+}
+
+
+/* ===== TabPane styling ===== */
+.tab-pane .tab {
+    -fx-background-color: #ecf0f1;
+    -fx-padding: 6 18 6 18;
+}
+
+.tab-pane .tab:selected {
+    -fx-background-color: white;
+}
+
+.tab-pane .tab-header-background {
+    -fx-background-color: #d5dbdb;
+}

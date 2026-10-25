@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Hyperlink?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.aceerp.controller.MainController"
+            fx:id="rootPane"
+            styleClass="root-pane">
+
+    <top>
+        <HBox styleClass="header-bar" alignment="CENTER_LEFT" spacing="15">
+            <padding>
+                <Insets top="8" right="20" bottom="8" left="20"/>
+            </padding>
+            <Label text="ACE ERP" styleClass="app-title"/>
+            <Region HBox.hgrow="SOMETIMES" minWidth="20"/>
+            <StackPane alignment="TOP_CENTER">
+                <VBox alignment="TOP_CENTER">
+                    <TextField fx:id="searchField"
+                               promptText="🔍  Search customers, invoices, products..."
+                               styleClass="search-field"
+                               prefWidth="400"
+                               prefHeight="34"/>
+                    <VBox fx:id="searchResultsBox"
+                          styleClass="search-results-dropdown"
+                          maxWidth="400"
+                          visible="false"
+                          managed="false"/>
+                </VBox>
+            </StackPane>
+            <Region HBox.hgrow="SOMETIMES" minWidth="20"/>
+            <Label fx:id="userInfoLabel" text="Not logged in" styleClass="user-info"/>
+            <Hyperlink fx:id="logoutLink" text="Logout" onAction="#onLogout" styleClass="logout-link"/>
+        </HBox>
+    </top>
+
+    <left>
+        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" styleClass="sidebar-scroll">
+            <VBox fx:id="sidebar" styleClass="sidebar" prefWidth="210" spacing="2">
+                <padding>
+                    <Insets top="15" right="8" bottom="15" left="8"/>
+                </padding>
+                <Label text="NAVIGATION" styleClass="sidebar-heading"/>
+            </VBox>
+        </ScrollPane>
+    </left>
+
+    <center>
+        <StackPane fx:id="contentArea" styleClass="content-area"/>
+    </center>
+
+    <bottom>
+        <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="15">
+            <padding>
+                <Insets top="6" right="15" bottom="6" left="15"/>
+            </padding>
+            <Label fx:id="statusLabel" text="Loading..." styleClass="status-text"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label text="v1.0.0" styleClass="version-text"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>

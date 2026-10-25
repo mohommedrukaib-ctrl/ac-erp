@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.aceerp.controller.UserManagementController"
+      spacing="15">
+    <padding>
+        <Insets top="25" right="25" bottom="25" left="25"/>
+    </padding>
+
+    <!-- Header -->
+    <HBox alignment="CENTER_LEFT" spacing="10">
+        <Label text="👥" style="-fx-font-size: 24px;"/>
+        <Label text="User Management" styleClass="page-title"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button text="⟳ Refresh" onAction="#onRefresh" styleClass="btn-secondary"/>
+    </HBox>
+
+    <Label fx:id="infoLabel" styleClass="dashboard-label"/>
+
+    <!-- Action Buttons -->
+    <HBox spacing="10">
+        <Button fx:id="addButton" text="➕ Add User" onAction="#onAddUser" styleClass="btn-primary"/>
+        <Button fx:id="editButton" text="✎ Edit" onAction="#onEditUser"
+                styleClass="btn-secondary" disable="true"/>
+        <Button fx:id="deactivateButton" text="⊘ Deactivate" onAction="#onDeactivateUser"
+                styleClass="btn-danger" disable="true"/>
+    </HBox>
+
+    <!-- Users Table -->
+    <TableView fx:id="usersTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="usernameCol"  text="Username"   prefWidth="130"/>
+            <TableColumn fx:id="fullNameCol"  text="Full Name"  prefWidth="200"/>
+            <TableColumn fx:id="emailCol"     text="Email"      prefWidth="200"/>
+            <TableColumn fx:id="roleCol"      text="Role"       prefWidth="140"/>
+            <TableColumn fx:id="statusCol"    text="Status"     prefWidth="90"/>
+            <TableColumn fx:id="lastLoginCol" text="Last Login" prefWidth="150"/>
+        </columns>
+        <placeholder>
+            <Label text="No users found."/>
+        </placeholder>
+    </TableView>
+</VBox>

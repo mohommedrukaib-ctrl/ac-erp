@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Logback Configuration
+    
+    This controls where log messages go and what format they use.
+    
+    Logging Levels (least to most severe):
+    TRACE → DEBUG → INFO → WARN → ERROR
+    
+    Setting level="INFO" means: show INFO, WARN, and ERROR messages.
+    DEBUG and TRACE messages are hidden (too detailed for normal use).
+-->
+<configuration>
+
+    <!-- Console Appender: prints log messages to the terminal -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- 
+                Format: timestamp [thread] LEVEL loggerName - message
+                Example: 2025-01-15 09:30:45 [main] INFO  com.aceerp.App - Starting...
+            -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File Appender: saves log messages to a file (useful for debugging) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/ace-erp.log</file>
+        
+        <!-- Create a new log file each day, keep 30 days of history -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/ace-erp.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Our application's log level -->
+    <logger name="com.aceerp" level="DEBUG"/>
+
+    <!-- Root logger: everything else at INFO level -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+</configuration>
