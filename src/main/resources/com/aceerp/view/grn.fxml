@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.aceerp.controller.GrnController"
+            stylesheets="@../css/app.css">
+
+    <!-- TOP: Title + Search + Actions -->
+    <top>
+        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="page-header">
+            <padding>
+                <Insets top="12" right="16" bottom="12" left="16"/>
+            </padding>
+            <Label text="Goods Received Notes (GRN)" styleClass="page-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <TextField fx:id="searchField" promptText="Search GRNs by number or supplier..." prefWidth="260"/>
+            <Button text="+ New GRN" onAction="#handleNewGrn" styleClass="btn-primary"/>
+            <Button text="Refresh" onAction="#handleRefresh" styleClass="btn-secondary"/>
+        </HBox>
+    </top>
+
+    <!-- CENTER: List (left) + Form (right) -->
+    <center>
+        <SplitPane dividerPositions="0.32" BorderPane.alignment="CENTER">
+            <items>
+
+                <!-- LEFT: GRN List -->
+                <VBox spacing="0" styleClass="list-panel">
+                    <ListView fx:id="grnListView" VBox.vgrow="ALWAYS"/>
+                </VBox>
+
+                <!-- RIGHT: Details Form -->
+                <VBox spacing="12" styleClass="form-panel">
+                    <padding>
+                        <Insets top="16" right="16" bottom="16" left="16"/>
+                    </padding>
+
+                    <!-- Top Action Bar -->
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Button text="Import from Purchase Order" onAction="#handleSelectPo" styleClass="btn-secondary"/>
+                        <Button text="Edit" onAction="#handleEdit" styleClass="btn-secondary"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Label fx:id="lblStatus" text="NEW" style="-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #1976D2;"/>
+                        <Button text="Receive &amp; Post Stock" onAction="#handleSaveAndPost" styleClass="btn-primary"/>
+                        <Button text="Print" onAction="#handlePrint" styleClass="btn-secondary"/>
+                    </HBox>
+
+                    <!-- Header Fields -->
+                    <GridPane hgap="12" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="15"/>
+                            <ColumnConstraints percentWidth="35"/>
+                            <ColumnConstraints percentWidth="15"/>
+                            <ColumnConstraints percentWidth="35"/>
+                        </columnConstraints>
+
+                        <Label text="GRN Number:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <TextField fx:id="grnNumberField" editable="false" promptText="Auto-generated"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="Received Date:" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                        <DatePicker fx:id="receivedDatePicker"
+                                    GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+
+                        <Label text="PO Reference:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <TextField fx:id="poNumberField" editable="false" promptText="None"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                        <Label text="Supplier Name:" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                        <TextField fx:id="supplierNameField" editable="false" promptText="Supplier"
+                                   GridPane.columnIndex="3" GridPane.rowIndex="1"/>
+
+                        <Label text="Delivery Note #:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                        <TextField fx:id="deliveryNoteRefField" promptText="Vendor DN / Invoice Ref"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                        <Label text="Notes:" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+                        <TextField fx:id="notesField" promptText="Receiving notes..."
+                                   GridPane.columnIndex="3" GridPane.rowIndex="2"/>
+                    </GridPane>
+
+                    <Separator/>
+
+                    <!-- Line Items Toolbar -->
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Label text="Received Line Items" styleClass="section-title"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Button text="+ Add Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
+                        <Button text="Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>
+                    </HBox>
+
+                    <!-- Received Items Table -->
+                    <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="260">
+                        <columns>
+                            <TableColumn fx:id="colProductCode" text="Item Code" prefWidth="120"/>
+                            <TableColumn fx:id="colDescription" text="Description" prefWidth="260"/>
+                            <TableColumn fx:id="colQtyOrdered" text="Qty Ordered" prefWidth="90"/>
+                            <TableColumn fx:id="colQtyReceived" text="Qty Received" prefWidth="100"/>
+                            <TableColumn fx:id="colUnitCost" text="Unit Cost" prefWidth="100"/>
+                            <TableColumn fx:id="colLineTotal" text="Total Cost" prefWidth="120"/>
+                        </columns>
+                        <columnResizePolicy>
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                        </columnResizePolicy>
+                    </TableView>
+
+                    <!-- Totals Bar -->
+                    <HBox spacing="24" alignment="CENTER_RIGHT" styleClass="totals-bar">
+                        <padding>
+                            <Insets top="8" right="8" bottom="8" left="8"/>
+                        </padding>
+                        <Label text="Total Qty Received:"/>
+                        <Label fx:id="lblTotalQty" text="0" styleClass="total-value"/>
+                        <Label text="Total Valuation:"/>
+                        <Label fx:id="lblTotalValue" text="0.00" styleClass="grand-total"/>
+                    </HBox>
+
+                </VBox>
+            </items>
+        </SplitPane>
+    </center>
+</BorderPane>

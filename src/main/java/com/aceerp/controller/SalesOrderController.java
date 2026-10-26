@@ -1,5 +1,6 @@
 package com.aceerp.controller;
 
+import com.aceerp.config.DatabaseConfig;
 import com.aceerp.model.Customer;
 import com.aceerp.model.Product;
 import com.aceerp.model.SalesOrder;
@@ -7,6 +8,7 @@ import com.aceerp.model.SalesOrderLine;
 import com.aceerp.service.CustomerService;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.SalesOrderService;
+import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -24,6 +26,8 @@ import javafx.stage.Popup;
 import javafx.util.converter.BigDecimalStringConverter;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
@@ -53,6 +57,8 @@ public class SalesOrderController {
     private Customer selectedCustomer;
     private final ObservableList<SalesOrderLine> lines = FXCollections.observableArrayList();
     private SalesOrder currentSalesOrder;
+    private List<SalesOrder> allSalesOrders = List.of();
+    private boolean editMode = false;
 
     private Popup customerPopup;
     private ListView<Customer> customerListView;
@@ -61,9 +67,91 @@ public class SalesOrderController {
     public void initialize() {
         setupSmartSearch();
         setupTable();
+        setupListAndSelection();
         loadSalesOrders();
         statusCombo.setItems(FXCollections.observableArrayList("DRAFT", "APPROVED", "SHIPPED", "INVOICED", "CANCELLED"));
         handleNewSalesOrder();
+    }
+
+    private void setupListAndSelection() {
+        salesOrderListView.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(SalesOrder item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    String custName = item.getCustomer() != null ? item.getCustomer().getName() : "Unknown Customer";
+                    BigDecimal total = item.getTotalAmount() != null ? item.getTotalAmount() : BigDecimal.ZERO;
+                    setText(item.getSoNumber() + " | " + custName + " | " + item.getStatus() + " | " + CurrencyFormatter.format(total));
+                }
+            }
+        });
+
+        salesOrderListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                loadSalesOrderToForm(newVal);
+            }
+        });
+
+        if (searchField != null) {
+            searchField.textProperty().addListener((obs, oldVal, newVal) -> filterSalesOrders(newVal));
+        }
+    }
+
+    private void loadSalesOrderToForm(SalesOrder so) {
+        currentSalesOrder = so;
+        soNumberField.setText(so.getSoNumber());
+        orderDatePicker.setValue(so.getOrderDate() != null ? so.getOrderDate() : LocalDate.now());
+        statusCombo.setValue(so.getStatus() != null ? so.getStatus() : "DRAFT");
+
+        selectedCustomer = so.getCustomer();
+        if (selectedCustomer != null) {
+            customerSearchField.setText(selectedCustomer.getName());
+            customerPhoneField.setText(selectedCustomer.getPhone() != null ? selectedCustomer.getPhone() : "N/A");
+        } else {
+            customerSearchField.clear();
+            customerPhoneField.clear();
+        }
+
+        lines.clear();
+        if (so.getLines() != null) {
+            lines.addAll(so.getLines());
+        }
+        updateTotal();
+        setFormEditable(false);
+    }
+
+    private void filterSalesOrders(String query) {
+        if (query == null || query.isBlank()) {
+            salesOrderListView.setItems(FXCollections.observableArrayList(allSalesOrders));
+            return;
+        }
+        String q = query.toLowerCase().trim();
+        List<SalesOrder> filtered = allSalesOrders.stream()
+                .filter(so -> (so.getSoNumber() != null && so.getSoNumber().toLowerCase().contains(q)) ||
+                              (so.getCustomer() != null && so.getCustomer().getName() != null && so.getCustomer().getName().toLowerCase().contains(q)) ||
+                              (so.getStatus() != null && so.getStatus().toLowerCase().contains(q)))
+                .collect(Collectors.toList());
+        salesOrderListView.setItems(FXCollections.observableArrayList(filtered));
+    }
+
+    private void setFormEditable(boolean editable) {
+        editMode = editable;
+        customerSearchField.setDisable(!editable);
+        orderDatePicker.setDisable(!editable);
+        statusCombo.setDisable(!editable);
+        linesTable.setEditable(editable);
+    }
+
+    @FXML
+    private void handleEdit() {
+        if (currentSalesOrder == null || currentSalesOrder.getId() <= 0) {
+            showAlert("No Selection", "Please select a Sales Order from the list first.");
+            return;
+        }
+        setFormEditable(true);
+        showAlert("Edit Mode", "Sales Order is now editable. Make your changes and click Save.");
     }
 
     private void setupSmartSearch() {
@@ -74,6 +162,7 @@ public class SalesOrderController {
         customerPopup.getContent().add(customerListView);
 
         customerSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!editMode) return;
             if (newVal == null || newVal.trim().isEmpty()) {
                 customerPopup.hide();
                 return;
@@ -114,6 +203,10 @@ public class SalesOrderController {
 
     @FXML
     private void handleQuickAddCustomer() {
+        if (!editMode) {
+            showAlert("View Mode", "Click Edit first to modify this Sales Order.");
+            return;
+        }
         Dialog<Customer> dialog = new Dialog<>();
         dialog.setTitle("Quick Add Customer");
         dialog.setHeaderText("Enter new customer details");
@@ -162,17 +255,26 @@ public class SalesOrderController {
         ));
         colProduct.setCellFactory(TextFieldTableCell.forTableColumn());
         colProduct.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
             e.getRowValue().setDescription(e.getNewValue());
             linesTable.refresh();
         });
 
         colQty.setCellValueFactory(new PropertyValueFactory<>("quantity"));
         colQty.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colQty.setOnEditCommit(e -> { e.getRowValue().setQuantity(e.getNewValue()); updateTotal(); });
+        colQty.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setQuantity(e.getNewValue());
+            updateTotal();
+        });
 
         colPrice.setCellValueFactory(new PropertyValueFactory<>("unitPrice"));
         colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colPrice.setOnEditCommit(e -> { e.getRowValue().setUnitPrice(e.getNewValue()); updateTotal(); });
+        colPrice.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setUnitPrice(e.getNewValue());
+            updateTotal();
+        });
 
         colTotal.setCellValueFactory(new PropertyValueFactory<>("totalPrice"));
         linesTable.setItems(lines);
@@ -180,6 +282,11 @@ public class SalesOrderController {
 
     @FXML
     private void handleAddLine() {
+        if (!editMode) {
+            showAlert("View Mode", "Click Edit first to modify this Sales Order.");
+            return;
+        }
+
         Dialog<Product> dialog = new Dialog<>();
         dialog.setTitle("Select Item");
         dialog.setHeaderText("Search products");
@@ -206,7 +313,7 @@ public class SalesOrderController {
             else {
                 String q = newVal.toLowerCase().trim();
                 itemListView.setItems(FXCollections.observableArrayList(allProducts.stream()
-                    .filter(p -> (p.getName() != null && p.getName().toLowerCase().contains(q)) || 
+                    .filter(p -> (p.getName() != null && p.getName().toLowerCase().contains(q)) ||
                                  (p.getProductCode() != null && p.getProductCode().toLowerCase().contains(q)))
                     .collect(Collectors.toList())));
             }
@@ -229,6 +336,10 @@ public class SalesOrderController {
 
     @FXML
     private void handleAddEmptyLine() {
+        if (!editMode) {
+            showAlert("View Mode", "Click Edit first to modify this Sales Order.");
+            return;
+        }
         SalesOrderLine line = new SalesOrderLine();
         line.setDescription("Custom Item / Service");
         line.setQuantity(BigDecimal.ONE);
@@ -241,6 +352,10 @@ public class SalesOrderController {
 
     @FXML
     private void handleRemoveLine() {
+        if (!editMode) {
+            showAlert("View Mode", "Click Edit first to modify this Sales Order.");
+            return;
+        }
         SalesOrderLine selected = linesTable.getSelectionModel().getSelectedItem();
         if (selected != null) {
             lines.remove(selected);
@@ -262,8 +377,15 @@ public class SalesOrderController {
 
     @FXML
     private void handleSave() {
+        if (!editMode) {
+            showAlert("View Mode", "Click Edit first to modify this Sales Order.");
+            return;
+        }
         if (selectedCustomer == null) {
             showAlert("Validation", "Please select a customer."); return;
+        }
+        if (currentSalesOrder == null) {
+            currentSalesOrder = new SalesOrder();
         }
         currentSalesOrder.setCustomer(selectedCustomer);
         currentSalesOrder.setOrderDate(orderDatePicker.getValue());
@@ -272,7 +394,43 @@ public class SalesOrderController {
 
         salesOrderService.save(currentSalesOrder);
         loadSalesOrders();
+        setFormEditable(false);
         showAlert("Success", "Sales Order saved successfully!");
+    }
+
+    @FXML
+    private void handleDelete() {
+        if (currentSalesOrder == null || currentSalesOrder.getId() <= 0) {
+            showAlert("Notice", "Please select an existing Sales Order to delete.");
+            return;
+        }
+
+        boolean confirmed = AlertHelper.confirm("Delete Sales Order",
+            "Are you sure you want to delete Sales Order #" + currentSalesOrder.getSoNumber() + "?");
+        if (!confirmed) return;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement stmtLines = conn.prepareStatement("DELETE FROM sales_order_lines WHERE sales_order_id = ?");
+                 PreparedStatement stmtSO = conn.prepareStatement("DELETE FROM sales_orders WHERE id = ?")) {
+
+                stmtLines.setInt(1, currentSalesOrder.getId());
+                stmtLines.executeUpdate();
+
+                stmtSO.setInt(1, currentSalesOrder.getId());
+                stmtSO.executeUpdate();
+
+                conn.commit();
+                showAlert("Success", "Sales Order deleted successfully.");
+                handleNewSalesOrder();
+                loadSalesOrders();
+            } catch (Exception ex) {
+                conn.rollback();
+                throw ex;
+            }
+        } catch (SQLException e) {
+            showAlert("Error", "Could not delete sales order: " + e.getMessage());
+        }
     }
 
     @FXML
@@ -283,11 +441,14 @@ public class SalesOrderController {
         orderDatePicker.setValue(LocalDate.now());
         statusCombo.setValue("DRAFT");
         lines.clear(); customerSearchField.clear(); customerPhoneField.clear(); selectedCustomer = null;
+        salesOrderListView.getSelectionModel().clearSelection();
+        setFormEditable(true);
         updateTotal();
     }
 
     private void loadSalesOrders() {
-        salesOrderListView.setItems(FXCollections.observableArrayList(salesOrderService.listAll()));
+        allSalesOrders = salesOrderService.listAll();
+        salesOrderListView.setItems(FXCollections.observableArrayList(allSalesOrders));
     }
 
     @FXML
@@ -305,7 +466,7 @@ public class SalesOrderController {
 
         Label header = new Label("SALES ORDER: " + soNumberField.getText());
         header.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-        Label customerInfo = new Label("Customer: " + (selectedCustomer != null ? selectedCustomer.getName() : "N/A") + 
+        Label customerInfo = new Label("Customer: " + (selectedCustomer != null ? selectedCustomer.getName() : "N/A") +
                                      "\nPhone: " + customerPhoneField.getText());
         Label dateInfo = new Label("Date: " + (orderDatePicker.getValue() != null ? orderDatePicker.getValue().toString() : ""));
 
@@ -313,7 +474,7 @@ public class SalesOrderController {
         table.setHgap(30); table.setVgap(10);
         table.setStyle("-fx-border-color: #ddd; -fx-border-width: 1; -fx-padding: 10;");
         table.add(new Label("Product"), 0, 0); table.add(new Label("Qty"), 1, 0); table.add(new Label("Price"), 2, 0); table.add(new Label("Total"), 3, 0);
-        
+
         int row = 1;
         for (SalesOrderLine line : lines) {
             table.add(new Label(line.getDescription()), 0, row);

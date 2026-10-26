@@ -141,17 +141,24 @@ public class InvoiceRepository {
             ps.executeUpdate();
         }
 
-        String insertSql = "INSERT INTO invoice_lines (invoice_id, product_id, description, quantity, unit_price, total_price, line_total) " +
-                           "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insertSql = "INSERT INTO invoice_lines (invoice_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, total_price, line_total) " +
+                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (InvoiceLine line : inv.getLines()) {
+                line.recalculateTotal();
                 ps.setInt(1, inv.getId());
-                if (line.getProductId() != null && line.getProductId() > 0) ps.setInt(2, line.getProductId()); else ps.setNull(2, Types.INTEGER);
-                ps.setString(3, line.getDescription() != null ? line.getDescription() : "Custom Line Item");
+                if (line.getProductId() != null && line.getProductId() > 0) {
+                    ps.setInt(2, line.getProductId());
+                } else {
+                    ps.setNull(2, Types.INTEGER);
+                }
+                ps.setString(3, line.getDescription() != null ? line.getDescription() : "");
                 ps.setBigDecimal(4, line.getQuantity() != null ? line.getQuantity() : BigDecimal.ONE);
                 ps.setBigDecimal(5, line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO);
-                ps.setBigDecimal(6, line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
-                ps.setBigDecimal(7, line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
+                ps.setBigDecimal(6, line.getTaxRate() != null ? line.getTaxRate() : BigDecimal.ZERO);
+                ps.setBigDecimal(7, line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
+                ps.setBigDecimal(8, line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
+                ps.setBigDecimal(9, line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -160,7 +167,8 @@ public class InvoiceRepository {
 
     private List<InvoiceLine> findLinesByInvoiceId(Connection conn, int invoiceId) throws SQLException {
         List<InvoiceLine> lines = new ArrayList<>();
-        String sql = "SELECT * FROM invoice_lines WHERE invoice_id = ?";
+        String sql = "SELECT il.*, p.product_code FROM invoice_lines il " +
+                     "LEFT JOIN products p ON il.product_id = p.id WHERE il.invoice_id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -169,11 +177,29 @@ public class InvoiceRepository {
                     line.setId(rs.getInt("id"));
                     line.setInvoiceId(invoiceId);
                     int prodId = rs.getInt("product_id");
-                    if (!rs.wasNull()) line.setProductId(prodId);
+                    if (!rs.wasNull()) {
+                        line.setProductId(prodId);
+                    }
+                    try { line.setProductCode(rs.getString("product_code")); } catch (SQLException ignored) {}
                     line.setDescription(rs.getString("description"));
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
                     
+                    BigDecimal tRate = BigDecimal.ZERO;
+                    try {
+                        BigDecimal r = rs.getBigDecimal("tax_rate");
+                        if (r != null) tRate = r;
+                    } catch (SQLException ignored) {}
+                    line.setTaxRate(tRate);
+
+                    BigDecimal tAmt = BigDecimal.ZERO;
+                    try {
+                        BigDecimal a = rs.getBigDecimal("tax_amount");
+                        if (a != null) tAmt = a;
+                    } catch (SQLException ignored) {}
+                    line.setTaxAmount(tAmt);
+                    line.setTaxable(tRate.compareTo(BigDecimal.ZERO) > 0);
+
                     BigDecimal total = null;
                     try { total = rs.getBigDecimal("total_price"); } catch (SQLException ignored) {}
                     if (total == null) {
@@ -186,6 +212,7 @@ public class InvoiceRepository {
         }
         return lines;
     }
+    
 
     private Invoice mapRow(ResultSet rs) throws SQLException {
         Invoice inv = new Invoice();

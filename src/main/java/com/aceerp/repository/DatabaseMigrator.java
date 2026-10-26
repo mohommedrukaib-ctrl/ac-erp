@@ -33,7 +33,17 @@ public class DatabaseMigrator {
         "V005__sales_order_delivery_workflow.sql",
         "V006__fix_sales_columns.sql",
         "V007__fix_line_columns.sql",
-        "V008__delivery_notes_and_payments.sql"
+        "V008__delivery_notes_and_payments.sql",
+        "V009__add_driver_fields.sql",
+        "V010__add_delivery_address.sql",
+        "V011__add_delivery_note_created_by.sql",
+        "V012__fix_delivery_note_trigger.sql",
+        "V013__recreate_delivery_notes_schema.sql",
+        "V014__add_stock_movement_reference_columns.sql",
+        "V015__purchase_orders_and_vat.sql",
+        "V016__vat_columns_all_docs.sql",
+        "V017__create_goods_received_notes.sql",
+        "V017__create_goods_received_notes.sql"
     };
 
     public void migrate() throws SQLException {

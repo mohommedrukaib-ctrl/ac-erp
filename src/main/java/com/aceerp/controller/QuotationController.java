@@ -9,6 +9,8 @@ import com.aceerp.service.CustomerService;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.QuotationService;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.TaxUtil;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -17,6 +19,7 @@ import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.print.PrinterJob;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.GridPane;
@@ -46,8 +49,13 @@ public class QuotationController {
     @FXML private TableColumn<QuotationLine, String> colProduct;
     @FXML private TableColumn<QuotationLine, BigDecimal> colQty;
     @FXML private TableColumn<QuotationLine, BigDecimal> colPrice;
+    @FXML private TableColumn<QuotationLine, Boolean> colTaxable;
     @FXML private TableColumn<QuotationLine, BigDecimal> colTotal;
     @FXML private Label totalLabel;
+    @FXML private Label lblSubtotal;
+    @FXML private Label lblTax;
+    @FXML private Label lblTaxTitle;
+    @FXML private CheckBox globalTaxCheck;
     @FXML private VBox detailsPane;
 
     private final QuotationService quotationService = new QuotationService();
@@ -56,18 +64,67 @@ public class QuotationController {
 
     private Customer selectedCustomer;
     private final ObservableList<QuotationLine> lines = FXCollections.observableArrayList();
+    private ObservableList<Quotation> allQuotations = FXCollections.observableArrayList();
     private Quotation currentQuotation;
     
     private Popup customerPopup;
     private ListView<Customer> customerListView;
+    
+    private boolean editMode = false;
 
     @FXML
     public void initialize() {
         setupSmartSearch();
         setupTable();
-        loadQuotations();
+        setupListView();
+        
         statusCombo.setItems(FXCollections.observableArrayList("DRAFT", "SENT", "ACCEPTED", "EXPIRED"));
+        
+        if (globalTaxCheck != null) {
+            globalTaxCheck.setSelected(TaxUtil.isTaxEnabled());
+        }
+        if (lblTaxTitle != null) {
+            lblTaxTitle.setText(TaxUtil.getTaxName() + ":");
+        }
+        
+        loadQuotations();
         handleNewQuotation();
+    }
+    
+    private void setupListView() {
+        quotationListView.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Quotation q, boolean empty) {
+                super.updateItem(q, empty);
+                if (empty || q == null) {
+                    setText(null);
+                } else {
+                    String custName = (q.getCustomer() != null) ? q.getCustomer().getName() : "Unknown";
+                    setText(q.getQuoteNumber() + " | " + custName + " | " + q.getStatus() + " | " + CurrencyFormatter.format(q.getTotalAmount()));
+                }
+            }
+        });
+
+        quotationListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                loadQuotationToForm(newVal);
+            }
+        });
+
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.isBlank()) {
+                quotationListView.setItems(allQuotations);
+            } else {
+                String lower = newVal.toLowerCase();
+                quotationListView.setItems(FXCollections.observableArrayList(
+                    allQuotations.stream().filter(q -> 
+                        (q.getQuoteNumber() != null && q.getQuoteNumber().toLowerCase().contains(lower)) ||
+                        (q.getCustomer() != null && q.getCustomer().getName().toLowerCase().contains(lower)) ||
+                        (q.getStatus() != null && q.getStatus().toLowerCase().contains(lower))
+                    ).collect(Collectors.toList())
+                ));
+            }
+        });
     }
 
     private void setupSmartSearch() {
@@ -78,6 +135,7 @@ public class QuotationController {
         customerPopup.getContent().add(customerListView);
 
         customerSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!editMode) return;
             if (newVal == null || newVal.trim().isEmpty()) {
                 customerPopup.hide();
                 return;
@@ -116,8 +174,63 @@ public class QuotationController {
         customerPopup.hide();
     }
 
+    private void setFormEditable(boolean editable) {
+        this.editMode = editable;
+        customerSearchField.setDisable(!editable);
+        quoteDatePicker.setDisable(!editable);
+        statusCombo.setDisable(!editable);
+        linesTable.setEditable(editable);
+        if (globalTaxCheck != null) {
+            globalTaxCheck.setDisable(!editable);
+        }
+    }
+
+    private void loadQuotationToForm(Quotation q) {
+        currentQuotation = q;
+        quoteNumberField.setText(q.getQuoteNumber());
+        quoteDatePicker.setValue(q.getQuoteDate());
+        statusCombo.setValue(q.getStatus());
+        
+        selectedCustomer = q.getCustomer();
+        if (selectedCustomer != null) {
+            customerSearchField.setText(selectedCustomer.getName());
+            customerPhoneField.setText(selectedCustomer.getPhone() != null ? selectedCustomer.getPhone() : "N/A");
+        } else {
+            customerSearchField.clear();
+            customerPhoneField.clear();
+        }
+        
+        lines.setAll(q.getLines());
+        
+        // Sync global tax checkbox state based on majority
+        if (globalTaxCheck != null && !lines.isEmpty()) {
+            boolean allTaxable = lines.stream().allMatch(QuotationLine::isTaxable);
+            globalTaxCheck.setSelected(allTaxable);
+        }
+        
+        updateTotal();
+        setFormEditable(false);
+    }
+
+    @FXML
+    private void handleEdit() {
+        if (currentQuotation == null || currentQuotation.getId() <= 0) {
+            showAlert(Alert.AlertType.WARNING, "Edit", "Please select a saved quotation from the list first.");
+            return;
+        }
+        if ("ACCEPTED".equalsIgnoreCase(currentQuotation.getStatus())) {
+            showAlert(Alert.AlertType.WARNING, "Locked", "Converted/Accepted quotations cannot be modified.");
+            return;
+        }
+        setFormEditable(true);
+    }
+
     @FXML
     private void handleQuickAddCustomer() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
         Dialog<Customer> dialog = new Dialog<>();
         dialog.setTitle("Quick Add Customer");
         dialog.setHeaderText("Enter new customer details");
@@ -161,8 +274,6 @@ public class QuotationController {
     }
 
     private void setupTable() {
-        linesTable.setEditable(true);
-
         colProduct.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
             d.getValue().getDescription() != null ? d.getValue().getDescription() :
             (d.getValue().getProduct() != null ? d.getValue().getProduct().getName() : "Custom Item")
@@ -181,12 +292,50 @@ public class QuotationController {
         colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colPrice.setOnEditCommit(e -> { e.getRowValue().setUnitPrice(e.getNewValue()); updateTotal(); });
 
+        // Per-line Taxable Checkbox Column - Rate pulled from Settings via TaxUtil
+        if (colTaxable != null) {
+            colTaxable.setCellValueFactory(cellData -> {
+                QuotationLine line = cellData.getValue();
+                SimpleBooleanProperty prop = new SimpleBooleanProperty(line.isTaxable());
+                prop.addListener((obs, was, isNow) -> {
+                    if (!editMode) {
+                        linesTable.refresh();
+                        return;
+                    }
+                    line.setTaxable(isNow);
+                    updateTotal();
+                    linesTable.refresh();
+                });
+                return prop;
+            });
+            colTaxable.setCellFactory(CheckBoxTableCell.forTableColumn(colTaxable));
+            colTaxable.setEditable(true);
+        }
+
         colTotal.setCellValueFactory(new PropertyValueFactory<>("totalPrice"));
         linesTable.setItems(lines);
     }
 
     @FXML
+    private void handleGlobalTaxToggle() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
+        boolean apply = globalTaxCheck != null && globalTaxCheck.isSelected();
+        for (QuotationLine line : lines) {
+            line.setTaxable(apply);
+        }
+        updateTotal();
+        linesTable.refresh();
+    }
+
+    @FXML
     private void handleAddLine() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
         Dialog<Product> dialog = new Dialog<>();
         dialog.setTitle("Select Item");
         dialog.setHeaderText("Search products");
@@ -205,14 +354,14 @@ public class QuotationController {
             }
         });
 
-        List<Product> allProducts = productService.listAll();
-        itemListView.setItems(FXCollections.observableArrayList(allProducts));
+        List<Product> products = productService.listAll();
+        itemListView.setItems(FXCollections.observableArrayList(products));
 
         itemSearch.textProperty().addListener((obs, old, newVal) -> {
-            if (newVal == null || newVal.isBlank()) itemListView.setItems(FXCollections.observableArrayList(allProducts));
+            if (newVal == null || newVal.isBlank()) itemListView.setItems(FXCollections.observableArrayList(products));
             else {
                 String q = newVal.toLowerCase().trim();
-                itemListView.setItems(FXCollections.observableArrayList(allProducts.stream()
+                itemListView.setItems(FXCollections.observableArrayList(products.stream()
                     .filter(p -> (p.getName() != null && p.getName().toLowerCase().contains(q)) || 
                                  (p.getProductCode() != null && p.getProductCode().toLowerCase().contains(q)))
                     .collect(Collectors.toList())));
@@ -230,6 +379,11 @@ public class QuotationController {
             line.setDescription(product.getName());
             line.setQuantity(BigDecimal.ONE);
             line.setUnitPrice(product.getSellingPrice() != null ? product.getSellingPrice() : BigDecimal.ZERO);
+            
+            boolean applyTax = globalTaxCheck == null || globalTaxCheck.isSelected();
+            line.setTaxable(applyTax);
+            line.recalculateTotal();
+            
             lines.add(line);
             updateTotal();
         });
@@ -237,12 +391,19 @@ public class QuotationController {
 
     @FXML
     private void handleAddEmptyLine() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
         QuotationLine line = new QuotationLine();
         line.setDescription("Custom Item / Service");
         line.setQuantity(BigDecimal.ONE);
         line.setUnitPrice(BigDecimal.ZERO);
-        line.setTaxRate(BigDecimal.ZERO);
+        
+        boolean applyTax = globalTaxCheck == null || globalTaxCheck.isSelected();
+        line.setTaxable(applyTax);
         line.recalculateTotal();
+        
         lines.add(line);
         linesTable.getSelectionModel().select(line);
         updateTotal();
@@ -250,6 +411,10 @@ public class QuotationController {
 
     @FXML
     private void handleRemoveLine() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
         QuotationLine selected = linesTable.getSelectionModel().getSelectedItem();
         if (selected != null) {
             lines.remove(selected);
@@ -260,24 +425,48 @@ public class QuotationController {
     }
 
     private void updateTotal() {
-    BigDecimal total = BigDecimal.ZERO;
+        BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal taxTotal = BigDecimal.ZERO;
 
-    for (QuotationLine line : lines) {
-        line.recalculateTotal();
-        if (line.getTotalPrice() != null) {
-            total = total.add(line.getTotalPrice());
+        for (QuotationLine line : lines) {
+            line.recalculateTotal();
+            if (line.getTotalPrice() != null) {
+                subtotal = subtotal.add(line.getTotalPrice());
+            }
+            if (line.getTaxAmount() != null) {
+                taxTotal = taxTotal.add(line.getTaxAmount());
+            }
+        }
+
+        BigDecimal grand = subtotal.add(taxTotal);
+        linesTable.refresh();
+
+        if (lblSubtotal != null) lblSubtotal.setText(CurrencyFormatter.format(subtotal));
+        if (lblTax != null) lblTax.setText(CurrencyFormatter.format(taxTotal));
+        if (lblTaxTitle != null) lblTaxTitle.setText(TaxUtil.getTaxName() + ":");
+        if (totalLabel != null) totalLabel.setText("Total: " + CurrencyFormatter.format(grand));
+
+        if (currentQuotation != null) {
+            currentQuotation.setSubtotal(subtotal);
+            currentQuotation.setTaxAmount(taxTotal);
+            currentQuotation.setTotalAmount(grand);
         }
     }
 
-    linesTable.refresh();
-    totalLabel.setText("Total: " + CurrencyFormatter.format(total));
-}
-
     @FXML
     private void handleSave() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
         if (selectedCustomer == null) {
             showAlert("Validation", "Please select a customer."); return;
         }
+        if (lines.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "Validation", "Cannot save a quotation with empty line items.");
+            return;
+        }
+        
         currentQuotation.setCustomer(selectedCustomer);
         currentQuotation.setCustomerId(selectedCustomer.getId());
         currentQuotation.setQuoteDate(quoteDatePicker.getValue());
@@ -286,7 +475,41 @@ public class QuotationController {
 
         quotationService.saveQuotation(currentQuotation);
         loadQuotations();
+        
         showAlert("Success", "Quotation saved successfully!");
+        setFormEditable(false);
+    }
+    
+    @FXML
+    private void handleDelete() {
+        if (currentQuotation == null || currentQuotation.getId() <= 0) {
+            showAlert(Alert.AlertType.WARNING, "Delete", "Please select a saved quotation to delete.");
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure you want to permanently delete Quotation " + currentQuotation.getQuoteNumber() + "?");
+        confirm.showAndWait().ifPresent(res -> {
+            if (res == ButtonType.OK) {
+                try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+                    conn.setAutoCommit(false);
+                    try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM quotation_lines WHERE quotation_id = ?")) {
+                        stmt.setInt(1, currentQuotation.getId());
+                        stmt.executeUpdate();
+                    }
+                    try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM quotations WHERE id = ?")) {
+                        stmt.setInt(1, currentQuotation.getId());
+                        stmt.executeUpdate();
+                    }
+                    conn.commit();
+                    
+                    loadQuotations();
+                    handleNewQuotation();
+                    showAlert("Success", "Quotation deleted successfully.");
+                } catch (Exception e) {
+                    showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to delete: " + e.getMessage());
+                }
+            }
+        });
     }
 
     @FXML
@@ -296,12 +519,24 @@ public class QuotationController {
         quoteNumberField.setText(currentQuotation.getQuoteNumber());
         quoteDatePicker.setValue(LocalDate.now());
         statusCombo.setValue("DRAFT");
-        lines.clear(); customerSearchField.clear(); customerPhoneField.clear(); selectedCustomer = null;
+        lines.clear(); 
+        customerSearchField.clear(); 
+        customerPhoneField.clear(); 
+        selectedCustomer = null;
+        
+        if (globalTaxCheck != null) {
+            globalTaxCheck.setSelected(TaxUtil.isTaxEnabled());
+        }
+        
         updateTotal();
+        setFormEditable(true);
+        quotationListView.getSelectionModel().clearSelection();
     }
 
     private void loadQuotations() {
-        quotationListView.setItems(FXCollections.observableArrayList(quotationService.getAllQuotations()));
+        allQuotations.setAll(quotationService.getAllQuotations());
+        searchField.setText("");
+        quotationListView.setItems(allQuotations);
     }
 
     @FXML
@@ -337,7 +572,7 @@ public class QuotationController {
             row++;
         }
 
-        Label totalLabelView = new Label("Grand Total: " + totalLabel.getText().replace("Total: ", ""));
+        Label totalLabelView = new Label("Grand Total: " + (totalLabel != null ? totalLabel.getText().replace("Total: ", "") : "0.00"));
         totalLabelView.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
         printDoc.getChildren().addAll(header, customerInfo, dateInfo, table, totalLabelView);
@@ -365,7 +600,7 @@ public class QuotationController {
     @FXML
     private void handleConvertToSO() {
         if (currentQuotation == null || currentQuotation.getId() <= 0) {
-            showAlert(Alert.AlertType.WARNING, "No Quotation Selected", "Please select or save a quotation first.");
+            showAlert(Alert.AlertType.WARNING, "No Quotation Selected", "Please select a saved quotation first.");
             return;
         }
 
@@ -395,23 +630,22 @@ public class QuotationController {
                         if (rs.next()) newSoId = rs.getInt(1);
                     }
 
-                    // Copy line items
-                    String copyLines = "INSERT INTO sales_order_lines (so_id, product_id, description, quantity, unit_price, line_total) " +
-                                       "SELECT ?, product_id, description, quantity, unit_price, total_price FROM quotation_lines WHERE quotation_id = ?";
+                    String copyLines = "INSERT INTO sales_order_lines (so_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, line_total) " +
+                                       "SELECT ?, product_id, description, quantity, unit_price, tax_rate, tax_amount, total_price FROM quotation_lines WHERE quotation_id = ?";
                     try (PreparedStatement stmt = conn.prepareStatement(copyLines)) {
                         stmt.setInt(1, newSoId);
                         stmt.setInt(2, currentQuotation.getId());
                         stmt.executeUpdate();
                     }
 
-                    // Mark Quote as ACCEPTED
                     try (PreparedStatement stmt = conn.prepareStatement("UPDATE quotations SET status = 'ACCEPTED' WHERE id = ?")) {
                         stmt.setInt(1, currentQuotation.getId());
                         stmt.executeUpdate();
                     }
 
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Sales Order " + nextSoNum + " created successfully!");
-                    loadQuotations(); // Refresh list
+                    loadQuotations();
+                    setFormEditable(false);
                 } catch (Exception e) {
                     showAlert(Alert.AlertType.ERROR, "Conversion Error", e.getMessage());
                 }

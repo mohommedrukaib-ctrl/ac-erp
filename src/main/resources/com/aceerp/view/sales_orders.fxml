@@ -67,6 +67,8 @@
             </HBox>
 
             <HBox spacing="10" alignment="CENTER_RIGHT">
+                <Button text="Edit" onAction="#handleEdit" styleClass="button-secondary"/>
+                <Button text="Delete" onAction="#handleDelete" styleClass="button-danger"/>
                 <Button text="Print Preview" onAction="#handlePrint" styleClass="button-secondary"/>
                 <Button text="Save Order" onAction="#handleSave" styleClass="button-success"/>
             </HBox>

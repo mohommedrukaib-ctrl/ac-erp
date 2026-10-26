@@ -110,18 +110,25 @@ public class Quotation {
         recalculateTotals();
     }
 
-    public void recalculateTotals() {
-        BigDecimal sum = BigDecimal.ZERO;
+        public void recalculateTotals() {
+        BigDecimal sumExTax = BigDecimal.ZERO;
+        BigDecimal sumTax = BigDecimal.ZERO;
+
         for (QuotationLine line : lines) {
+            if (line == null) continue;
             line.recalculateTotal();
             if (line.getTotalPrice() != null) {
-                sum = sum.add(line.getTotalPrice());
+                sumExTax = sumExTax.add(line.getTotalPrice());
+            }
+            if (line.getTaxAmount() != null) {
+                sumTax = sumTax.add(line.getTaxAmount());
             }
         }
-        this.subtotal = sum;
-        this.totalAmount = sum.add(taxAmount != null ? taxAmount : BigDecimal.ZERO);
-    }
 
+        this.subtotal = sumExTax;
+        this.taxAmount = sumTax;
+        this.totalAmount = sumExTax.add(sumTax);
+    }
     @Override
     public String toString() {
         return (quoteNumber != null ? quoteNumber : "Draft Quote") + 

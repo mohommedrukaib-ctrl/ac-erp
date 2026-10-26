@@ -1,6 +1,7 @@
 package com.aceerp.repository;
 
 import com.aceerp.config.DatabaseConfig;
+import com.aceerp.model.Customer;
 import com.aceerp.model.SalesOrder;
 import com.aceerp.model.SalesOrderLine;
 import org.slf4j.Logger;
@@ -17,8 +18,8 @@ public class SalesOrderRepository {
 
     public List<SalesOrder> findAll() {
         List<SalesOrder> list = new ArrayList<>();
-        String sql = "SELECT so.*, c.name as customer_name FROM sales_orders so " +
-                     "LEFT JOIN customers c ON so.customer_id = c.id ORDER BY so.created_at DESC";
+        String sql = "SELECT so.*, c.name AS customer_name, c.phone AS customer_phone FROM sales_orders so " +
+                     "LEFT JOIN customers c ON so.customer_id = c.id ORDER BY so.id DESC";
         try (Connection conn = DatabaseConfig.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -34,7 +35,7 @@ public class SalesOrderRepository {
     }
 
     public Optional<SalesOrder> findById(int id) {
-        String sql = "SELECT so.*, c.name as customer_name FROM sales_orders so " +
+        String sql = "SELECT so.*, c.name AS customer_name, c.phone AS customer_phone FROM sales_orders so " +
                      "LEFT JOIN customers c ON so.customer_id = c.id WHERE so.id = ?";
         try (Connection conn = DatabaseConfig.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -74,12 +75,25 @@ public class SalesOrderRepository {
     }
 
     private void insertSalesOrder(Connection conn, SalesOrder so) throws SQLException {
+        if (so.getCustomer() != null && so.getCustomer().getId() > 0) {
+            so.setCustomerId(so.getCustomer().getId());
+        }
+
         String sql = "INSERT INTO sales_orders (so_number, quotation_id, customer_id, order_date, expected_delivery_date, status, subtotal, tax_amount, total_amount, notes) " +
                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, so.getSoNumber());
-            if (so.getQuotationId() != null) ps.setInt(2, so.getQuotationId()); else ps.setNull(2, Types.INTEGER);
-            ps.setInt(3, so.getCustomerId());
+            
+            Integer qId = so.getQuotationId();
+            if (qId != null && qId > 0) ps.setInt(2, qId); else ps.setNull(2, Types.INTEGER);
+            
+            int cId = so.getCustomerId();
+            if (cId > 0) {
+                ps.setInt(3, cId);
+            } else {
+                ps.setNull(3, Types.INTEGER);
+            }
+
             ps.setDate(4, Date.valueOf(so.getOrderDate() != null ? so.getOrderDate() : java.time.LocalDate.now()));
             ps.setDate(5, so.getExpectedDeliveryDate() != null ? Date.valueOf(so.getExpectedDeliveryDate()) : null);
             ps.setString(6, so.getStatus());
@@ -94,9 +108,18 @@ public class SalesOrderRepository {
     }
 
     private void updateSalesOrder(Connection conn, SalesOrder so) throws SQLException {
+        if (so.getCustomer() != null && so.getCustomer().getId() > 0) {
+            so.setCustomerId(so.getCustomer().getId());
+        }
+
         String sql = "UPDATE sales_orders SET customer_id=?, order_date=?, expected_delivery_date=?, status=?, subtotal=?, tax_amount=?, total_amount=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, so.getCustomerId());
+            int cId = so.getCustomerId();
+            if (cId > 0) {
+                ps.setInt(1, cId);
+            } else {
+                ps.setNull(1, Types.INTEGER);
+            }
             ps.setDate(2, Date.valueOf(so.getOrderDate() != null ? so.getOrderDate() : java.time.LocalDate.now()));
             ps.setDate(3, so.getExpectedDeliveryDate() != null ? Date.valueOf(so.getExpectedDeliveryDate()) : null);
             ps.setString(4, so.getStatus());
@@ -120,7 +143,8 @@ public class SalesOrderRepository {
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (SalesOrderLine line : so.getLines()) {
                 ps.setInt(1, so.getId());
-                if (line.getProductId() != null) ps.setInt(2, line.getProductId()); else ps.setNull(2, Types.INTEGER);
+                Integer pId = line.getProductId();
+                if (pId != null && pId > 0) ps.setInt(2, pId); else ps.setNull(2, Types.INTEGER);
                 ps.setString(3, line.getDescription());
                 ps.setBigDecimal(4, line.getQuantity());
                 ps.setBigDecimal(5, line.getUnitPrice());
@@ -160,8 +184,21 @@ public class SalesOrderRepository {
         so.setSoNumber(rs.getString("so_number"));
         int qId = rs.getInt("quotation_id");
         if (!rs.wasNull()) so.setQuotationId(qId);
-        so.setCustomerId(rs.getInt("customer_id"));
-        so.setCustomerName(rs.getString("customer_name"));
+        
+        int custId = rs.getInt("customer_id");
+        if (!rs.wasNull() && custId > 0) {
+            so.setCustomerId(custId);
+            String custName = rs.getString("customer_name");
+            String custPhone = rs.getString("customer_phone");
+            so.setCustomerName(custName);
+
+            Customer customer = new Customer();
+            customer.setId(custId);
+            customer.setName(custName);
+            customer.setPhone(custPhone);
+            so.setCustomer(customer);
+        }
+
         Date oDate = rs.getDate("order_date");
         if (oDate != null) so.setOrderDate(oDate.toLocalDate());
         Date edDate = rs.getDate("expected_delivery_date");

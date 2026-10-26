@@ -16,7 +16,7 @@ public class DeliveryNoteRepository {
 
     public List<DeliveryNote> findAll() {
         List<DeliveryNote> list = new ArrayList<>();
-        String sql = "SELECT dn.*, c.name AS customer_name, so.order_number AS so_number " +
+        String sql = "SELECT dn.*, c.name AS customer_name, so.so_number AS so_number " +
                      "FROM delivery_notes dn " +
                      "JOIN customers c ON dn.customer_id = c.id " +
                      "LEFT JOIN sales_orders so ON dn.so_id = so.id " +
@@ -43,23 +43,23 @@ public class DeliveryNoteRepository {
             conn = DatabaseConfig.getInstance().getConnection();
             conn.setAutoCommit(false);
 
-            if (dn.getId() == null) {
+            if (dn.getId() == null || dn.getId() <= 0) {
                 // INSERT
-                String sql = "INSERT INTO delivery_notes (dn_number, so_id, customer_id, dispatch_date, " +
+                String sql = "INSERT INTO delivery_notes (dn_number, so_id, customer_id, delivery_date, " +
                              "driver_name, vehicle_no, delivery_address, status, notes, created_by) " +
                              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
 
                 try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                     stmt.setString(1, dn.getDnNumber());
-                    if (dn.getSoId() != null) stmt.setInt(2, dn.getSoId()); else stmt.setNull(2, Types.INTEGER);
+                    if (dn.getSoId() != null && dn.getSoId() > 0) stmt.setInt(2, dn.getSoId()); else stmt.setNull(2, Types.INTEGER);
                     stmt.setInt(3, dn.getCustomerId());
-                    stmt.setDate(4, Date.valueOf(dn.getDispatchDate()));
+                    stmt.setDate(4, Date.valueOf(dn.getDispatchDate() != null ? dn.getDispatchDate() : LocalDate.now()));
                     stmt.setString(5, dn.getDriverName());
                     stmt.setString(6, dn.getVehicleNo());
                     stmt.setString(7, dn.getDeliveryAddress());
                     stmt.setString(8, dn.getStatus() != null ? dn.getStatus() : "DISPATCHED");
                     stmt.setString(9, dn.getNotes());
-                    if (dn.getCreatedBy() != null) stmt.setInt(10, dn.getCreatedBy()); else stmt.setNull(10, Types.INTEGER);
+                    if (dn.getCreatedBy() != null && dn.getCreatedBy() > 0) stmt.setInt(10, dn.getCreatedBy()); else stmt.setNull(10, Types.INTEGER);
 
                     ResultSet rs = stmt.executeQuery();
                     if (rs.next()) {
@@ -68,13 +68,13 @@ public class DeliveryNoteRepository {
                 }
             } else {
                 // UPDATE
-                String sql = "UPDATE delivery_notes SET dn_number=?, so_id=?, customer_id=?, dispatch_date=?, " +
+                String sql = "UPDATE delivery_notes SET dn_number=?, so_id=?, customer_id=?, delivery_date=?, " +
                              "driver_name=?, vehicle_no=?, delivery_address=?, status=?, notes=? WHERE id=?";
                 try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                     stmt.setString(1, dn.getDnNumber());
-                    if (dn.getSoId() != null) stmt.setInt(2, dn.getSoId()); else stmt.setNull(2, Types.INTEGER);
+                    if (dn.getSoId() != null && dn.getSoId() > 0) stmt.setInt(2, dn.getSoId()); else stmt.setNull(2, Types.INTEGER);
                     stmt.setInt(3, dn.getCustomerId());
-                    stmt.setDate(4, Date.valueOf(dn.getDispatchDate()));
+                    stmt.setDate(4, Date.valueOf(dn.getDispatchDate() != null ? dn.getDispatchDate() : LocalDate.now()));
                     stmt.setString(5, dn.getDriverName());
                     stmt.setString(6, dn.getVehicleNo());
                     stmt.setString(7, dn.getDeliveryAddress());
@@ -110,7 +110,7 @@ public class DeliveryNoteRepository {
 
     private void saveLinesAndDeductStock(Connection conn, DeliveryNote dn) throws SQLException {
         String lineSql = "INSERT INTO delivery_note_lines (dn_id, product_id, ordered_qty, shipped_qty, notes) VALUES (?, ?, ?, ?, ?)";
-        String stockSql = "UPDATE products SET current_stock = current_stock - ? WHERE id = ? AND (is_service IS NULL OR is_service = FALSE)";
+        String stockSql = "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?";
         String moveSql = "INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes, created_by) VALUES (?, 'OUT', ?, 'DELIVERY_NOTE', ?, ?, ?)";
 
         try (PreparedStatement lineStmt = conn.prepareStatement(lineSql);
@@ -118,7 +118,7 @@ public class DeliveryNoteRepository {
              PreparedStatement moveStmt = conn.prepareStatement(moveSql)) {
 
             for (DeliveryNoteLine line : dn.getLines()) {
-                if (line.getProductId() == null || line.getShippedQty() <= 0) continue;
+                if (line.getProductId() == null || line.getProductId() <= 0 || line.getShippedQty() <= 0) continue;
 
                 // 1. Insert Line
                 lineStmt.setInt(1, dn.getId());
@@ -138,7 +138,7 @@ public class DeliveryNoteRepository {
                 moveStmt.setDouble(2, line.getShippedQty());
                 moveStmt.setInt(3, dn.getId());
                 moveStmt.setString(4, "Dispatch via DN " + dn.getDnNumber());
-                if (dn.getCreatedBy() != null) moveStmt.setInt(5, dn.getCreatedBy()); else moveStmt.setNull(5, Types.INTEGER);
+                if (dn.getCreatedBy() != null && dn.getCreatedBy() > 0) moveStmt.setInt(5, dn.getCreatedBy()); else moveStmt.setNull(5, Types.INTEGER);
                 moveStmt.addBatch();
             }
 
@@ -159,7 +159,7 @@ public class DeliveryNoteRepository {
 
     public String generateNextDNNumber() {
         String sql = "SELECT dn_number FROM delivery_notes ORDER BY id DESC LIMIT 1";
-        try (Connection conn =DatabaseConfig.getInstance().getConnection();
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
             if (rs.next()) {
@@ -177,7 +177,7 @@ public class DeliveryNoteRepository {
 
     private List<DeliveryNoteLine> findLinesByDnId(Connection conn, int dnId) throws SQLException {
         List<DeliveryNoteLine> lines = new ArrayList<>();
-        String sql = "SELECT dnl.*, p.name AS product_name, p.sku FROM delivery_note_lines dnl " +
+        String sql = "SELECT dnl.*, p.name AS product_name, p.product_code AS sku FROM delivery_note_lines dnl " +
                      "JOIN products p ON dnl.product_id = p.id WHERE dnl.dn_id = ?";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, dnId);
@@ -206,7 +206,10 @@ public class DeliveryNoteRepository {
         dn.setSoNumber(rs.getString("so_number"));
         dn.setCustomerId(rs.getInt("customer_id"));
         dn.setCustomerName(rs.getString("customer_name"));
-        dn.setDispatchDate(rs.getDate("dispatch_date").toLocalDate());
+        
+        Date dateVal = rs.getDate("delivery_date");
+        dn.setDispatchDate(dateVal != null ? dateVal.toLocalDate() : LocalDate.now());
+        
         dn.setDriverName(rs.getString("driver_name"));
         dn.setVehicleNo(rs.getString("vehicle_no"));
         dn.setDeliveryAddress(rs.getString("delivery_address"));

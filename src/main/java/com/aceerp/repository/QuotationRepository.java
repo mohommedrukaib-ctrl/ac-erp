@@ -129,17 +129,20 @@ public class QuotationRepository {
         }
     }
 
-    private void saveLines(Connection conn, Quotation q) throws SQLException {
+        private void saveLines(Connection conn, Quotation q) throws SQLException {
         String deleteSql = "DELETE FROM quotation_lines WHERE quotation_id = ?";
         try (PreparedStatement ps = conn.prepareStatement(deleteSql)) {
             ps.setInt(1, q.getId());
             ps.executeUpdate();
         }
 
-        String insertSql = "INSERT INTO quotation_lines (quotation_id, product_id, description, quantity, unit_price, tax_rate, total_price, line_total) " +
-                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String insertSql =
+                "INSERT INTO quotation_lines " +
+                "(quotation_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, total_price, line_total) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (QuotationLine line : q.getLines()) {
+                line.recalculateTotal();
                 ps.setInt(1, q.getId());
                 if (line.getProductId() != null && line.getProductId() > 0) {
                     ps.setInt(2, line.getProductId());
@@ -150,8 +153,10 @@ public class QuotationRepository {
                 ps.setBigDecimal(4, line.getQuantity() != null ? line.getQuantity() : BigDecimal.ONE);
                 ps.setBigDecimal(5, line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO);
                 ps.setBigDecimal(6, line.getTaxRate() != null ? line.getTaxRate() : BigDecimal.ZERO);
-                ps.setBigDecimal(7, line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
-                ps.setBigDecimal(8, line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
+                ps.setBigDecimal(7, line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
+                BigDecimal lt = line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO;
+                ps.setBigDecimal(8, lt);
+                ps.setBigDecimal(9, lt);
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -179,8 +184,22 @@ public class QuotationRepository {
                     line.setDescription(rs.getString("description"));
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
-                    line.setTaxRate(rs.getBigDecimal("tax_rate"));
-                    
+
+                    BigDecimal tRate = BigDecimal.ZERO;
+                    try {
+                        BigDecimal r = rs.getBigDecimal("tax_rate");
+                        if (r != null) tRate = r;
+                    } catch (SQLException ignored) {}
+                    line.setTaxRate(tRate);
+
+                    BigDecimal tAmt = BigDecimal.ZERO;
+                    try {
+                        BigDecimal a = rs.getBigDecimal("tax_amount");
+                        if (a != null) tAmt = a;
+                    } catch (SQLException ignored) {}
+                    line.setTaxAmount(tAmt);
+                    line.setTaxable(tRate.compareTo(BigDecimal.ZERO) > 0);
+
                     BigDecimal total = null;
                     try { total = rs.getBigDecimal("total_price"); } catch (SQLException ignored) {}
                     if (total == null) {
@@ -194,6 +213,8 @@ public class QuotationRepository {
         return lines;
     }
 
+
+    
     private Quotation mapRow(ResultSet rs) throws SQLException {
         Quotation q = new Quotation();
         q.setId(rs.getInt("id"));

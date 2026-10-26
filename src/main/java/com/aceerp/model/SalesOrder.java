@@ -86,16 +86,19 @@ public class SalesOrder {
     }
 
     public void recalculateTotals() {
-        BigDecimal sum = BigDecimal.ZERO;
-        for (SalesOrderLine line : lines) {
-            line.recalculateTotal();
-            if (line.getTotalPrice() != null) {
-                sum = sum.add(line.getTotalPrice());
-            }
-        }
-        this.subtotal = sum;
-        this.totalAmount = sum.add(taxAmount != null ? taxAmount : BigDecimal.ZERO);
+    BigDecimal sumExTax = BigDecimal.ZERO;
+    BigDecimal sumTax = BigDecimal.ZERO;
+    for (SalesOrderLine line : lines) {
+        if (line == null) continue;
+        line.recalculateTotal();
+        if (line.getTotalPrice() != null) sumExTax = sumExTax.add(line.getTotalPrice());
+        if (line.getTaxAmount() != null) sumTax = sumTax.add(line.getTaxAmount());
     }
+    this.subtotal = sumExTax;
+    this.taxAmount = sumTax;   // or setTaxTotal(sumTax) if that is your field
+    this.totalAmount = sumExTax.add(sumTax); // or grandTotal
+}
+
 
     @Override
     public String toString() {

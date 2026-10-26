@@ -1,6 +1,8 @@
 package com.aceerp.model;
 
+import com.aceerp.util.TaxUtil;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 public class QuotationLine {
 
@@ -12,7 +14,10 @@ public class QuotationLine {
     private String description;
     private BigDecimal quantity = BigDecimal.ONE;
     private BigDecimal unitPrice = BigDecimal.ZERO;
-    private BigDecimal taxRate = BigDecimal.ZERO;
+    
+    private boolean taxable = TaxUtil.isTaxEnabled();
+    private BigDecimal taxRate = TaxUtil.getDefaultTaxRate();
+    private BigDecimal taxAmount = BigDecimal.ZERO;
     private BigDecimal totalPrice = BigDecimal.ZERO;
 
     public QuotationLine() {}
@@ -63,11 +68,25 @@ public class QuotationLine {
         recalculateTotal();
     }
 
+    public boolean isTaxable() { return taxable; }
+    public void setTaxable(boolean taxable) {
+        this.taxable = taxable;
+        if (taxable) {
+            this.taxRate = TaxUtil.getDefaultTaxRate();
+        } else {
+            this.taxRate = BigDecimal.ZERO;
+        }
+        recalculateTotal();
+    }
+
     public BigDecimal getTaxRate() { return taxRate; }
     public void setTaxRate(BigDecimal taxRate) {
         this.taxRate = taxRate != null ? taxRate : BigDecimal.ZERO;
         recalculateTotal();
     }
+
+    public BigDecimal getTaxAmount() { return taxAmount; }
+    public void setTaxAmount(BigDecimal taxAmount) { this.taxAmount = taxAmount; }
 
     public BigDecimal getTotalPrice() { return totalPrice; }
     public void setTotalPrice(BigDecimal totalPrice) { this.totalPrice = totalPrice; }
@@ -76,16 +95,15 @@ public class QuotationLine {
     public void setLineTotal(BigDecimal lineTotal) { this.totalPrice = lineTotal; }
 
     public void recalculateTotal() {
-        if (quantity != null && unitPrice != null) {
-            BigDecimal base = quantity.multiply(unitPrice);
-            if (taxRate != null && taxRate.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal taxMultiplier = BigDecimal.ONE.add(taxRate.divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP));
-                this.totalPrice = base.multiply(taxMultiplier).setScale(2, java.math.RoundingMode.HALF_UP);
-            } else {
-                this.totalPrice = base.setScale(2, java.math.RoundingMode.HALF_UP);
-            }
+        BigDecimal qty = quantity != null ? quantity : BigDecimal.ZERO;
+        BigDecimal price = unitPrice != null ? unitPrice : BigDecimal.ZERO;
+        this.totalPrice = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
+
+        if (taxable && taxRate != null && taxRate.compareTo(BigDecimal.ZERO) > 0) {
+            this.taxAmount = this.totalPrice.multiply(taxRate)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         } else {
-            this.totalPrice = BigDecimal.ZERO;
+            this.taxAmount = BigDecimal.ZERO;
         }
     }
 }

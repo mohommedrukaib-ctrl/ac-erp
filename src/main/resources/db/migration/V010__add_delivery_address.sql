@@ -1,0 +1,3 @@
+ALTER TABLE delivery_notes ADD COLUMN IF NOT EXISTS driver_name VARCHAR(150);
+ALTER TABLE delivery_notes ADD COLUMN IF NOT EXISTS vehicle_no VARCHAR(100);
+ALTER TABLE delivery_notes ADD COLUMN IF NOT EXISTS delivery_address TEXT;
