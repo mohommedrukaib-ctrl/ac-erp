@@ -43,7 +43,13 @@ public class DatabaseMigrator {
         "V015__purchase_orders_and_vat.sql",
         "V016__vat_columns_all_docs.sql",
         "V017__create_goods_received_notes.sql",
-        "V017__create_goods_received_notes.sql"
+        "V018__po_line_total.sql",
+        "V019__create_supplier_bills.sql",
+        "V020__supplier_payments_and_purchase_returns.sql",
+        "V021__accounting_schema.sql",
+        "V022__service_management.sql",
+        "V023__company_profile.sql"
+        
     };
 
     public void migrate() throws SQLException {

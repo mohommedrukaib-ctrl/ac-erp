@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.aceerp.controller.SupplierBillController"
+            stylesheets="@../css/app.css">
+
+    <!-- TOP: Header + Search + Actions -->
+    <top>
+        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="page-header">
+            <padding>
+                <Insets top="12" right="16" bottom="12" left="16"/>
+            </padding>
+            <Label text="Supplier Bills (Vendor Invoices)" styleClass="page-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <TextField fx:id="searchField" promptText="Search bills by number or supplier..." prefWidth="260"/>
+            <Button text="+ New Bill" onAction="#handleNewBill" styleClass="btn-primary"/>
+            <Button text="Refresh" onAction="#handleRefresh" styleClass="btn-secondary"/>
+        </HBox>
+    </top>
+
+    <!-- CENTER: Split Pane List (left) + Form (right) -->
+    <center>
+        <SplitPane dividerPositions="0.32" BorderPane.alignment="CENTER">
+            <items>
+
+                <!-- LEFT: Bills list -->
+                <VBox spacing="0" styleClass="list-panel">
+                    <ListView fx:id="supplierBillListView" VBox.vgrow="ALWAYS"/>
+                </VBox>
+
+                <!-- RIGHT: Details form -->
+                <VBox fx:id="detailsPane" spacing="12" styleClass="form-panel">
+                    <padding>
+                        <Insets top="16" right="16" bottom="16" left="16"/>
+                    </padding>
+
+                    <!-- Top Action bar -->
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Button text="Import from GRN" onAction="#handleImportGrn" styleClass="btn-secondary"/>
+                        <Button text="Edit" onAction="#handleEdit" styleClass="btn-secondary"/>
+                        <Button text="Save" onAction="#handleSave" styleClass="btn-primary"/>
+                        <Button text="Delete" onAction="#handleDelete" styleClass="btn-danger"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Button text="Record Payment" onAction="#handlePayBill" styleClass="btn-primary"/>
+                        <Button text="Print" onAction="#handlePrint" styleClass="btn-secondary"/>
+                    </HBox>
+
+                    <!-- Header fields -->
+                    <GridPane hgap="12" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="15"/>
+                            <ColumnConstraints percentWidth="35"/>
+                            <ColumnConstraints percentWidth="15"/>
+                            <ColumnConstraints percentWidth="35"/>
+                        </columnConstraints>
+
+                        <Label text="Bill #:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <TextField fx:id="billNumberField" editable="false"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="Bill Date:" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                        <DatePicker fx:id="billDatePicker"
+                                    GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+
+                        <Label text="Supplier:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <HBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                            <TextField fx:id="supplierSearchField" promptText="Type to search supplier..."
+                                       HBox.hgrow="ALWAYS"/>
+                            <Button text="+" onAction="#handleQuickAddSupplier" styleClass="btn-secondary">
+                                <tooltip>
+                                    <Tooltip text="Quick Add Supplier"/>
+                                </tooltip>
+                            </Button>
+                        </HBox>
+
+                        <Label text="Due Date:" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                        <DatePicker fx:id="dueDatePicker"
+                                    GridPane.columnIndex="3" GridPane.rowIndex="1"/>
+
+                        <Label text="Vendor Invoice #:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                        <TextField fx:id="supplierInvoiceRefField" promptText="Supplier's Ref / DN #"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                        <Label text="Phone:" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+                        <TextField fx:id="supplierPhoneField" editable="false"
+                                   GridPane.columnIndex="3" GridPane.rowIndex="2"/>
+
+                        <Label text="Status:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                        <ComboBox fx:id="statusCombo" prefWidth="200"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+
+                        <CheckBox fx:id="globalTaxCheck" text="Apply Tax to All"
+                                  onAction="#handleGlobalTaxToggle"
+                                  GridPane.columnIndex="2" GridPane.rowIndex="3"
+                                  GridPane.columnSpan="2"/>
+
+                        <Label text="Notes:" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                        <TextField fx:id="notesField" promptText="Bill notes..."
+                                   GridPane.columnIndex="1" GridPane.rowIndex="4" GridPane.columnSpan="3"/>
+                    </GridPane>
+
+                    <Separator/>
+
+                    <!-- Line items toolbar -->
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Label text="Billed Line Items" styleClass="section-title"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Button text="+ Add Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
+                        <Button text="+ Empty Line" onAction="#handleAddEmptyLine" styleClass="btn-secondary"/>
+                        <Button text="Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>
+                    </HBox>
+
+                    <!-- Lines table -->
+                    <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="260">
+                        <columns>
+                            <TableColumn fx:id="colProduct" text="Product / Expense Description" prefWidth="280"/>
+                            <TableColumn fx:id="colQty" text="Qty" prefWidth="80"/>
+                            <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="110"/>
+                            <TableColumn fx:id="colTaxable" text="Tax" prefWidth="60"/>
+                            <TableColumn fx:id="colTotal" text="Line Total" prefWidth="120"/>
+                        </columns>
+                        <columnResizePolicy>
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                        </columnResizePolicy>
+                    </TableView>
+
+                    <!-- Totals -->
+                    <HBox spacing="24" alignment="CENTER_RIGHT" styleClass="totals-bar">
+                        <padding>
+                            <Insets top="8" right="8" bottom="8" left="8"/>
+                        </padding>
+                        <Label text="Subtotal:"/>
+                        <Label fx:id="lblSubtotal" text="0.00" styleClass="total-value"/>
+                        <Label fx:id="lblTaxTitle" text="VAT:"/>
+                        <Label fx:id="lblTax" text="0.00" styleClass="total-value"/>
+                        <Label fx:id="totalLabel" text="Total: 0.00" styleClass="grand-total"/>
+                    </HBox>
+                </VBox>
+            </items>
+        </SplitPane>
+    </center>
+</BorderPane>

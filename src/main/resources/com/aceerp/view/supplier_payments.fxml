@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.aceerp.controller.SupplierPaymentController"
+            stylesheets="@../css/app.css">
+
+    <top>
+        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="page-header">
+            <padding><Insets top="12" right="16" bottom="12" left="16"/></padding>
+            <Label text="Supplier Payments (Vendor Payments)" styleClass="page-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <TextField fx:id="searchField" promptText="Search payments..." prefWidth="260"/>
+            <Button text="+ New Payment" onAction="#handleNewPayment" styleClass="btn-primary"/>
+            <Button text="Refresh" onAction="#handleRefresh" styleClass="btn-secondary"/>
+        </HBox>
+    </top>
+
+    <center>
+        <SplitPane dividerPositions="0.32" BorderPane.alignment="CENTER">
+            <items>
+                <VBox spacing="0" styleClass="list-panel">
+                    <ListView fx:id="paymentListView" VBox.vgrow="ALWAYS"/>
+                </VBox>
+
+                <VBox spacing="16" styleClass="form-panel">
+                    <padding><Insets top="16" right="16" bottom="16" left="16"/></padding>
+
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Button text="Post Payment" onAction="#handleSave" styleClass="btn-primary"/>
+                        <Button text="Clear" onAction="#handleNewPayment" styleClass="btn-secondary"/>
+                    </HBox>
+
+                    <GridPane hgap="12" vgap="12">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="20"/>
+                            <ColumnConstraints percentWidth="80"/>
+                        </columnConstraints>
+
+                        <Label text="Payment #:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <TextField fx:id="paymentNumberField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="Date:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <DatePicker fx:id="paymentDatePicker" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                        <Label text="Supplier:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                        <ComboBox fx:id="supplierCombo" prefWidth="300" promptText="Select Supplier" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                        <Label text="Supplier Bill (Optional):" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                        <ComboBox fx:id="billCombo" prefWidth="300" promptText="Select Bill to pay" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+
+                        <Label text="Payment Amount:" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                        <TextField fx:id="amountField" promptText="0.00" GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+
+                        <Label text="Payment Method:" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+                        <ComboBox fx:id="methodCombo" prefWidth="200" GridPane.columnIndex="1" GridPane.rowIndex="5"/>
+
+                        <Label text="Reference / Cheque #:" GridPane.columnIndex="0" GridPane.rowIndex="6"/>
+                        <TextField fx:id="referenceNumberField" promptText="Bank Ref / Cheque No." GridPane.columnIndex="1" GridPane.rowIndex="6"/>
+
+                        <Label text="Notes:" GridPane.columnIndex="0" GridPane.rowIndex="7"/>
+                        <TextField fx:id="notesField" promptText="Payment notes..." GridPane.columnIndex="1" GridPane.rowIndex="7"/>
+                    </GridPane>
+                </VBox>
+            </items>
+        </SplitPane>
+    </center>
+</BorderPane>

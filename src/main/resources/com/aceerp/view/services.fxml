@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<SplitPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.aceerp.controller.ServiceJobController"
+           dividerPositions="0.32" styleClass="content-pane">
+
+    <!-- Left Master Pane -->
+    <VBox spacing="10">
+        <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+        <Label text="HVAC Service Jobs" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+        <TextField fx:id="searchField" promptText="Search Job # or Customer..."/>
+        <ListView fx:id="jobListView" VBox.vgrow="ALWAYS"/>
+        <HBox spacing="10">
+            <Button fx:id="btnNew" text="New Job" onAction="#handleNew" styleClass="btn-primary"/>
+            <Button fx:id="btnEdit" text="Edit" onAction="#handleEdit" styleClass="btn-secondary"/>
+        </HBox>
+    </VBox>
+
+    <!-- Right Detail Form Pane -->
+    <VBox spacing="15">
+        <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+        <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent;">
+            <VBox spacing="15">
+                <HBox spacing="15" alignment="CENTER_LEFT">
+                    <Label text="Job Number:" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="txtJobNumber" editable="false" prefWidth="130"/>
+                    <Label text="Job Type:" style="-fx-font-weight: bold;"/>
+                    <ComboBox fx:id="cmbJobType" prefWidth="150"/>
+                    <Label text="Status:" style="-fx-font-weight: bold;"/>
+                    <ComboBox fx:id="cmbStatus" prefWidth="130"/>
+                </HBox>
+
+                <GridPane hgap="10" vgap="10">
+                    <Label text="Customer:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <HBox spacing="10" alignment="CENTER_LEFT" GridPane.rowIndex="0" GridPane.columnIndex="1">
+                        <Label fx:id="lblCustomerName" text="No Customer Selected" style="-fx-font-weight: bold;"/>
+                        <Button fx:id="btnSelectCustomer" text="Select..." onAction="#handleSelectCustomer" styleClass="btn-secondary"/>
+                    </HBox>
+
+                    <Label text="Assigned Technician:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <ComboBox fx:id="cmbTechnician" prefWidth="250" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                    <Label text="Scheduled Date:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                    <DatePicker fx:id="dpScheduledDate" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                    <Label text="Completion Date:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                    <DatePicker fx:id="dpCompletionDate" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                    <Label text="AC Model / Info:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtAcModelInfo" promptText="e.g. Daikin 1.5 Ton Split AC" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                </GridPane>
+
+                <VBox spacing="5">
+                    <Label text="Reported Issue:" style="-fx-font-weight: bold;"/>
+                    <TextArea fx:id="txtReportedIssue" prefRowCount="3" promptText="Customer complaint or issue details..."/>
+                </VBox>
+
+                <VBox spacing="5">
+                    <Label text="Resolution / Service Notes:" style="-fx-font-weight: bold;"/>
+                    <TextArea fx:id="txtResolutionNotes" prefRowCount="3" promptText="Technician findings and repairs performed..."/>
+                </VBox>
+
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="Spare Parts &amp; Materials Used" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="btnAddPart" text="+ Add Part" onAction="#handleAddPart" styleClass="btn-secondary"/>
+                </HBox>
+
+                <TableView fx:id="linesTable" prefHeight="180">
+                    <columns>
+                        <TableColumn fx:id="colPartCode" text="Part Code" prefWidth="110"/>
+                        <TableColumn fx:id="colPartName" text="Part Name" prefWidth="220"/>
+                        <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
+                        <TableColumn fx:id="colUnitPrice" text="Unit Price" prefWidth="110"/>
+                        <TableColumn fx:id="colLineTotal" text="Total" prefWidth="110"/>
+                        <TableColumn fx:id="colAction" text="" prefWidth="50"/>
+                    </columns>
+                </TableView>
+
+                <HBox spacing="20" alignment="CENTER_RIGHT">
+                    <Label text="Labor Cost:" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="txtLaborCost" prefWidth="120" text="0.00"/>
+                    <Label text="Parts Total:" style="-fx-font-weight: bold;"/>
+                    <Label fx:id="lblPartsTotal" text="0.00" style="-fx-font-weight: bold;"/>
+                    <Label text="Grand Total:" style="-fx-font-weight: bold; -fx-font-size: 16px;"/>
+                    <Label fx:id="lblGrandTotal" text="0.00" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
+                </HBox>
+            </VBox>
+        </ScrollPane>
+
+        <HBox spacing="10" alignment="CENTER_RIGHT">
+            <Button fx:id="btnSave" text="Save Service Job" onAction="#handleSave" styleClass="btn-success"/>
+        </HBox>
+    </VBox>
+</SplitPane>

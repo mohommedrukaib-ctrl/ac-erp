@@ -1,42 +1,23 @@
 package com.aceerp.service;
 
-import com.aceerp.model.UserRole;
-import com.aceerp.model.UserSession;
-import com.aceerp.repository.SettingsRepository;
-
+import com.aceerp.config.DatabaseConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Service for reading and writing application settings.
- * 
- * CACHING STRATEGY:
- * Settings are read very frequently (currency symbol on every invoice line, 
- * company name on every report, etc.) but changed rarely.
- * 
- * We cache all settings in memory. When a setting is updated, we invalidate 
- * the cache so the next read re-fetches from the database.
- * 
- * ConcurrentHashMap is thread-safe: multiple parts of the UI can read 
- * settings simultaneously without conflicts.
- */
 public class SettingsService {
 
     private static final Logger logger = LoggerFactory.getLogger(SettingsService.class);
-
-    // Singleton
     private static SettingsService instance;
 
-    private final SettingsRepository repository;
     private final Map<String, String> cache = new ConcurrentHashMap<>();
-    private volatile boolean cacheLoaded = false;
 
     private SettingsService() {
-        this.repository = new SettingsRepository();
+        ensureTableExists();
+        loadAllSettings();
     }
 
     public static synchronized SettingsService getInstance() {
@@ -46,96 +27,144 @@ public class SettingsService {
         return instance;
     }
 
-    /**
-     * Load all settings into the cache. Called at startup and after bulk updates.
-     */
-    public synchronized void reload() {
-        cache.clear();
-        cache.putAll(repository.getAll());
-        cacheLoaded = true;
-        logger.info("Loaded {} settings into cache.", cache.size());
+    private void ensureTableExists() {
+        String sql = """
+            CREATE TABLE IF NOT EXISTS system_settings (
+                setting_key VARCHAR(100) PRIMARY KEY,
+                setting_value TEXT NOT NULL
+            );
+            """;
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+        } catch (SQLException e) {
+            logger.error("Failed to ensure system_settings table exists: {}", e.getMessage(), e);
+        }
     }
 
-    private void ensureLoaded() {
-        if (!cacheLoaded) {
-            reload();
+    private void loadAllSettings() {
+        cache.clear();
+        String sql = "SELECT setting_key, setting_value FROM system_settings";
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                cache.put(rs.getString("setting_key"), rs.getString("setting_value"));
+            }
+        } catch (SQLException e) {
+            logger.error("Failed to load settings from DB: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * Get a setting value. Returns null if not found.
+     * Reloads all settings directly from the database into cache.
      */
+    public void reload() {
+        loadAllSettings();
+    }
+
+    // ---- Getters ----
+
+    public String getSetting(String key, String defaultValue) {
+        if (key == null) return defaultValue;
+        String val = cache.get(key);
+        return (val != null && !val.isBlank()) ? val : defaultValue;
+    }
+
+    public String getSetting(String key) {
+        return getSetting(key, null);
+    }
+
+    public String get(String key, String defaultValue) {
+        return getSetting(key, defaultValue);
+    }
+
     public String get(String key) {
-        ensureLoaded();
-        return cache.get(key);
+        return getSetting(key, null);
+    }
+
+    // ---- Setters ----
+
+    public void setSetting(String key, String value) {
+        if (key == null) return;
+        String valToSave = value == null ? "" : value.trim();
+        cache.put(key, valToSave);
+
+        String sql = """
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES (?, ?)
+            ON CONFLICT (setting_key)
+            DO UPDATE SET setting_value = EXCLUDED.setting_value;
+            """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, key);
+            ps.setString(2, valToSave);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Failed to persist setting '{}': {}", key, e.getMessage(), e);
+        }
+    }
+
+    public void set(String key, String value) {
+        setSetting(key, value);
     }
 
     /**
-     * Get a setting with a default fallback.
+     * Batch saves multiple settings during application setup.
      */
-    public String get(String key, String defaultValue) {
-        String value = get(key);
-        return (value != null) ? value : defaultValue;
+    public void saveAllDuringSetup(Map<String, String> settingsMap) {
+        if (settingsMap == null || settingsMap.isEmpty()) return;
+
+        String sql = """
+            INSERT INTO system_settings (setting_key, setting_value)
+            VALUES (?, ?)
+            ON CONFLICT (setting_key)
+            DO UPDATE SET setting_value = EXCLUDED.setting_value;
+            """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            conn.setAutoCommit(false);
+            for (Map.Entry<String, String> entry : settingsMap.entrySet()) {
+                String k = entry.getKey();
+                String v = entry.getValue() == null ? "" : entry.getValue().trim();
+                cache.put(k, v);
+                ps.setString(1, k);
+                ps.setString(2, v);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+            conn.commit();
+            conn.setAutoCommit(true);
+        } catch (SQLException e) {
+            logger.error("Failed to save settings during setup: {}", e.getMessage(), e);
+        }
     }
 
-    public int getInt(String key, int defaultValue) {
-        String value = get(key);
-        if (value == null) return defaultValue;
+    // ---- Typed Helpers ----
+
+    public int getIntSetting(String key, int defaultValue) {
+        String val = getSetting(key, String.valueOf(defaultValue));
         try {
-            return Integer.parseInt(value.trim());
+            return Integer.parseInt(val);
         } catch (NumberFormatException e) {
             return defaultValue;
         }
     }
 
-    public boolean getBool(String key, boolean defaultValue) {
-        String value = get(key);
-        if (value == null) return defaultValue;
-        return "true".equalsIgnoreCase(value.trim());
-    }
-
-    /**
-     * Get all settings for a given category.
-     */
-    public Map<String, String> getCategory(String category) {
-        return repository.getAllByCategory(category);
-    }
-
-    /**
-     * Update a single setting. Requires ADMIN permission.
-     */
-    public void set(String key, String value) throws SQLException {
-        requireAdmin();
-        int userId = UserSession.getInstance().getCurrentUser().getId();
-        repository.set(key, value, userId);
-        cache.put(key, value);
-    }
-
-    /**
-     * Update multiple settings atomically. Requires ADMIN permission.
-     */
-    public void saveAll(Map<String, String> values) throws SQLException {
-        requireAdmin();
-        int userId = UserSession.getInstance().getCurrentUser().getId();
-        repository.setMany(values, userId);
-        cache.putAll(values);
-        logger.info("User {} updated {} settings.", userId, values.size());
-    }
-
-    /**
-     * Save settings during the setup wizard, when no user is logged in.
-     * Only works before any user exists.
-     */
-    public void saveAllDuringSetup(Map<String, String> values) throws SQLException {
-        repository.setMany(values, null);
-        cache.putAll(values);
-        logger.info("Settings saved during setup wizard: {} values.", values.size());
-    }
-
-    private void requireAdmin() {
-        UserSession session = UserSession.getInstance();
-        if (!session.isLoggedIn() || !session.hasRole(UserRole.ADMIN)) {
-            throw new SecurityException("Only administrators can change settings.");
+    public double getDoubleSetting(String key, double defaultValue) {
+        String val = getSetting(key, String.valueOf(defaultValue));
+        try {
+            return Double.parseDouble(val);
+        } catch (NumberFormatException e) {
+            return defaultValue;
         }
+    }
+
+    public boolean getBooleanSetting(String key, boolean defaultValue) {
+        String val = getSetting(key, String.valueOf(defaultValue));
+        return Boolean.parseBoolean(val);
     }
 }

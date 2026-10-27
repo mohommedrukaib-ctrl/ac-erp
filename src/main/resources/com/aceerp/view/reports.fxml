@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.aceerp.controller.ReportController"
+      spacing="15">
+
+    <padding>
+        <Insets top="15" right="15" bottom="15" left="15"/>
+    </padding>
+
+    <HBox spacing="12" alignment="CENTER_LEFT">
+        <Label text="Executive Business Reports" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label text="From:"/>
+        <DatePicker fx:id="dpFrom" prefWidth="130"/>
+        <Label text="To:"/>
+        <DatePicker fx:id="dpTo" prefWidth="130"/>
+        <Button text="Refresh" onAction="#loadAllReports" styleClass="btn-primary"/>
+        <Button text="Export CSV" onAction="#handleExportCsv" styleClass="btn-secondary"/>
+    </HBox>
+
+    <TabPane fx:id="reportTabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+
+        <!-- P&L -->
+        <Tab text="Profit &amp; Loss">
+            <VBox spacing="15">
+                <padding>
+                    <Insets top="20" right="20" bottom="20" left="20"/>
+                </padding>
+                <GridPane hgap="25" vgap="12"
+                          style="-fx-background-color: #f8f9fa; -fx-padding: 20; -fx-background-radius: 8;">
+                    <Label text="Sales Revenue:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblSalesRevenue" text="0.00" style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                    <Label text="Service / Labor Revenue:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblServiceRevenue" text="0.00" style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                    <Label text="Total Revenue:" style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblTotalRevenue" text="0.00"
+                           style="-fx-font-weight: bold; -fx-text-fill: #27ae60;"
+                           GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                    <Separator GridPane.rowIndex="3" GridPane.columnIndex="0" GridPane.columnSpan="2"/>
+
+                    <Label text="Cost of Goods Sold:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblCogs" text="0.00"
+                           style="-fx-font-weight: bold; -fx-text-fill: #c0392b;"
+                           GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+
+                    <Label text="Gross Profit:" style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblGrossProfit" text="0.00" style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+                    <Separator GridPane.rowIndex="6" GridPane.columnIndex="0" GridPane.columnSpan="2"/>
+
+                    <Label text="Purchase Expenses:" GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblPurchases" text="0.00" style="-fx-font-weight: bold;"
+                           GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+
+                    <Label text="Net Operating Profit:" style="-fx-font-size: 16px; -fx-font-weight: bold;"
+                           GridPane.rowIndex="8" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblNetProfit" text="0.00"
+                           style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2980b9;"
+                           GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+                </GridPane>
+            </VBox>
+        </Tab>
+
+        <!-- Stock -->
+        <Tab text="Stock Valuation">
+            <VBox spacing="10">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
+                <TableView fx:id="stockValuationTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colStockCode" text="Code" prefWidth="110"/>
+                        <TableColumn fx:id="colStockName" text="Product" prefWidth="220"/>
+                        <TableColumn fx:id="colStockCategory" text="Category" prefWidth="130"/>
+                        <TableColumn fx:id="colStockQty" text="Qty" prefWidth="80"/>
+                        <TableColumn fx:id="colStockCost" text="Cost" prefWidth="100"/>
+                        <TableColumn fx:id="colStockTotalCost" text="Total Cost" prefWidth="120"/>
+                        <TableColumn fx:id="colStockTotalRetail" text="Total Retail" prefWidth="120"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- Customer AR -->
+        <Tab text="Customer AR Aging">
+            <VBox spacing="10">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
+                <TableView fx:id="customerAgingTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colCustName" text="Customer" prefWidth="220"/>
+                        <TableColumn fx:id="colCust0To30" text="0-30" prefWidth="110"/>
+                        <TableColumn fx:id="colCust31To60" text="31-60" prefWidth="110"/>
+                        <TableColumn fx:id="colCust61To90" text="61-90" prefWidth="110"/>
+                        <TableColumn fx:id="colCustOver90" text=">90" prefWidth="110"/>
+                        <TableColumn fx:id="colCustTotal" text="Total" prefWidth="120"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- Supplier AP -->
+        <Tab text="Supplier AP Aging">
+            <VBox spacing="10">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
+                <TableView fx:id="supplierAgingTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colSuppName" text="Supplier" prefWidth="220"/>
+                        <TableColumn fx:id="colSupp0To30" text="0-30" prefWidth="110"/>
+                        <TableColumn fx:id="colSupp31To60" text="31-60" prefWidth="110"/>
+                        <TableColumn fx:id="colSupp61To90" text="61-90" prefWidth="110"/>
+                        <TableColumn fx:id="colSuppOver90" text=">90" prefWidth="110"/>
+                        <TableColumn fx:id="colSuppTotal" text="Total" prefWidth="120"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+    </TabPane>
+</VBox>

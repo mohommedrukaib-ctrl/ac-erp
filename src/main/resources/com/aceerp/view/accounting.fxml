@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.aceerp.controller.AccountingController" spacing="15">
+    <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Financial Accounting &amp; Ledger" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button text="Refresh" onAction="#handleRefresh" styleClass="btn-secondary"/>
+    </HBox>
+
+    <TabPane tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+        <Tab text="Chart of Accounts">
+            <VBox spacing="10">
+                <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                <TableView fx:id="accountsTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colAccCode" text="Account Code" prefWidth="120"/>
+                        <TableColumn fx:id="colAccName" text="Account Name" prefWidth="240"/>
+                        <TableColumn fx:id="colAccType" text="Type" prefWidth="150"/>
+                        <TableColumn fx:id="colAccBalance" text="Current Balance" prefWidth="160"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+        <Tab text="Journal Entries">
+            <SplitPane dividerPositions="0.5" VBox.vgrow="ALWAYS">
+                <VBox spacing="10">
+                    <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                    <Label text="Journal Vouchers" style="-fx-font-weight: bold;"/>
+                    <TableView fx:id="journalTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="colJvNumber" text="Voucher #" prefWidth="120"/>
+                            <TableColumn fx:id="colJvDate" text="Date" prefWidth="100"/>
+                            <TableColumn fx:id="colJvMemo" text="Memo" prefWidth="200"/>
+                            <TableColumn fx:id="colJvStatus" text="Status" prefWidth="90"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+                <VBox spacing="10">
+                    <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                    <Label text="Voucher Lines (Debit / Credit)" style="-fx-font-weight: bold;"/>
+                    <TableView fx:id="journalLinesTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="colLineAccount" text="Account" prefWidth="200"/>
+                            <TableColumn fx:id="colLineDebit" text="Debit" prefWidth="110"/>
+                            <TableColumn fx:id="colLineCredit" text="Credit" prefWidth="110"/>
+                            <TableColumn fx:id="colLineDesc" text="Description" prefWidth="180"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </SplitPane>
+        </Tab>
+    </TabPane>
+</VBox>

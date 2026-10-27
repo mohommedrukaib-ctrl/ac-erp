@@ -7,14 +7,15 @@
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.PasswordField?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ChoiceBox?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.TabPane?>
 <?import javafx.scene.control.Tab?>
 <?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.geometry.Insets?>
 
 <VBox xmlns:fx="http://javafx.com/fxml"
@@ -27,7 +28,7 @@
     <!-- Header -->
     <HBox alignment="CENTER_LEFT" spacing="10">
         <Label text="⚙" style="-fx-font-size: 24px;"/>
-        <Label text="Settings" styleClass="page-title"/>
+        <Label text="Settings &amp; Company Profile" styleClass="page-title"/>
         <Region HBox.hgrow="ALWAYS"/>
         <Button text="⟳ Reload" onAction="#onReload" styleClass="btn-secondary"/>
         <Button text="💾 Save Changes" onAction="#onSave" styleClass="btn-primary"/>
@@ -38,13 +39,29 @@
     <!-- Settings Tabs -->
     <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
 
-        <!-- ===== COMPANY TAB ===== -->
-        <Tab text="Company">
+        <!-- ===== COMPANY BRANDING & PROFILE TAB ===== -->
+        <Tab text="Company &amp; Branding">
             <ScrollPane fitToWidth="true">
-                <VBox spacing="12">
+                <VBox spacing="15">
                     <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
 
-                    <Label text="Business Information" styleClass="section-title"/>
+                    <Label text="Company Logo &amp; Print Options" styleClass="section-title"/>
+
+                    <HBox spacing="20" alignment="CENTER_LEFT">
+                        <VBox spacing="8" alignment="CENTER">
+                            <ImageView fx:id="imgLogoPreview" fitWidth="180" fitHeight="90" preserveRatio="true"/>
+                            <Label fx:id="lblLogoPath" text="No logo uploaded" style="-fx-font-size: 11px; -fx-text-fill: #666666;"/>
+                        </VBox>
+                        <VBox spacing="10" alignment="CENTER_LEFT">
+                            <HBox spacing="10">
+                                <Button text="📷 Upload Logo..." onAction="#handleUploadLogo" styleClass="btn-secondary"/>
+                                <Button text="🗑 Remove Logo" onAction="#handleRemoveLogo" styleClass="btn-danger"/>
+                            </HBox>
+                            <Label text="Recommended: PNG or JPG image, max 500x250 px." style="-fx-font-size: 11px; -fx-text-fill: #666666;"/>
+                        </VBox>
+                    </HBox>
+
+                    <Label text="Business Contact Details" styleClass="section-title"/>
 
                     <GridPane hgap="12" vgap="10">
                         <columnConstraints>
@@ -52,45 +69,47 @@
                             <ColumnConstraints hgrow="ALWAYS"/>
                         </columnConstraints>
 
-                        <Label text="Business Name *" styleClass="field-label"
-                               GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                        <TextField fx:id="companyNameField"
-                                   GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label text="Company Name *" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtCompanyName" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                        <Label text="Legal Name" styleClass="field-label"
-                               GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                        <TextField fx:id="companyLegalNameField"
-                                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        <Label text="Tagline / Slogan" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtTagline" promptText="e.g. Quality Air Conditioning Solutions" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                        <Label text="Address" styleClass="field-label"
-                               GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-                        <TextArea fx:id="companyAddressField" prefRowCount="3"
-                                  GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        <Label text="Address Line 1" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtAddress1" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-                        <Label text="Phone" styleClass="field-label"
-                               GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-                        <TextField fx:id="companyPhoneField"
-                                   GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                        <Label text="Address Line 2" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtAddress2" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
 
-                        <Label text="Email" styleClass="field-label"
-                               GridPane.rowIndex="4" GridPane.columnIndex="0"/>
-                        <TextField fx:id="companyEmailField"
-                                   GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                        <Label text="City" styleClass="field-label" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtCity" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
 
-                        <Label text="Website" styleClass="field-label"
-                               GridPane.rowIndex="5" GridPane.columnIndex="0"/>
-                        <TextField fx:id="companyWebsiteField"
-                                   GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+                        <Label text="State / Province" styleClass="field-label" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtState" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
 
-                        <Label text="Tax/VAT Number" styleClass="field-label"
-                               GridPane.rowIndex="6" GridPane.columnIndex="0"/>
-                        <TextField fx:id="companyTaxNumberField"
-                                   GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+                        <Label text="Postal Code" styleClass="field-label" GridPane.rowIndex="6" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtPostal" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
 
-                        <Label text="Registration No." styleClass="field-label"
-                               GridPane.rowIndex="7" GridPane.columnIndex="0"/>
-                        <TextField fx:id="companyRegistrationField"
-                                   GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+                        <Label text="Country" styleClass="field-label" GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtCountry" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+
+                        <Label text="Phone Number" styleClass="field-label" GridPane.rowIndex="8" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtPhone" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+
+                        <Label text="Email Address" styleClass="field-label" GridPane.rowIndex="9" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtEmail" GridPane.rowIndex="9" GridPane.columnIndex="1"/>
+
+                        <Label text="Website" styleClass="field-label" GridPane.rowIndex="10" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtWebsite" GridPane.rowIndex="10" GridPane.columnIndex="1"/>
+
+                        <Label text="Tax / VAT Number" styleClass="field-label" GridPane.rowIndex="11" GridPane.columnIndex="0"/>
+                        <TextField fx:id="txtTaxNumber" GridPane.rowIndex="11" GridPane.columnIndex="1"/>
+
+                        <Label text="Print Template Style" styleClass="field-label" GridPane.rowIndex="12" GridPane.columnIndex="0"/>
+                        <ComboBox fx:id="cmbPrintTemplate" maxWidth="Infinity" GridPane.rowIndex="12" GridPane.columnIndex="1"/>
+
+                        <Label text="Invoice Footer Note" styleClass="field-label" GridPane.rowIndex="13" GridPane.columnIndex="0"/>
+                        <TextArea fx:id="txtInvoiceFooter" prefRowCount="3" promptText="e.g. Thank you for your business! Bank transfer details..." GridPane.rowIndex="13" GridPane.columnIndex="1"/>
                     </GridPane>
                 </VBox>
             </ScrollPane>
@@ -110,25 +129,17 @@
                             <ColumnConstraints hgrow="ALWAYS"/>
                         </columnConstraints>
 
-                        <Label text="Currency Code *" styleClass="field-label"
-                               GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                        <TextField fx:id="currencyCodeField" promptText="USD, AED, EUR..."
-                                   GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label text="Currency Code *" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <TextField fx:id="currencyCodeField" promptText="USD, AED, EUR..." GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                        <Label text="Currency Symbol *" styleClass="field-label"
-                               GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-<TextField fx:id="currencySymbolField" promptText="e.g. AED, EUR symbol"
-                                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        <Label text="Currency Symbol *" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="currencySymbolField" promptText="e.g. $, AED, €" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                        <Label text="Decimal Places *" styleClass="field-label"
-                               GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-                        <TextField fx:id="currencyDecimalsField" promptText="0-4"
-                                   GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        <Label text="Decimal Places *" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                        <TextField fx:id="currencyDecimalsField" promptText="0-4" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-                        <Label text="Symbol Position *" styleClass="field-label"
-                               GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-                        <ChoiceBox fx:id="currencyPositionChoice" maxWidth="Infinity"
-                                   GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                        <Label text="Symbol Position *" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                        <ChoiceBox fx:id="currencyPositionChoice" maxWidth="Infinity" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
                     </GridPane>
                 </VBox>
             </ScrollPane>
@@ -148,25 +159,17 @@
                             <ColumnConstraints hgrow="ALWAYS"/>
                         </columnConstraints>
 
-                        <Label text="Invoice Prefix" styleClass="field-label"
-                               GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                        <TextField fx:id="invoicePrefixField" promptText="INV-"
-                                   GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label text="Invoice Prefix" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <TextField fx:id="invoicePrefixField" promptText="INV-" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                        <Label text="Next Invoice No." styleClass="field-label"
-                               GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                        <TextField fx:id="invoiceNextNumberField"
-                                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        <Label text="Next Invoice No." styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="invoiceNextNumberField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                        <Label text="Default Due Days" styleClass="field-label"
-                               GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-                        <TextField fx:id="invoiceDueDaysField"
-                                   GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        <Label text="Default Due Days" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                        <TextField fx:id="invoiceDueDaysField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-                        <Label text="Default Terms" styleClass="field-label"
-                               GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-                        <TextArea fx:id="invoiceTermsField" prefRowCount="3"
-                                  GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                        <Label text="Default Terms" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                        <TextArea fx:id="invoiceTermsField" prefRowCount="3" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
                     </GridPane>
 
                     <Label text="Quotation Settings" styleClass="section-title"/>
@@ -176,15 +179,11 @@
                             <ColumnConstraints hgrow="ALWAYS"/>
                         </columnConstraints>
 
-                        <Label text="Quotation Prefix" styleClass="field-label"
-                               GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                        <TextField fx:id="quotationPrefixField" promptText="QTN-"
-                                   GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label text="Quotation Prefix" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <TextField fx:id="quotationPrefixField" promptText="QTN-" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                        <Label text="Next Quotation No." styleClass="field-label"
-                               GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                        <TextField fx:id="quotationNextNumberField"
-                                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        <Label text="Next Quotation No." styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="quotationNextNumberField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
                     </GridPane>
 
                     <Label text="Purchase Order Settings" styleClass="section-title"/>
@@ -194,15 +193,11 @@
                             <ColumnConstraints hgrow="ALWAYS"/>
                         </columnConstraints>
 
-                        <Label text="PO Prefix" styleClass="field-label"
-                               GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                        <TextField fx:id="purchasePrefixField" promptText="PO-"
-                                   GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label text="PO Prefix" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <TextField fx:id="purchasePrefixField" promptText="PO-" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                        <Label text="Next PO No." styleClass="field-label"
-                               GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                        <TextField fx:id="purchaseNextNumberField"
-                                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        <Label text="Next PO No." styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="purchaseNextNumberField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
                     </GridPane>
                 </VBox>
             </ScrollPane>
@@ -224,15 +219,11 @@
                             <ColumnConstraints hgrow="ALWAYS"/>
                         </columnConstraints>
 
-                        <Label text="Tax Name" styleClass="field-label"
-                               GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                        <TextField fx:id="taxNameField" promptText="VAT, GST, Sales Tax..."
-                                   GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label text="Tax Name" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <TextField fx:id="taxNameField" promptText="VAT, GST, Sales Tax..." GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                        <Label text="Default Rate (%)" styleClass="field-label"
-                               GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                        <TextField fx:id="taxDefaultRateField" promptText="e.g., 5.00"
-                                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        <Label text="Default Rate (%)" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="taxDefaultRateField" promptText="e.g., 18.00" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
                     </GridPane>
                 </VBox>
             </ScrollPane>
@@ -252,15 +243,11 @@
                             <ColumnConstraints hgrow="ALWAYS"/>
                         </columnConstraints>
 
-                        <Label text="Date Format" styleClass="field-label"
-                               GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                        <TextField fx:id="dateFormatField" promptText="yyyy-MM-dd, dd/MM/yyyy..."
-                                   GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label text="Date Format" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <TextField fx:id="dateFormatField" promptText="yyyy-MM-dd, dd/MM/yyyy..." GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                        <Label text="Items Per Page" styleClass="field-label"
-                               GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                        <TextField fx:id="itemsPerPageField"
-                                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        <Label text="Items Per Page" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="itemsPerPageField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
                     </GridPane>
                 </VBox>
             </ScrollPane>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.aceerp.controller.PurchaseReturnController"
+            stylesheets="@../css/app.css">
+
+    <top>
+        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="page-header">
+            <padding><Insets top="12" right="16" bottom="12" left="16"/></padding>
+            <Label text="Purchase Returns (Debit Notes)" styleClass="page-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <TextField fx:id="searchField" promptText="Search returns..." prefWidth="260"/>
+            <Button text="+ New Return" onAction="#handleNewReturn" styleClass="btn-primary"/>
+            <Button text="Refresh" onAction="#handleRefresh" styleClass="btn-secondary"/>
+        </HBox>
+    </top>
+
+    <center>
+        <SplitPane dividerPositions="0.32" BorderPane.alignment="CENTER">
+            <items>
+                <VBox spacing="0" styleClass="list-panel">
+                    <ListView fx:id="returnListView" VBox.vgrow="ALWAYS"/>
+                </VBox>
+
+                <VBox spacing="12" styleClass="form-panel">
+                    <padding><Insets top="16" right="16" bottom="16" left="16"/></padding>
+
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Button text="Process &amp; Deduct Stock" onAction="#handleProcessReturn" styleClass="btn-primary"/>
+                        <Button text="Clear" onAction="#handleNewReturn" styleClass="btn-secondary"/>
+                    </HBox>
+
+                    <GridPane hgap="12" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="15"/>
+                            <ColumnConstraints percentWidth="35"/>
+                            <ColumnConstraints percentWidth="15"/>
+                            <ColumnConstraints percentWidth="35"/>
+                        </columnConstraints>
+
+                        <Label text="Debit Note #:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <TextField fx:id="returnNumberField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="Date:" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                        <DatePicker fx:id="returnDatePicker" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+
+                        <Label text="Supplier:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <ComboBox fx:id="supplierCombo" prefWidth="250" promptText="Select Supplier" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                        <Label text="Reason:" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                        <TextField fx:id="reasonField" promptText="Reason for return..." GridPane.columnIndex="3" GridPane.rowIndex="1"/>
+                    </GridPane>
+
+                    <Separator/>
+
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <Label text="Returned Items" styleClass="section-title"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Button text="+ Add Item" onAction="#handleAddLine" styleClass="btn-secondary"/>
+                        <Button text="Remove Item" onAction="#handleRemoveLine" styleClass="btn-danger"/>
+                    </HBox>
+
+                    <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="260">
+                        <columns>
+                            <TableColumn fx:id="colDescription" text="Product / Description" prefWidth="280"/>
+                            <TableColumn fx:id="colQty" text="Qty Returned" prefWidth="100"/>
+                            <TableColumn fx:id="colCost" text="Unit Cost" prefWidth="120"/>
+                            <TableColumn fx:id="colTotal" text="Line Total" prefWidth="140"/>
+                        </columns>
+                        <columnResizePolicy>
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                        </columnResizePolicy>
+                    </TableView>
+
+                    <HBox spacing="24" alignment="CENTER_RIGHT" styleClass="totals-bar">
+                        <padding><Insets top="8" right="8" bottom="8" left="8"/></padding>
+                        <Label text="Total Return Value:"/>
+                        <Label fx:id="lblTotalValuation" text="0.00" styleClass="grand-total"/>
+                    </HBox>
+                </VBox>
+            </items>
+        </SplitPane>
+    </center>
+</BorderPane>
