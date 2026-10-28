@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="ServiceJobA5" pageWidth="420" pageHeight="595" columnWidth="380" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+    <parameter name="JOB_ID" class="java.lang.Integer"/>
+    <parameter name="COMPANY_NAME" class="java.lang.String"/>
+    
+    <queryString>
+        <![CDATA[
+            SELECT j.job_number, j.scheduled_date, j.ac_unit_details, j.description, j.notes,
+                   c.name AS customer_name, c.phone, c.address
+            FROM service_jobs j
+            JOIN customers c ON j.customer_id = c.id
+            WHERE j.id = $P{JOB_ID}
+        ]]>
+    </queryString>
+    
+    <field name="job_number" class="java.lang.String"/>
+    <field name="scheduled_date" class="java.sql.Timestamp"/>
+    <field name="ac_unit_details" class="java.lang.String"/>
+    <field name="description" class="java.lang.String"/>
+    <field name="notes" class="java.lang.String"/>
+    <field name="customer_name" class="java.lang.String"/>
+    <field name="phone" class="java.lang.String"/>
+    <field name="address" class="java.lang.String"/>
+    
+    <title>
+        <band height="140">
+            <textField>
+                <reportElement x="0" y="0" width="250" height="20"/>
+                <textElement><font size="14" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="250" y="0" width="130" height="20"/>
+                <textElement textAlignment="Right"><font size="14" isBold="true"/></textElement>
+                <text><![CDATA[SERVICE TICKET]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="30" width="200" height="15"/>
+                <textFieldExpression><![CDATA["Job #: " + $F{job_number}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="200" y="30" width="180" height="15"/>
+                <textElement textAlignment="Right"/>
+                <textFieldExpression><![CDATA["Date: " + $F{scheduled_date}]]></textFieldExpression>
+            </textField>
+            
+            <staticText><reportElement x="0" y="55" width="100" height="15"/><textElement><font isBold="true"/></textElement><text><![CDATA[Customer Info:]]></text></staticText>
+            <textField><reportElement x="0" y="70" width="200" height="15"/><textFieldExpression><![CDATA[$F{customer_name}]]></textFieldExpression></textField>
+            <textField><reportElement x="0" y="85" width="200" height="15"/><textFieldExpression><![CDATA["Ph: " + ($F{phone}!=null?$F{phone}:"")]]></textFieldExpression></textField>
+            <textField><reportElement x="0" y="100" width="380" height="15"/><textFieldExpression><![CDATA["Addr: " + ($F{address}!=null?$F{address}:"")]]></textFieldExpression></textField>
+            <line><reportElement x="0" y="130" width="380" height="1"/></line>
+        </band>
+    </title>
+    
+    <detail>
+        <band height="200">
+            <staticText><reportElement x="0" y="0" width="100" height="15"/><textElement><font isBold="true"/></textElement><text><![CDATA[AC Unit Details:]]></text></staticText>
+            <textField><reportElement x="0" y="15" width="380" height="30"/><textFieldExpression><![CDATA[$F{ac_unit_details} != null ? $F{ac_unit_details} : "N/A"]]></textFieldExpression></textField>
+            
+            <staticText><reportElement x="0" y="50" width="100" height="15"/><textElement><font isBold="true"/></textElement><text><![CDATA[Issue / Complaint:]]></text></staticText>
+            <textField><reportElement x="0" y="65" width="380" height="40"/><textFieldExpression><![CDATA[$F{description}]]></textFieldExpression></textField>
+
+            <staticText><reportElement x="0" y="110" width="150" height="15"/><textElement><font isBold="true"/></textElement><text><![CDATA[Technician Notes / Parts Used:]]></text></staticText>
+            <rectangle><reportElement x="0" y="125" width="380" height="65" forecolor="#CCCCCC"/></rectangle>
+        </band>
+    </detail>
+    
+    <summary>
+        <band height="60">
+            <staticText>
+                <reportElement x="0" y="10" width="200" height="20"/>
+                <text><![CDATA[Tech Signature: __________________]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="200" y="10" width="180" height="20"/>
+                <text><![CDATA[Client Sign: __________________]]></text>
+            </staticText>
+        </band>
+    </summary>
+</jasperReport>

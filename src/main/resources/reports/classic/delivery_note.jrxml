@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="DeliveryNote" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30">
+    <parameter name="DN_ID" class="java.lang.Integer"/>
+    <parameter name="COMPANY_NAME" class="java.lang.String"/>
+    
+    <queryString>
+        <![CDATA[
+            SELECT d.dn_number, d.dn_date, d.driver_name, d.vehicle_plate, d.delivery_address,
+                   c.name AS customer_name, c.phone,
+                   dl.description, dl.quantity
+            FROM delivery_notes d
+            LEFT JOIN customers c ON d.customer_id = c.id
+            JOIN delivery_note_lines dl ON d.id = dl.dn_id
+            WHERE d.id = $P{DN_ID}
+        ]]>
+    </queryString>
+    
+    <field name="dn_number" class="java.lang.String"/>
+    <field name="dn_date" class="java.sql.Date"/>
+    <field name="driver_name" class="java.lang.String"/>
+    <field name="vehicle_plate" class="java.lang.String"/>
+    <field name="delivery_address" class="java.lang.String"/>
+    <field name="customer_name" class="java.lang.String"/>
+    <field name="description" class="java.lang.String"/>
+    <field name="quantity" class="java.math.BigDecimal"/>
+    
+    <title>
+        <band height="120">
+            <textField>
+                <reportElement x="0" y="0" width="300" height="25"/>
+                <textElement><font size="16" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="350" y="0" width="185" height="30"/>
+                <textElement textAlignment="Right"><font size="20" isBold="true"/></textElement>
+                <text><![CDATA[DELIVERY NOTE]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="35" width="250" height="20"/>
+                <textFieldExpression><![CDATA["DN Number: " + $F{dn_number}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="350" y="35" width="185" height="20"/>
+                <textElement textAlignment="Right"/>
+                <textFieldExpression><![CDATA["Date: " + $F{dn_date}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="60" width="250" height="20"/>
+                <textFieldExpression><![CDATA["Customer: " + ($F{customer_name} != null ? $F{customer_name} : "N/A")]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="80" width="250" height="30"/>
+                <textFieldExpression><![CDATA["Address: " + ($F{delivery_address} != null ? $F{delivery_address} : "")]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="350" y="60" width="185" height="20"/>
+                <textElement textAlignment="Right"/>
+                <textFieldExpression><![CDATA["Driver: " + ($F{driver_name} != null ? $F{driver_name} : "Pending")]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="350" y="80" width="185" height="20"/>
+                <textElement textAlignment="Right"/>
+                <textFieldExpression><![CDATA["Vehicle: " + ($F{vehicle_plate} != null ? $F{vehicle_plate} : "Pending")]]></textFieldExpression>
+            </textField>
+            <line><reportElement x="0" y="115" width="535" height="1"/></line>
+        </band>
+    </title>
+    
+    <columnHeader>
+        <band height="25">
+            <staticText><reportElement x="0" y="0" width="350" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Item Description]]></text></staticText>
+            <staticText><reportElement x="360" y="0" width="175" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Quantity Delivered]]></text></staticText>
+            <line><reportElement x="0" y="20" width="535" height="1"/></line>
+        </band>
+    </columnHeader>
+    
+    <detail>
+        <band height="25">
+            <textField><reportElement x="0" y="2" width="350" height="20"/><textFieldExpression><![CDATA[$F{description}]]></textFieldExpression></textField>
+            <textField><reportElement x="360" y="2" width="175" height="20"/><textFieldExpression><![CDATA[$F{quantity}]]></textFieldExpression></textField>
+        </band>
+    </detail>
+    
+    <summary>
+        <band height="80">
+            <staticText>
+                <reportElement x="0" y="30" width="200" height="20"/>
+                <text><![CDATA[Received By (Sign): ___________________]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="300" y="30" width="200" height="20"/>
+                <text><![CDATA[Date: ___________________]]></text>
+            </staticText>
+        </band>
+    </summary>
+</jasperReport>

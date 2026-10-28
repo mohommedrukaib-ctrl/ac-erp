@@ -11,8 +11,11 @@ public class InvoiceLine {
     private Integer productId;
     private String productCode;
     private String description;
+    private String notes;
     private BigDecimal quantity = BigDecimal.ONE;
     private BigDecimal unitPrice = BigDecimal.ZERO;
+    private BigDecimal discountPercent = BigDecimal.ZERO;
+    private BigDecimal discountAmount = BigDecimal.ZERO;
 
     private boolean taxable = TaxUtil.isTaxEnabled();
     private BigDecimal taxRate = TaxUtil.getDefaultTaxRate();
@@ -36,6 +39,9 @@ public class InvoiceLine {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
+
     public BigDecimal getQuantity() { return quantity; }
     public void setQuantity(BigDecimal quantity) { 
         this.quantity = quantity != null ? quantity : BigDecimal.ZERO; 
@@ -49,6 +55,17 @@ public class InvoiceLine {
     public void setUnitPrice(BigDecimal unitPrice) { 
         this.unitPrice = unitPrice != null ? unitPrice : BigDecimal.ZERO; 
         recalculateTotal();
+    }
+
+    public BigDecimal getDiscountPercent() { return discountPercent; }
+    public void setDiscountPercent(BigDecimal discountPercent) {
+        this.discountPercent = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public BigDecimal getDiscountAmount() { return discountAmount; }
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount != null ? discountAmount : BigDecimal.ZERO;
     }
 
     public boolean isTaxable() { return taxable; }
@@ -80,7 +97,21 @@ public class InvoiceLine {
     public void recalculateTotal() {
         BigDecimal qty = quantity != null ? quantity : BigDecimal.ZERO;
         BigDecimal price = unitPrice != null ? unitPrice : BigDecimal.ZERO;
-        this.totalPrice = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal gross = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal discPct = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        if (discPct.compareTo(BigDecimal.ZERO) > 0) {
+            this.discountAmount = gross.multiply(discPct)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        } else if (this.discountAmount == null) {
+            this.discountAmount = BigDecimal.ZERO;
+        }
+
+        BigDecimal net = gross.subtract(this.discountAmount);
+        if (net.compareTo(BigDecimal.ZERO) < 0) {
+            net = BigDecimal.ZERO;
+        }
+        this.totalPrice = net.setScale(2, RoundingMode.HALF_UP);
 
         if (taxable && taxRate != null && taxRate.compareTo(BigDecimal.ZERO) > 0) {
             this.taxAmount = this.totalPrice.multiply(taxRate)

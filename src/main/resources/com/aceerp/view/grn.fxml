@@ -7,7 +7,7 @@
 <BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.aceerp.controller.GrnController"
-            stylesheets="@../css/app.css">
+            stylesheets="@../css/style.css">
 
     <!-- TOP: Title + Search + Actions -->
     <top>
@@ -25,7 +25,7 @@
 
     <!-- CENTER: List (left) + Form (right) -->
     <center>
-        <SplitPane dividerPositions="0.32" BorderPane.alignment="CENTER">
+        <SplitPane dividerPositions="0.30" BorderPane.alignment="CENTER">
             <items>
 
                 <!-- LEFT: GRN List -->
@@ -39,9 +39,9 @@
                         <Insets top="16" right="16" bottom="16" left="16"/>
                     </padding>
 
-                    <!-- Top Action Bar -->
-                    <HBox spacing="8" alignment="CENTER_LEFT">
-                        <Button text="Import from Purchase Order" onAction="#handleSelectPo" styleClass="btn-secondary"/>
+                    <!-- Top Action Bar (Clean & Roomy) -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Button text="Import from PO (Optional)" onAction="#handleSelectPo" styleClass="btn-secondary"/>
                         <Button text="Edit" onAction="#handleEdit" styleClass="btn-secondary"/>
                         <Region HBox.hgrow="ALWAYS"/>
                         <Label fx:id="lblStatus" text="NEW" style="-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #1976D2;"/>
@@ -52,10 +52,10 @@
                     <!-- Header Fields -->
                     <GridPane hgap="12" vgap="10">
                         <columnConstraints>
-                            <ColumnConstraints percentWidth="15"/>
-                            <ColumnConstraints percentWidth="35"/>
-                            <ColumnConstraints percentWidth="15"/>
-                            <ColumnConstraints percentWidth="35"/>
+                            <ColumnConstraints percentWidth="14"/>
+                            <ColumnConstraints percentWidth="36"/>
+                            <ColumnConstraints percentWidth="14"/>
+                            <ColumnConstraints percentWidth="36"/>
                         </columnConstraints>
 
                         <Label text="GRN Number:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
@@ -67,12 +67,19 @@
                                     GridPane.columnIndex="3" GridPane.rowIndex="0"/>
 
                         <Label text="PO Reference:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                        <TextField fx:id="poNumberField" editable="false" promptText="None"
+                        <TextField fx:id="poNumberField" editable="false" promptText="Optional — none required"
                                    GridPane.columnIndex="1" GridPane.rowIndex="1"/>
 
                         <Label text="Supplier Name:" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
-                        <TextField fx:id="supplierNameField" editable="false" promptText="Supplier"
-                                   GridPane.columnIndex="3" GridPane.rowIndex="1"/>
+                        <HBox spacing="6" alignment="CENTER_LEFT" GridPane.columnIndex="3" GridPane.rowIndex="1">
+                            <TextField fx:id="supplierNameField" editable="false" promptText="Required" HBox.hgrow="ALWAYS"/>
+                            <Button text="Select" onAction="#handleSelectSupplier" styleClass="btn-secondary"/>
+                            <Button text="+" onAction="#handleQuickAddSupplier" styleClass="btn-secondary" tooltip="$null">
+                                <tooltip>
+                                    <Tooltip text="Quick Add New Supplier"/>
+                                </tooltip>
+                            </Button>
+                        </HBox>
 
                         <Label text="Delivery Note #:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
                         <TextField fx:id="deliveryNoteRefField" promptText="Vendor DN / Invoice Ref"
@@ -89,7 +96,8 @@
                     <HBox spacing="8" alignment="CENTER_LEFT">
                         <Label text="Received Line Items" styleClass="section-title"/>
                         <Region HBox.hgrow="ALWAYS"/>
-                        <Button text="+ Add Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
+                        <Button text="+ Select Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
+                        <Button text="+ Quick Add New Product" onAction="#handleQuickAddProduct" styleClass="btn-secondary"/>
                         <Button text="Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>
                     </HBox>
 

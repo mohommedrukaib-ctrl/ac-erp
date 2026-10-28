@@ -27,72 +27,88 @@ public class ReportService {
     // ===================== Branding parameters for ALL prints =====================
 
     private Map<String, Object> buildCompanyParameters() {
-    CompanyProfile c = new CompanyProfileService().getProfile();
-    Map<String, Object> p = new HashMap<>();
-    p.put("COMPANY_NAME", c.getCompanyName() != null ? c.getCompanyName() : "");
-    p.put("COMPANY_TAGLINE", c.getTagline() != null ? c.getTagline() : "");
-    p.put("COMPANY_ADDRESS", c.getFullAddress());
-    p.put("COMPANY_PHONE", c.getPhone() != null ? c.getPhone() : "");
-    p.put("COMPANY_EMAIL", c.getEmail() != null ? c.getEmail() : "");
-    p.put("COMPANY_WEBSITE", c.getWebsite() != null ? c.getWebsite() : "");
-    p.put("COMPANY_TAX_NO", c.getTaxNumber() != null ? c.getTaxNumber() : "");
-    p.put("COMPANY_FOOTER", c.getInvoiceFooter() != null ? c.getInvoiceFooter() : "");
-    p.put("COMPANY_LOGO", new CompanyProfileService().resolveLogoAbsolutePath(c.getLogoPath()));
-    return p;
-}
-
-    private static String nullToEmpty(String s) {
-        return s == null ? "" : s;
+        CompanyProfile c = companyProfileService.getProfile();
+        Map<String, Object> p = new HashMap<>();
+        p.put("COMPANY_NAME", c.getCompanyName() != null ? c.getCompanyName() : "");
+        p.put("COMPANY_TAGLINE", c.getTagline() != null ? c.getTagline() : "");
+        p.put("COMPANY_ADDRESS", c.getFullAddress());
+        p.put("COMPANY_PHONE", c.getPhone() != null ? c.getPhone() : "");
+        p.put("COMPANY_EMAIL", c.getEmail() != null ? c.getEmail() : "");
+        p.put("COMPANY_WEBSITE", c.getWebsite() != null ? c.getWebsite() : "");
+        p.put("COMPANY_TAX_NO", c.getTaxNumber() != null ? c.getTaxNumber() : "");
+        p.put("COMPANY_FOOTER", c.getInvoiceFooter() != null ? c.getInvoiceFooter() : "");
+        p.put("COMPANY_LOGO", companyProfileService.resolveLogoAbsolutePath(c.getLogoPath()));
+        return p;
     }
 
-    private void printDocument(String templatePath, String idParamName, int id) {
+    private void printDocument(String docType, String idParamName, int id) {
         new Thread(() -> {
             try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+                CompanyProfile c = companyProfileService.getProfile();
+                String theme = "classic";
+                if (c != null && c.getDefaultPrintTemplate() != null && !c.getDefaultPrintTemplate().isBlank()) {
+                    theme = c.getDefaultPrintTemplate().toLowerCase();
+                } else {
+                    theme = SettingsService.getInstance().get("PRINT_THEME", "classic").toLowerCase();
+                }
+
+                String templatePath = "/reports/" + theme + "/" + docType + ".jrxml";
                 InputStream stream = ReportService.class.getResourceAsStream(templatePath);
+                
                 if (stream == null) {
-                    logger.error("Could not find template: {}", templatePath);
+                    logger.warn("Theme template not found: {}. Falling back to classic theme.", templatePath);
+                    templatePath = "/reports/classic/" + docType + ".jrxml";
+                    stream = ReportService.class.getResourceAsStream(templatePath);
+                }
+
+                if (stream == null) {
+                    logger.warn("Classic theme template not found: {}. Falling back to root reports folder.", templatePath);
+                    templatePath = "/reports/" + docType + ".jrxml";
+                    stream = ReportService.class.getResourceAsStream(templatePath);
+                }
+
+                if (stream == null) {
+                    logger.error("Could not find template anywhere for docType: {}", docType);
                     return;
                 }
 
                 JasperReport report = JasperCompileManager.compileReport(stream);
-
                 Map<String, Object> parameters = buildCompanyParameters();
                 parameters.put(idParamName, id);
 
                 JasperPrint print = JasperFillManager.fillReport(report, parameters, conn);
                 JasperViewer.viewReport(print, false);
             } catch (Exception e) {
-                logger.error("Failed to generate report {} for id {}", templatePath, id, e);
+                logger.error("Failed to generate report {} for id {}", docType, id, e);
             }
         }).start();
     }
 
     public static void printInvoice(int invoiceId) {
-        new ReportService().printDocument("/reports/invoice.jrxml", "INVOICE_ID", invoiceId);
+        new ReportService().printDocument("invoice", "INVOICE_ID", invoiceId);
     }
 
     public static void printQuotation(int quotationId) {
-        new ReportService().printDocument("/reports/quotation.jrxml", "QUOTE_ID", quotationId);
+        new ReportService().printDocument("quotation", "QUOTE_ID", quotationId);
     }
 
     public static void printSalesOrder(int orderId) {
-        new ReportService().printDocument("/reports/sales_order.jrxml", "ORDER_ID", orderId);
+        new ReportService().printDocument("sales_order", "ORDER_ID", orderId);
     }
 
     public static void printDeliveryNote(int dnId) {
-        new ReportService().printDocument("/reports/delivery_note.jrxml", "DN_ID", dnId);
+        new ReportService().printDocument("delivery_note", "DN_ID", dnId);
     }
 
     public static void printPurchaseOrder(int poId) {
-        new ReportService().printDocument("/reports/purchase_order.jrxml", "PO_ID", poId);
+        new ReportService().printDocument("purchase_order", "PO_ID", poId);
     }
 
     public static void printJobNote(int jobId) {
-        // Half A4 / A5 template
-        new ReportService().printDocument("/reports/job_note_a5.jrxml", "JOB_ID", jobId);
+        new ReportService().printDocument("job_note_a5", "JOB_ID", jobId);
     }
 
-    // ===================== Analytics (Phase 11) — keep as-is below =====================
+    // ===================== Analytics =====================
 
     public ProfitAndLossDTO getProfitAndLoss(LocalDate startDate, LocalDate endDate) {
         ProfitAndLossDTO dto = new ProfitAndLossDTO();
@@ -180,7 +196,6 @@ public class ReportService {
                 dto.setEntityName(rs.getString("entity_name"));
                 dto.setCurrent0To30(rs.getBigDecimal("current_30"));
                 dto.setDays31To60(rs.getBigDecimal("days_60"));
-                dto.setDays61To90(rs.getBigDecimal("days_90"));
                 dto.setDaysOver90(rs.getBigDecimal("over_90"));
                 list.add(dto);
             }

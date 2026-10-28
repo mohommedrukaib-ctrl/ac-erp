@@ -7,9 +7,8 @@
 <BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.aceerp.controller.InvoiceController"
-            stylesheets="@../css/app.css">
+            stylesheets="@../css/style.css">
 
-    <!-- TOP: Title + Search + Actions -->
     <top>
         <HBox spacing="12" alignment="CENTER_LEFT" styleClass="page-header">
             <padding>
@@ -17,30 +16,27 @@
             </padding>
             <Label text="Invoices" styleClass="page-title"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <TextField fx:id="searchField" promptText="Search invoices..." prefWidth="260"/>
+            <TextField fx:id="searchField" promptText="Search invoices..." prefWidth="240"/>
             <Button text="+ New Invoice" onAction="#handleNewInvoice" styleClass="btn-primary"/>
-            <Button text="Refresh" onAction="#handleNewInvoice" styleClass="btn-secondary"/>
+            <Button text="Refresh" onAction="#loadInvoices" styleClass="btn-secondary"/>
         </HBox>
     </top>
 
-    <!-- CENTER: List (left) + Form (right) -->
     <center>
-        <SplitPane dividerPositions="0.32" BorderPane.alignment="CENTER">
+        <SplitPane dividerPositions="0.30" BorderPane.alignment="CENTER">
             <items>
 
-                <!-- LEFT: Invoice list -->
                 <VBox spacing="0" styleClass="list-panel">
                     <ListView fx:id="invoiceListView" VBox.vgrow="ALWAYS"/>
                 </VBox>
 
-                <!-- RIGHT: Details form -->
                 <VBox fx:id="detailsPane" spacing="12" styleClass="form-panel">
                     <padding>
                         <Insets top="16" right="16" bottom="16" left="16"/>
                     </padding>
 
-                    <!-- Action buttons -->
-                    <HBox spacing="8" alignment="CENTER_LEFT">
+                    <!-- Form Header Bar -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
                         <Button text="Edit" onAction="#handleEdit" styleClass="btn-secondary"/>
                         <Button text="Save" onAction="#handleSave" styleClass="btn-primary"/>
                         <Button text="Delete" onAction="#handleDelete" styleClass="btn-danger"/>
@@ -49,85 +45,80 @@
                         <Button text="Print" onAction="#handlePrint" styleClass="btn-secondary"/>
                     </HBox>
 
-                    <!-- Header fields -->
+                    <!-- Details Fields -->
                     <GridPane hgap="12" vgap="10">
                         <columnConstraints>
-                            <ColumnConstraints percentWidth="15"/>
-                            <ColumnConstraints percentWidth="35"/>
-                            <ColumnConstraints percentWidth="15"/>
-                            <ColumnConstraints percentWidth="35"/>
+                            <ColumnConstraints percentWidth="14"/>
+                            <ColumnConstraints percentWidth="36"/>
+                            <ColumnConstraints percentWidth="14"/>
+                            <ColumnConstraints percentWidth="36"/>
                         </columnConstraints>
 
                         <Label text="Invoice #:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                        <TextField fx:id="invoiceNumberField" editable="false"
+                        <TextField fx:id="invoiceNumberField" editable="false" promptText="Auto-generated"
                                    GridPane.columnIndex="1" GridPane.rowIndex="0"/>
 
                         <Label text="Date:" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
-                        <DatePicker fx:id="invoiceDatePicker"
-                                    GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+                        <DatePicker fx:id="invoiceDatePicker" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
 
                         <Label text="Customer:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                        <HBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                            <TextField fx:id="customerSearchField" promptText="Type to search customer..."
-                                       HBox.hgrow="ALWAYS"/>
-                            <Button text="+" onAction="#handleQuickAddCustomer"
-                                    styleClass="btn-secondary">
-                                <tooltip>
-                                    <Tooltip text="Quick Add Customer"/>
-                                </tooltip>
-                            </Button>
+                        <HBox spacing="6" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                            <TextField fx:id="customerSearchField" promptText="Search customer..." HBox.hgrow="ALWAYS"/>
+                            <Button text="+" onAction="#handleQuickAddCustomer" styleClass="btn-secondary"/>
                         </HBox>
 
                         <Label text="Phone:" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
-                        <TextField fx:id="customerPhoneField" editable="false"
+                        <TextField fx:id="customerPhoneField" editable="false" promptText="N/A"
                                    GridPane.columnIndex="3" GridPane.rowIndex="1"/>
 
                         <Label text="Status:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-                        <ComboBox fx:id="statusCombo" prefWidth="200"
-                                  GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                        <ComboBox fx:id="statusCombo" prefWidth="180" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
 
-                        <CheckBox fx:id="globalTaxCheck" text="Apply Tax to All"
-                                  onAction="#handleGlobalTaxToggle"
-                                  GridPane.columnIndex="2" GridPane.rowIndex="2"
-                                  GridPane.columnSpan="2"/>
+                        <CheckBox fx:id="globalTaxCheck" text="Apply Tax to All" onAction="#handleGlobalTaxToggle"
+                                  GridPane.columnIndex="3" GridPane.rowIndex="2"/>
                     </GridPane>
 
                     <Separator/>
 
-                    <!-- Line items toolbar -->
+                    <!-- Line Items Toolbar with Reorder Controls -->
                     <HBox spacing="8" alignment="CENTER_LEFT">
                         <Label text="Line Items" styleClass="section-title"/>
                         <Region HBox.hgrow="ALWAYS"/>
                         <Button text="+ Add Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
                         <Button text="+ Empty Line" onAction="#handleAddEmptyLine" styleClass="btn-secondary"/>
+                        <Button text="↑ Move Up" onAction="#handleMoveUp" styleClass="btn-secondary"/>
+                        <Button text="↓ Move Down" onAction="#handleMoveDown" styleClass="btn-secondary"/>
                         <Button text="Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>
                     </HBox>
 
-                    <!-- Lines table -->
-                    <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="280">
+                    <!-- Table with Discount % and Line Notes -->
+                    <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="260">
                         <columns>
-                            <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="280"/>
-                            <TableColumn fx:id="colQty" text="Qty" prefWidth="80"/>
-                            <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="110"/>
-                            <TableColumn fx:id="colTaxable" text="Tax" prefWidth="60"/>
-                            <TableColumn fx:id="colTotal" text="Line Total" prefWidth="120"/>
+                            <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="220"/>
+                            <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
+                            <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="90"/>
+                            <TableColumn fx:id="colDiscount" text="Disc %" prefWidth="70"/>
+                            <TableColumn fx:id="colTaxable" text="Tax" prefWidth="55"/>
+                            <TableColumn fx:id="colNotes" text="Line Notes" prefWidth="140"/>
+                            <TableColumn fx:id="colTotal" text="Line Total" prefWidth="100"/>
                         </columns>
                         <columnResizePolicy>
                             <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
                         </columnResizePolicy>
                     </TableView>
 
-                    <!-- Totals -->
-                    <HBox spacing="24" alignment="CENTER_RIGHT" styleClass="totals-bar">
+                    <!-- Totals Bar -->
+                    <HBox spacing="20" alignment="CENTER_RIGHT" styleClass="totals-bar">
                         <padding>
                             <Insets top="8" right="8" bottom="8" left="8"/>
                         </padding>
                         <Label text="Subtotal:"/>
-                        <Label fx:id="lblSubtotal" text="0.00" styleClass="total-value"/>
-                        <Label fx:id="lblTaxTitle" text="VAT:"/>
-                        <Label fx:id="lblTax" text="0.00" styleClass="total-value"/>
-                        <Label fx:id="totalLabel" text="Total: 0.00" styleClass="grand-total"/>
+                        <Label fx:id="lblSubtotal" text="Rs. 0.00"/>
+                        <Label fx:id="lblTaxTitle" text="Tax:"/>
+                        <Label fx:id="lblTax" text="Rs. 0.00"/>
+                        <Label fx:id="totalLabel" text="Total: Rs. 0.00" styleClass="grand-total"/>
                     </HBox>
+
                 </VBox>
             </items>
         </SplitPane>

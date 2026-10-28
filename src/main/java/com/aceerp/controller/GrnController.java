@@ -5,10 +5,13 @@ import com.aceerp.model.GrnLine;
 import com.aceerp.model.Product;
 import com.aceerp.model.PurchaseOrder;
 import com.aceerp.model.PurchaseOrderLine;
+import com.aceerp.model.Supplier;
 import com.aceerp.service.GoodsReceivedNoteService;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.PurchaseOrderService;
+import com.aceerp.service.SupplierService;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.GlobalQuickAdd;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -52,12 +55,14 @@ public class GrnController {
     private final GoodsReceivedNoteService grnService = new GoodsReceivedNoteService();
     private final PurchaseOrderService poService = new PurchaseOrderService();
     private final ProductService productService = new ProductService();
+    private final SupplierService supplierService = new SupplierService();
 
     private final ObservableList<GoodsReceivedNote> allGrns = FXCollections.observableArrayList();
     private final ObservableList<GrnLine> lines = FXCollections.observableArrayList();
 
     private GoodsReceivedNote currentGrn;
     private PurchaseOrder selectedPo;
+    private Supplier selectedSupplier;
     private boolean editMode = true;
 
     @FXML
@@ -154,10 +159,11 @@ public class GrnController {
     private void loadGrnToForm(GoodsReceivedNote grn) {
         currentGrn = grn;
         selectedPo = null;
+        selectedSupplier = grn.getSupplier();
 
         grnNumberField.setText(grn.getGrnNumber());
         receivedDatePicker.setValue(grn.getReceivedDate() != null ? grn.getReceivedDate() : LocalDate.now());
-        poNumberField.setText(grn.getPoId() > 0 ? "PO #" + grn.getPoId() : "N/A");
+        poNumberField.setText(grn.getPoId() > 0 ? "PO #" + grn.getPoId() : "None (direct receipt)");
         supplierNameField.setText(grn.getSupplier() != null ? grn.getSupplier().getName() : "N/A");
         deliveryNoteRefField.setText(grn.getDeliveryNoteRef() != null ? grn.getDeliveryNoteRef() : "");
         notesField.setText(grn.getNotes() != null ? grn.getNotes() : "");
@@ -181,16 +187,26 @@ public class GrnController {
         linesTable.setEditable(editable);
     }
 
+    private void applySupplier(Supplier supplier) {
+        if (supplier == null) return;
+        selectedSupplier = supplier;
+        currentGrn.setSupplierId(supplier.getId());
+        currentGrn.setSupplier(supplier);
+        supplierNameField.setText(supplier.getName());
+    }
+
     @FXML
-    private void handleNewGrn() {
+    public void handleNewGrn() {
         currentGrn = new GoodsReceivedNote();
         currentGrn.setGrnNumber(grnService.generateNextGrnNumber());
         currentGrn.setReceivedDate(LocalDate.now());
         selectedPo = null;
+        selectedSupplier = null;
 
         grnNumberField.setText(currentGrn.getGrnNumber());
         receivedDatePicker.setValue(currentGrn.getReceivedDate());
-        poNumberField.clear();
+        poNumberField.setText("");
+        poNumberField.setPromptText("Optional — none required");
         supplierNameField.clear();
         deliveryNoteRefField.clear();
         notesField.clear();
@@ -204,21 +220,21 @@ public class GrnController {
     }
 
     @FXML
-    private void handleRefresh() {
+    public void handleRefresh() {
         loadGrns();
         handleNewGrn();
     }
 
     @FXML
-    private void handleSelectPo() {
+    public void handleSelectPo() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click + New GRN to create a new stock receipt.");
             return;
         }
 
         Dialog<PurchaseOrder> dialog = new Dialog<>();
-        dialog.setTitle("Select Purchase Order");
-        dialog.setHeaderText("Choose an open PO to receive stock against");
+        dialog.setTitle("Select Purchase Order (Optional)");
+        dialog.setHeaderText("Choose an open PO to receive against — or cancel and receive directly");
 
         ButtonType importBtn = new ButtonType("Import PO", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(importBtn, ButtonType.CANCEL);
@@ -269,11 +285,12 @@ public class GrnController {
         dialog.showAndWait().ifPresent(po -> {
             selectedPo = po;
             currentGrn.setPoId(po.getId());
-            currentGrn.setSupplierId(po.getSupplierId());
-            currentGrn.setSupplier(po.getSupplier());
+            applySupplier(po.getSupplier());
+            if (po.getSupplierId() > 0 && (selectedSupplier == null || selectedSupplier.getId() <= 0)) {
+                currentGrn.setSupplierId(po.getSupplierId());
+            }
 
             poNumberField.setText(po.getPoNumber());
-            supplierNameField.setText(po.getSupplier() != null ? po.getSupplier().getName() : "N/A");
 
             lines.clear();
             if (po.getLines() != null) {
@@ -300,7 +317,86 @@ public class GrnController {
     }
 
     @FXML
-    private void handleAddLine() {
+    public void handleSelectSupplier() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click + New GRN to create a new stock receipt.");
+            return;
+        }
+
+        Dialog<Supplier> dialog = new Dialog<>();
+        dialog.setTitle("Select Supplier");
+        dialog.setHeaderText("Choose supplier for this goods receipt (PO not required)");
+
+        ButtonType selectBtn = new ButtonType("Select", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(selectBtn, ButtonType.CANCEL);
+
+        VBox vbox = new VBox(10);
+        vbox.setPadding(new Insets(10));
+        TextField search = new TextField();
+        search.setPromptText("Search supplier name or phone...");
+        ListView<Supplier> listView = new ListView<>();
+        listView.setPrefHeight(250);
+
+        List<Supplier> suppliers = supplierService.listAll();
+        listView.setItems(FXCollections.observableArrayList(suppliers));
+        listView.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Supplier s, boolean empty) {
+                super.updateItem(s, empty);
+                if (empty || s == null) {
+                    setText(null);
+                } else {
+                    String phone = s.getPhone() != null ? s.getPhone() : "";
+                    setText(s.getName() + (phone.isBlank() ? "" : " | " + phone));
+                }
+            }
+        });
+
+        search.textProperty().addListener((obs, old, newVal) -> {
+            if (newVal == null || newVal.isBlank()) {
+                listView.setItems(FXCollections.observableArrayList(suppliers));
+            } else {
+                String q = newVal.toLowerCase().trim();
+                listView.setItems(FXCollections.observableArrayList(
+                        suppliers.stream().filter(s ->
+                                (s.getName() != null && s.getName().toLowerCase().contains(q)) ||
+                                (s.getPhone() != null && s.getPhone().toLowerCase().contains(q)) ||
+                                (s.getEmail() != null && s.getEmail().toLowerCase().contains(q))
+                        ).collect(Collectors.toList())
+                ));
+            }
+        });
+
+        vbox.getChildren().addAll(search, listView);
+        dialog.getDialogPane().setContent(vbox);
+        dialog.setResultConverter(btn -> btn == selectBtn ? listView.getSelectionModel().getSelectedItem() : null);
+
+        dialog.showAndWait().ifPresent(this::applySupplier);
+    }
+
+    @FXML
+    public void handleQuickAddSupplier() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click + New GRN to create a new stock receipt.");
+            return;
+        }
+
+        GlobalQuickAdd.showSupplierDialog(() -> {
+            List<Supplier> suppliers = supplierService.listAll();
+            if (!suppliers.isEmpty()) {
+                Supplier newest = suppliers.get(suppliers.size() - 1);
+                for (Supplier s : suppliers) {
+                    if (s.getId() > newest.getId()) {
+                        newest = s;
+                    }
+                }
+                applySupplier(newest);
+            }
+        });
+    }
+
+    @FXML
+    public void handleAddLine() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click + New GRN to create a stock receipt.");
             return;
@@ -370,7 +466,46 @@ public class GrnController {
     }
 
     @FXML
-    private void handleRemoveLine() {
+    public void handleQuickAddProduct() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click + New GRN to create a stock receipt.");
+            return;
+        }
+
+        GlobalQuickAdd.showProductDialog(() -> {
+            List<Product> products = productService.listAll();
+            if (!products.isEmpty()) {
+                Product newest = products.get(products.size() - 1);
+                for (Product p : products) {
+                    if (p.getId() > newest.getId()) {
+                        newest = p;
+                    }
+                }
+
+                GrnLine line = new GrnLine();
+                line.setProduct(newest);
+                line.setQuantityOrdered(BigDecimal.ONE);
+                line.setQuantityReceived(BigDecimal.ONE);
+
+                BigDecimal cost = BigDecimal.ZERO;
+                try {
+                    Method getCost = newest.getClass().getMethod("getCostPrice");
+                    Object val = getCost.invoke(newest);
+                    if (val instanceof BigDecimal b) cost = b;
+                } catch (Exception ignored) {
+                    cost = newest.getSellingPrice() != null ? newest.getSellingPrice() : BigDecimal.ZERO;
+                }
+                line.setUnitCost(cost);
+                line.recalculateTotal();
+
+                lines.add(line);
+                updateTotals();
+            }
+        });
+    }
+
+    @FXML
+    public void handleRemoveLine() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Cannot edit posted GRN.");
             return;
@@ -385,30 +520,37 @@ public class GrnController {
     }
 
     @FXML
-    private void handleEdit() {
+    public void handleEdit() {
         if (currentGrn != null && currentGrn.getId() > 0) {
-            showAlert(Alert.AlertType.INFORMATION, "Posted GRN", "Posted Goods Received Notes cannot be edited because inventory movements have already been committed.");
+            showAlert(Alert.AlertType.INFORMATION, "Posted GRN",
+                    "Posted Goods Received Notes cannot be edited because inventory movements have already been committed.");
         }
     }
 
     @FXML
-    private void handleSaveAndPost() {
+    public void handleSaveAndPost() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click + New GRN to receive stock.");
             return;
         }
 
         if (lines.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "Validation Error", "Cannot post GRN with no line items.");
+            showAlert(Alert.AlertType.WARNING, "Validation Error", "Cannot post GRN with no line items. Use + Select Product or + Quick Add New Product.");
             return;
         }
 
-        if (currentGrn.getSupplierId() <= 0 && selectedPo != null) {
+        if (currentGrn.getSupplierId() <= 0 && selectedSupplier != null && selectedSupplier.getId() > 0) {
+            currentGrn.setSupplierId(selectedSupplier.getId());
+            currentGrn.setSupplier(selectedSupplier);
+        }
+        if (currentGrn.getSupplierId() <= 0 && selectedPo != null && selectedPo.getSupplierId() > 0) {
             currentGrn.setSupplierId(selectedPo.getSupplierId());
+            currentGrn.setSupplier(selectedPo.getSupplier());
         }
 
         if (currentGrn.getSupplierId() <= 0) {
-            showAlert(Alert.AlertType.WARNING, "Validation Error", "Please import a PO or ensure a Supplier is assigned.");
+            showAlert(Alert.AlertType.WARNING, "Validation Error",
+                    "Please select a Supplier (or Quick Add one). A Purchase Order is optional.");
             return;
         }
 
@@ -419,16 +561,18 @@ public class GrnController {
 
         try {
             grnService.receiveStock(currentGrn);
-            showAlert(Alert.AlertType.INFORMATION, "Stock Posted", "Goods Received Note " + currentGrn.getGrnNumber() + " saved and stock quantities updated successfully!");
+            showAlert(Alert.AlertType.INFORMATION, "Stock Posted",
+                    "Goods Received Note " + currentGrn.getGrnNumber() + " saved and stock quantities updated successfully!");
             loadGrns();
             setFormEditable(false);
+            lblStatus.setText("COMPLETED");
         } catch (Exception ex) {
             showAlert(Alert.AlertType.ERROR, "Post Failed", "Could not post GRN: " + ex.getMessage());
         }
     }
 
     @FXML
-    private void handlePrint() {
+    public void handlePrint() {
         if (currentGrn == null || currentGrn.getId() <= 0) {
             showAlert(Alert.AlertType.WARNING, "Print Error", "Please select a saved, posted GRN to print.");
             return;

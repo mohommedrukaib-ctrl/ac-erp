@@ -9,6 +9,8 @@
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Hyperlink?>
+<?import javafx.scene.control.MenuButton?>
+<?import javafx.scene.control.MenuItem?>
 <?import javafx.geometry.Insets?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml"
@@ -17,27 +19,44 @@
             styleClass="root-pane">
 
     <top>
-        <HBox styleClass="header-bar" alignment="CENTER_LEFT" spacing="15">
+        <HBox styleClass="header-bar" alignment="CENTER_LEFT" spacing="12">
             <padding>
                 <Insets top="8" right="20" bottom="8" left="20"/>
             </padding>
+
             <Label text="ACE ERP" styleClass="app-title"/>
-            <Region HBox.hgrow="SOMETIMES" minWidth="20"/>
+
+            <Region HBox.hgrow="SOMETIMES" minWidth="12"/>
+
+            <!-- Global search -->
             <StackPane alignment="TOP_CENTER">
                 <VBox alignment="TOP_CENTER">
                     <TextField fx:id="searchField"
-                               promptText="🔍  Search customers, invoices, products..."
+                               promptText="Search customers, invoices, products..."
                                styleClass="search-field"
-                               prefWidth="400"
+                               prefWidth="360"
                                prefHeight="34"/>
                     <VBox fx:id="searchResultsBox"
                           styleClass="search-results-dropdown"
-                          maxWidth="400"
+                          maxWidth="360"
                           visible="false"
                           managed="false"/>
                 </VBox>
             </StackPane>
-            <Region HBox.hgrow="SOMETIMES" minWidth="20"/>
+
+            <Region HBox.hgrow="ALWAYS" minWidth="12"/>
+
+            <!-- Global Quick Add (works from any screen) -->
+            <MenuButton fx:id="quickAddMenu"
+                        text="+ Quick Add"
+                        styleClass="btn-primary">
+                <items>
+                    <MenuItem text="New Customer" onAction="#handleQuickAddCustomer"/>
+                    <MenuItem text="New Supplier" onAction="#handleQuickAddSupplier"/>
+                    <MenuItem text="New Product" onAction="#handleQuickAddProduct"/>
+                </items>
+            </MenuButton>
+
             <Label fx:id="userInfoLabel" text="Not logged in" styleClass="user-info"/>
             <Hyperlink fx:id="logoutLink" text="Logout" onAction="#onLogout" styleClass="logout-link"/>
         </HBox>

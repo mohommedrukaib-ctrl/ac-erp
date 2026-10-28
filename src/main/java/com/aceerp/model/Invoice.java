@@ -12,6 +12,7 @@ public class Invoice {
     private String invoiceNumber;
     private int customerId;
     private String customerName;
+    private Customer customer;
     private Integer soId;
     private Integer dnId;
     private LocalDate invoiceDate = LocalDate.now();
@@ -41,6 +42,15 @@ public class Invoice {
 
     public String getCustomerName() { return customerName; }
     public void setCustomerName(String customerName) { this.customerName = customerName; }
+
+    public Customer getCustomer() { return customer; }
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+        if (customer != null) {
+            this.customerId = customer.getId();
+            this.customerName = customer.getName();
+        }
+    }
 
     public Integer getSoId() { return soId; }
     public void setSoId(Integer soId) { this.soId = soId; }
@@ -101,7 +111,7 @@ public class Invoice {
     public List<InvoiceLine> getLines() { return lines; }
     public void setLines(List<InvoiceLine> lines) { this.lines = lines != null ? lines : new ArrayList<>(); }
 
-        @Override
+    @Override
     public String toString() {
         return (invoiceNumber != null ? invoiceNumber : "Draft Invoice") + 
                (customerName != null && !customerName.isEmpty() ? " - " + customerName : "");

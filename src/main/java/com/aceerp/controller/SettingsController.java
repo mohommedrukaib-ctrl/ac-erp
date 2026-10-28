@@ -116,9 +116,11 @@ public class SettingsController {
         if (txtInvoiceFooter != null) txtInvoiceFooter.setText(n(currentProfile.getInvoiceFooter()));
 
         if (cmbPrintTemplate != null) {
-            cmbPrintTemplate.setValue(
-                    currentProfile.getDefaultPrintTemplate() != null
-                            ? currentProfile.getDefaultPrintTemplate() : "CLASSIC");
+            String activeTheme = currentProfile.getDefaultPrintTemplate();
+            if (activeTheme == null || activeTheme.isBlank()) {
+                activeTheme = settingsService.getSetting("PRINT_THEME", "CLASSIC");
+            }
+            cmbPrintTemplate.setValue(activeTheme.toUpperCase());
         }
         if (lblLogoPath != null) {
             lblLogoPath.setText(pendingLogoPath != null && !pendingLogoPath.isBlank() ? pendingLogoPath : "No logo uploaded");
@@ -204,7 +206,7 @@ public class SettingsController {
             return;
         }
 
-        // 1. Save Company Profile
+        // 1. Save Company Profile & Theme
         if (currentProfile == null) {
             currentProfile = new CompanyProfile();
         }
@@ -222,8 +224,11 @@ public class SettingsController {
         if (txtTaxNumber != null) currentProfile.setTaxNumber(val(txtTaxNumber));
         if (txtInvoiceFooter != null) currentProfile.setInvoiceFooter(txtInvoiceFooter.getText());
         currentProfile.setLogoPath(pendingLogoPath);
+        
         if (cmbPrintTemplate != null && cmbPrintTemplate.getValue() != null) {
-            currentProfile.setDefaultPrintTemplate(cmbPrintTemplate.getValue());
+            String selectedTheme = cmbPrintTemplate.getValue();
+            currentProfile.setDefaultPrintTemplate(selectedTheme);
+            settingsService.setSetting("PRINT_THEME", selectedTheme);
         }
 
         boolean companySaved = companyService.saveProfile(currentProfile);

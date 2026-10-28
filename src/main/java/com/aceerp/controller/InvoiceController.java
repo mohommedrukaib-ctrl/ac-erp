@@ -14,11 +14,9 @@ import com.aceerp.util.TaxUtil;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
-import javafx.print.PrinterJob;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -32,6 +30,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
@@ -50,7 +49,9 @@ public class InvoiceController {
     @FXML private TableColumn<InvoiceLine, String> colProduct;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colQty;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colPrice;
+    @FXML private TableColumn<InvoiceLine, BigDecimal> colDiscount;
     @FXML private TableColumn<InvoiceLine, Boolean> colTaxable;
+    @FXML private TableColumn<InvoiceLine, String> colNotes;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colTotal;
     @FXML private Label totalLabel;
     @FXML private Label lblSubtotal;
@@ -121,7 +122,23 @@ public class InvoiceController {
         currentInvoice = inv;
         invoiceNumberField.setText(inv.getInvoiceNumber());
         invoiceDatePicker.setValue(inv.getInvoiceDate() != null ? inv.getInvoiceDate() : LocalDate.now());
-        statusCombo.setValue(inv.getStatus() != null ? inv.getStatus() : "DRAFT");
+
+        BigDecimal total = inv.getTotalAmount() != null ? inv.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal paid = inv.getPaidAmount() != null ? inv.getPaidAmount() : BigDecimal.ZERO;
+        
+        String calculatedStatus = inv.getStatus();
+        if (paid.compareTo(BigDecimal.ZERO) > 0) {
+            if (total.compareTo(BigDecimal.ZERO) > 0 && paid.compareTo(total) >= 0) {
+                calculatedStatus = "PAID";
+            } else if (!"CANCELLED".equalsIgnoreCase(calculatedStatus)) {
+                calculatedStatus = "PARTIALLY_PAID";
+            }
+        }
+        if (calculatedStatus == null || calculatedStatus.isBlank()) {
+            calculatedStatus = "DRAFT";
+        }
+        inv.setStatus(calculatedStatus);
+        statusCombo.setValue(calculatedStatus);
 
         if (inv.getCustomerId() > 0) {
             selectedCustomer = customerService.getById(inv.getCustomerId()).orElse(null);
@@ -179,7 +196,7 @@ public class InvoiceController {
     }
 
     @FXML
-    private void handleEdit() {
+    public void handleEdit() {
         if (currentInvoice == null || currentInvoice.getId() <= 0) {
             showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an Invoice from the list first.");
             return;
@@ -256,7 +273,7 @@ public class InvoiceController {
     }
 
     @FXML
-    private void handleQuickAddCustomer() {
+    public void handleQuickAddCustomer() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Invoice.");
             return;
@@ -310,10 +327,7 @@ public class InvoiceController {
         ));
         colProduct.setCellFactory(TextFieldTableCell.forTableColumn());
         colProduct.setOnEditCommit(e -> {
-            if (!editMode) {
-                linesTable.refresh();
-                return;
-            }
+            if (!editMode) { linesTable.refresh(); return; }
             e.getRowValue().setDescription(e.getNewValue());
             linesTable.refresh();
         });
@@ -334,16 +348,34 @@ public class InvoiceController {
             updateTotal();
         });
 
-        // Per-line Taxable Checkbox - Rate pulled from Settings via TaxUtil
+        if (colDiscount != null) {
+            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
+            colDiscount.setOnEditCommit(e -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                e.getRowValue().setDiscountPercent(e.getNewValue());
+                updateTotal();
+            });
+        }
+
+        if (colNotes != null) {
+            colNotes.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+                d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
+            ));
+            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            colNotes.setOnEditCommit(e -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                e.getRowValue().setNotes(e.getNewValue());
+                linesTable.refresh();
+            });
+        }
+
         if (colTaxable != null) {
             colTaxable.setCellValueFactory(cellData -> {
                 InvoiceLine line = cellData.getValue();
                 SimpleBooleanProperty prop = new SimpleBooleanProperty(line.isTaxable());
                 prop.addListener((obs, was, isNow) -> {
-                    if (!editMode) {
-                        linesTable.refresh();
-                        return;
-                    }
+                    if (!editMode) { linesTable.refresh(); return; }
                     line.setTaxable(isNow);
                     updateTotal();
                     linesTable.refresh();
@@ -358,8 +390,37 @@ public class InvoiceController {
         linesTable.setItems(lines);
     }
 
+    // ================= Reorder Lines ↑↓ =================
     @FXML
-    private void handleGlobalTaxToggle() {
+    public void handleMoveUp() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to adjust lines.");
+            return;
+        }
+        int index = linesTable.getSelectionModel().getSelectedIndex();
+        if (index > 0) {
+            InvoiceLine line = lines.remove(index);
+            lines.add(index - 1, line);
+            linesTable.getSelectionModel().select(index - 1);
+        }
+    }
+
+    @FXML
+    public void handleMoveDown() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to adjust lines.");
+            return;
+        }
+        int index = linesTable.getSelectionModel().getSelectedIndex();
+        if (index >= 0 && index < lines.size() - 1) {
+            InvoiceLine line = lines.remove(index);
+            lines.add(index + 1, line);
+            linesTable.getSelectionModel().select(index + 1);
+        }
+    }
+
+    @FXML
+    public void handleGlobalTaxToggle() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Invoice.");
             return;
@@ -373,7 +434,7 @@ public class InvoiceController {
     }
 
     @FXML
-    private void handleAddLine() {
+    public void handleAddLine() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Invoice.");
             return;
@@ -432,7 +493,7 @@ public class InvoiceController {
     }
 
     @FXML
-    private void handleAddEmptyLine() {
+    public void handleAddEmptyLine() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Invoice.");
             return;
@@ -452,7 +513,7 @@ public class InvoiceController {
     }
 
     @FXML
-    private void handleRemoveLine() {
+    public void handleRemoveLine() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Invoice.");
             return;
@@ -496,7 +557,7 @@ public class InvoiceController {
     }
 
     @FXML
-    private void handleSave() {
+    public void handleSave() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Invoice.");
             return;
@@ -511,20 +572,38 @@ public class InvoiceController {
         if (currentInvoice == null) {
             currentInvoice = new Invoice();
         }
+
         currentInvoice.setCustomerId(selectedCustomer.getId());
         currentInvoice.setCustomerName(selectedCustomer.getName());
         currentInvoice.setInvoiceDate(invoiceDatePicker.getValue());
-        currentInvoice.setStatus(statusCombo.getValue() != null ? statusCombo.getValue() : "DRAFT");
         currentInvoice.setLines(lines);
 
+        BigDecimal total = currentInvoice.getTotalAmount() != null ? currentInvoice.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal paid = currentInvoice.getPaidAmount() != null ? currentInvoice.getPaidAmount() : BigDecimal.ZERO;
+
+        String chosenStatus = statusCombo.getValue();
+        if (paid.compareTo(BigDecimal.ZERO) > 0) {
+            if (total.compareTo(BigDecimal.ZERO) > 0 && paid.compareTo(total) >= 0) {
+                chosenStatus = "PAID";
+            } else {
+                chosenStatus = "PARTIALLY_PAID";
+            }
+        } else if (chosenStatus == null || chosenStatus.isBlank()) {
+            chosenStatus = "DRAFT";
+        }
+
+        currentInvoice.setStatus(chosenStatus);
         invoiceService.saveInvoice(currentInvoice);
-        loadInvoices();
+
+        int savedId = currentInvoice.getId();
+        loadInvoicesAndSelect(savedId);
         setFormEditable(false);
+
         showAlert(Alert.AlertType.INFORMATION, "Success", "Invoice saved successfully!");
     }
 
     @FXML
-    private void handleDelete() {
+    public void handleDelete() {
         if (currentInvoice == null || currentInvoice.getId() <= 0) {
             showAlert(Alert.AlertType.WARNING, "Notice", "Please select an existing invoice to delete.");
             return;
@@ -568,7 +647,7 @@ public class InvoiceController {
     }
 
     @FXML
-    private void handleNewInvoice() {
+    public void handleNewInvoice() {
         currentInvoice = new Invoice();
         currentInvoice.setInvoiceNumber(invoiceService.generateNextInvoiceNumber());
         invoiceNumberField.setText(currentInvoice.getInvoiceNumber());
@@ -585,13 +664,28 @@ public class InvoiceController {
         updateTotal();
     }
 
-    private void loadInvoices() {
+    @FXML
+    public void loadInvoices() {
         allInvoices = invoiceService.listAll();
         invoiceListView.setItems(FXCollections.observableArrayList(allInvoices));
     }
 
+    private void loadInvoicesAndSelect(int targetId) {
+        allInvoices = invoiceService.listAll();
+        invoiceListView.setItems(FXCollections.observableArrayList(allInvoices));
+        if (targetId > 0) {
+            for (Invoice inv : allInvoices) {
+                if (inv.getId() == targetId) {
+                    invoiceListView.getSelectionModel().select(inv);
+                    loadInvoiceToForm(inv);
+                    return;
+                }
+            }
+        }
+    }
+
     @FXML
-    private void handlePrint() {
+    public void handlePrint() {
         if (currentInvoice == null || currentInvoice.getId() <= 0) {
             showAlert(Alert.AlertType.WARNING, "Print", "Please select a saved invoice to print.");
             return;
@@ -601,7 +695,7 @@ public class InvoiceController {
     }
 
     @FXML
-    private void handleReceivePayment() {
+    public void handleReceivePayment() {
         if (currentInvoice == null || currentInvoice.getId() <= 0) {
             showAlert(Alert.AlertType.WARNING, "No Invoice Selected", "Please select an invoice to record payment.");
             return;
@@ -634,13 +728,37 @@ public class InvoiceController {
                 try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
                     conn.setAutoCommit(false);
 
-                    String paySql = "INSERT INTO payments (payment_number, invoice_id, customer_id, payment_date, amount, notes) VALUES (?, ?, ?, CURRENT_DATE, ?, ?)";
+                    boolean hasPaymentType = columnExists(conn, "payments", "payment_type");
+                    boolean hasPaymentMethod = columnExists(conn, "payments", "payment_method");
+                    boolean hasCreatedBy = columnExists(conn, "payments", "created_by");
+
+                    StringBuilder cols = new StringBuilder("payment_number, invoice_id, customer_id, payment_date, amount, notes");
+                    StringBuilder vals = new StringBuilder("?, ?, ?, CURRENT_DATE, ?, ?");
+
+                    if (hasPaymentType) {
+                        cols.append(", payment_type");
+                        vals.append(", 'CASH'");
+                    }
+                    if (hasPaymentMethod) {
+                        cols.append(", payment_method");
+                        vals.append(", 'CASH'");
+                    }
+                    if (hasCreatedBy && com.aceerp.model.UserSession.getInstance().isLoggedIn()) {
+                        cols.append(", created_by");
+                        vals.append(", ?");
+                    }
+
+                    String paySql = "INSERT INTO payments (" + cols + ") VALUES (" + vals + ")";
                     try (PreparedStatement stmt = conn.prepareStatement(paySql)) {
-                        stmt.setString(1, "PAY-" + System.currentTimeMillis() / 1000);
-                        stmt.setInt(2, currentInvoice.getId());
-                        stmt.setInt(3, currentInvoice.getCustomerId());
-                        stmt.setBigDecimal(4, amountPaid);
-                        stmt.setString(5, "Payment for Invoice " + currentInvoice.getInvoiceNumber());
+                        int idx = 1;
+                        stmt.setString(idx++, "PAY-" + System.currentTimeMillis() / 1000);
+                        stmt.setInt(idx++, currentInvoice.getId());
+                        stmt.setInt(idx++, currentInvoice.getCustomerId());
+                        stmt.setBigDecimal(idx++, amountPaid);
+                        stmt.setString(idx++, "Payment for Invoice " + currentInvoice.getInvoiceNumber());
+                        if (hasCreatedBy && com.aceerp.model.UserSession.getInstance().isLoggedIn()) {
+                            stmt.setInt(idx++, com.aceerp.model.UserSession.getInstance().getCurrentUser().getId());
+                        }
                         stmt.executeUpdate();
                     }
 
@@ -653,8 +771,13 @@ public class InvoiceController {
                     }
 
                     conn.commit();
+
+                    currentInvoice.setPaidAmount(newTotalPaid);
+                    currentInvoice.setStatus(newStatus);
+                    int activeId = currentInvoice.getId();
+
                     showAlert(Alert.AlertType.INFORMATION, "Payment Recorded", "Successfully logged payment of " + CurrencyFormatter.format(amountPaid));
-                    loadInvoices();
+                    loadInvoicesAndSelect(activeId);
                 }
             } catch (NumberFormatException e) {
                 showAlert(Alert.AlertType.ERROR, "Invalid Input", "Please enter a valid numeric amount.");
@@ -662,6 +785,16 @@ public class InvoiceController {
                 showAlert(Alert.AlertType.ERROR, "Payment Error", e.getMessage());
             }
         });
+    }
+
+    private boolean columnExists(Connection conn, String table, String column) {
+        try (ResultSet rs = conn.getMetaData().getColumns(null, null, table, column)) {
+            if (rs.next()) return true;
+        } catch (SQLException ignored) {}
+        try (ResultSet rs = conn.getMetaData().getColumns(null, null, table.toLowerCase(), column.toLowerCase())) {
+            if (rs.next()) return true;
+        } catch (SQLException ignored) {}
+        return false;
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {
