@@ -46,6 +46,7 @@
                         <Button text="Delete" onAction="#handleDelete" styleClass="btn-danger"/>
                         <Region HBox.hgrow="ALWAYS"/>
                         <Button text="Convert to SO" onAction="#handleConvertToSO" styleClass="btn-secondary"/>
+                        <Button text="Convert to Invoice" onAction="#handleConvertToInvoice" />
                         <Button text="Print" onAction="#handlePrint" styleClass="btn-secondary"/>
                     </HBox>
 

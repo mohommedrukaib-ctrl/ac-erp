@@ -7,16 +7,15 @@ import com.aceerp.model.SalesOrder;
 import com.aceerp.model.SalesOrderLine;
 import com.aceerp.service.CustomerService;
 import com.aceerp.service.ProductService;
+import com.aceerp.service.ReportService;
 import com.aceerp.service.SalesOrderService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
-import javafx.print.PrinterJob;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
@@ -453,60 +452,15 @@ public class SalesOrderController {
 
     @FXML
     private void handlePrint() {
-        Dialog<Void> previewDialog = new Dialog<>();
-        previewDialog.setTitle("Print Preview");
-        previewDialog.setHeaderText("Preview Sales Order: " + soNumberField.getText());
-        ButtonType printBtnType = new ButtonType("Confirm Print", ButtonBar.ButtonData.OK_DONE);
-        previewDialog.getDialogPane().getButtonTypes().addAll(printBtnType, ButtonType.CANCEL);
-
-        VBox printDoc = new VBox(20);
-        printDoc.setPadding(new Insets(40));
-        printDoc.setStyle("-fx-background-color: white;");
-        printDoc.setPrefSize(595, 842);
-
-        Label header = new Label("SALES ORDER: " + soNumberField.getText());
-        header.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-        Label customerInfo = new Label("Customer: " + (selectedCustomer != null ? selectedCustomer.getName() : "N/A") +
-                                     "\nPhone: " + customerPhoneField.getText());
-        Label dateInfo = new Label("Date: " + (orderDatePicker.getValue() != null ? orderDatePicker.getValue().toString() : ""));
-
-        GridPane table = new GridPane();
-        table.setHgap(30); table.setVgap(10);
-        table.setStyle("-fx-border-color: #ddd; -fx-border-width: 1; -fx-padding: 10;");
-        table.add(new Label("Product"), 0, 0); table.add(new Label("Qty"), 1, 0); table.add(new Label("Price"), 2, 0); table.add(new Label("Total"), 3, 0);
-
-        int row = 1;
-        for (SalesOrderLine line : lines) {
-            table.add(new Label(line.getDescription()), 0, row);
-            table.add(new Label(String.valueOf(line.getQuantity())), 1, row);
-            table.add(new Label(CurrencyFormatter.format(line.getUnitPrice())), 2, row);
-            table.add(new Label(CurrencyFormatter.format(line.getTotalPrice())), 3, row);
-            row++;
+        if (currentSalesOrder == null || currentSalesOrder.getId() <= 0) {
+            showAlert("Print Error", "Please select a saved Sales Order to print.");
+            return;
         }
-
-        Label totalLabelView = new Label("Grand Total: " + totalLabel.getText().replace("Total: ", ""));
-        totalLabelView.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-
-        printDoc.getChildren().addAll(header, customerInfo, dateInfo, table, totalLabelView);
-
-        ScrollPane scroll = new ScrollPane(printDoc);
-        scroll.setFitToWidth(true);
-        scroll.setPrefHeight(500);
-        previewDialog.getDialogPane().setContent(scroll);
-
-        Button printButton = (Button) previewDialog.getDialogPane().lookupButton(printBtnType);
-        printButton.addEventFilter(ActionEvent.ACTION, event -> {
-            event.consume();
-            PrinterJob job = PrinterJob.createPrinterJob();
-            if (job != null && job.showPrintDialog(previewDialog.getOwner())) {
-                if (job.printPage(printDoc)) {
-                    job.endJob();
-                    previewDialog.close();
-                }
-            }
-        });
-
-        previewDialog.showAndWait();
+        try {
+            ReportService.printSalesOrder(currentSalesOrder.getId());
+        } catch (Exception e) {
+            showAlert("Print Error", "Failed to print Sales Order: " + e.getMessage());
+        }
     }
 
     private void showAlert(String title, String content) {

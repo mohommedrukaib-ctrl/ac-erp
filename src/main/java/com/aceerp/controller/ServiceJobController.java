@@ -3,6 +3,7 @@ package com.aceerp.controller;
 import com.aceerp.model.*;
 import com.aceerp.service.CustomerService;
 import com.aceerp.service.ProductService;
+import com.aceerp.service.ReportService;
 import com.aceerp.service.ServiceJobService;
 import com.aceerp.util.CurrencyFormatter;
 import javafx.beans.property.SimpleStringProperty;
@@ -353,6 +354,25 @@ public class ServiceJobController {
         } else {
             showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to save Service Job.");
         }
+    }
+
+    @FXML
+    private void handlePrintJobNote() {
+        if (currentJob == null || currentJob.getId() <= 0) {
+            showAlert(Alert.AlertType.WARNING, "Print Error", "Please save the Service Job first before printing.");
+            return;
+        }
+        try {
+            ReportService.printJobNote(currentJob.getId());
+        } catch (Exception e) {
+            logger.error("Failed to print job note for ID: {}", currentJob.getId(), e);
+            showAlert(Alert.AlertType.ERROR, "Print Error", "Failed to generate A5 Job Note: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handlePrint() {
+        handlePrintJobNote();
     }
 
     private void recalculateTotals() {

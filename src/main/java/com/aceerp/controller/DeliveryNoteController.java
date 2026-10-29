@@ -7,8 +7,8 @@ import com.aceerp.model.Product;
 import com.aceerp.service.CustomerService;
 import com.aceerp.service.DeliveryNoteService;
 import com.aceerp.service.ProductService;
+import com.aceerp.service.ReportService;
 import com.aceerp.util.AlertHelper;
-import com.aceerp.util.PrintUtils;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -394,7 +394,20 @@ public class DeliveryNoteController {
 
     @FXML
     private void handlePrintPreview() {
-        PrintUtils.showPrintPreviewDialog("Delivery Note - " + txtDnNumber.getText(), linesTable);
+        if (currentDN == null || currentDN.getId() == null || currentDN.getId() <= 0) {
+            showAlert(Alert.AlertType.WARNING, "Not Saved", "Please save or select a Delivery Note first before printing.");
+            return;
+        }
+        try {
+            ReportService.printDeliveryNote(currentDN.getId());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Print Error", "Failed to print Delivery Note: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handlePrint() {
+        handlePrintPreview();
     }
 
     private void showAlert(Alert.AlertType type, String title, String msg) {

@@ -96,6 +96,10 @@ public class ReportService {
         new ReportService().printDocument("sales_order", "ORDER_ID", orderId);
     }
 
+        public static void printSupplierBill(int billId) {
+        new ReportService().printDocument("supplier_bill", "BILL_ID", billId);
+    }
+
     public static void printDeliveryNote(int dnId) {
         new ReportService().printDocument("delivery_note", "DN_ID", dnId);
     }

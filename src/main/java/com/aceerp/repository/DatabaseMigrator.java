@@ -48,7 +48,14 @@ public class DatabaseMigrator {
         "V020__supplier_payments_and_purchase_returns.sql",
         "V021__accounting_schema.sql",
         "V022__service_management.sql",
-        "V023__company_profile.sql"
+        "V023__company_profile.sql",
+        "V024__audit_log_system.sql",
+        "V025__fix_schema_consistency.sql",
+        "V026__supplier_code_and_quote_date_fix.sql",
+        "V027__fix_report_and_service_job_columns.sql",
+        "V028__supplier_bills_column_fixes.sql",
+        "V029__fix_all_remaining_schema_mismatches.sql",
+        "V030__fix_status_grn_pr_dn_columns.sql"
         
     };
 

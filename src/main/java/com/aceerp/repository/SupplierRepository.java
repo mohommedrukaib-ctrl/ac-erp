@@ -43,6 +43,10 @@ public class SupplierRepository {
     }
 
     public int insert(Supplier s, Integer createdBy) throws SQLException {
+        if (s.getSupplierCode() == null || s.getSupplierCode().trim().isEmpty()) {
+            s.setSupplierCode(generateNextCode());
+        }
+
         String sql = "INSERT INTO suppliers (supplier_code, name, contact_person, phone, email, " +
                 "address, city, tax_number, notes, balance, is_active, created_by) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";

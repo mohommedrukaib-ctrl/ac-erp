@@ -2,6 +2,7 @@ package com.aceerp.util;
 
 import com.aceerp.config.DatabaseConfig;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
@@ -13,7 +14,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 public final class GlobalQuickAdd {
 
@@ -128,6 +128,9 @@ public final class GlobalQuickAdd {
         GridPane grid = formGrid();
         TextField code = new TextField();
         TextField name = new TextField();
+        ComboBox<String> typeBox = new ComboBox<>(FXCollections.observableArrayList(
+                "AC_UNIT", "SPARE_PART", "SERVICE"));
+        typeBox.setValue("SPARE_PART");
         TextField sell = new TextField("0.00");
         TextField cost = new TextField("0.00");
         code.setPromptText("Required");
@@ -135,8 +138,9 @@ public final class GlobalQuickAdd {
 
         grid.add(new Label("Code *"), 0, 0);         grid.add(code, 1, 0);
         grid.add(new Label("Name *"), 0, 1);         grid.add(name, 1, 1);
-        grid.add(new Label("Selling Price"), 0, 2);  grid.add(sell, 1, 2);
-        grid.add(new Label("Cost Price"), 0, 3);     grid.add(cost, 1, 3);
+        grid.add(new Label("Type *"), 0, 2);         grid.add(typeBox, 1, 2);
+        grid.add(new Label("Selling Price"), 0, 3);  grid.add(sell, 1, 3);
+        grid.add(new Label("Cost Price"), 0, 4);     grid.add(cost, 1, 4);
 
         dialog.getDialogPane().setContent(grid);
         Platform.runLater(code::requestFocus);
@@ -151,7 +155,8 @@ public final class GlobalQuickAdd {
             try {
                 BigDecimal sp = parseMoney(sell.getText());
                 BigDecimal cp = parseMoney(cost.getText());
-                insertProduct(code.getText().trim(), name.getText().trim(), sp, cp);
+                String pType = typeBox.getValue() != null ? typeBox.getValue() : "SPARE_PART";
+                insertProduct(code.getText().trim(), name.getText().trim(), pType, sp, cp);
                 return true;
             } catch (Exception e) {
                 log.error("Quick-add product failed", e);
@@ -172,20 +177,37 @@ public final class GlobalQuickAdd {
 
     private static void insertCustomer(String name, String phone, String email) throws SQLException {
         try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+            boolean hasCode = columnExists(conn, "customers", "customer_code");
             boolean hasStatus = columnExists(conn, "customers", "status");
             boolean hasActive = columnExists(conn, "customers", "is_active");
-            String sql;
-            if (hasStatus) {
-                sql = "INSERT INTO customers (name, phone, email, status) VALUES (?, ?, ?, 'ACTIVE')";
-            } else if (hasActive) {
-                sql = "INSERT INTO customers (name, phone, email, is_active) VALUES (?, ?, ?, true)";
-            } else {
-                sql = "INSERT INTO customers (name, phone, email) VALUES (?, ?, ?)";
+
+            StringBuilder cols = new StringBuilder();
+            StringBuilder vals = new StringBuilder();
+
+            if (hasCode) {
+                cols.append("customer_code, ");
+                vals.append("?, ");
             }
+            cols.append("name, phone, email");
+            vals.append("?, ?, ?");
+
+            if (hasStatus) {
+                cols.append(", status");
+                vals.append(", 'ACTIVE'");
+            } else if (hasActive) {
+                cols.append(", is_active");
+                vals.append(", true");
+            }
+
+            String sql = "INSERT INTO customers (" + cols + ") VALUES (" + vals + ")";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, name);
-                ps.setString(2, phone);
-                ps.setString(3, email);
+                int i = 1;
+                if (hasCode) {
+                    ps.setString(i++, nextCode(conn, "customers", "customer_code", "CUS-"));
+                }
+                ps.setString(i++, name);
+                ps.setString(i++, phone);
+                ps.setString(i, email);
                 ps.executeUpdate();
             }
         }
@@ -193,26 +215,44 @@ public final class GlobalQuickAdd {
 
     private static void insertSupplier(String name, String phone, String email) throws SQLException {
         try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+            boolean hasCode = columnExists(conn, "suppliers", "supplier_code");
             boolean hasStatus = columnExists(conn, "suppliers", "status");
             boolean hasActive = columnExists(conn, "suppliers", "is_active");
-            String sql;
-            if (hasStatus) {
-                sql = "INSERT INTO suppliers (name, phone, email, status) VALUES (?, ?, ?, 'ACTIVE')";
-            } else if (hasActive) {
-                sql = "INSERT INTO suppliers (name, phone, email, is_active) VALUES (?, ?, ?, true)";
-            } else {
-                sql = "INSERT INTO suppliers (name, phone, email) VALUES (?, ?, ?)";
+
+            StringBuilder cols = new StringBuilder();
+            StringBuilder vals = new StringBuilder();
+
+            if (hasCode) {
+                cols.append("supplier_code, ");
+                vals.append("?, ");
             }
+            cols.append("name, phone, email");
+            vals.append("?, ?, ?");
+
+            if (hasStatus) {
+                cols.append(", status");
+                vals.append(", 'ACTIVE'");
+            } else if (hasActive) {
+                cols.append(", is_active");
+                vals.append(", true");
+            }
+
+            String sql = "INSERT INTO suppliers (" + cols + ") VALUES (" + vals + ")";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, name);
-                ps.setString(2, phone);
-                ps.setString(3, email);
+                int i = 1;
+                if (hasCode) {
+                    ps.setString(i++, nextCode(conn, "suppliers", "supplier_code", "SUP-"));
+                }
+                ps.setString(i++, name);
+                ps.setString(i++, phone);
+                ps.setString(i, email);
                 ps.executeUpdate();
             }
         }
     }
 
-    private static void insertProduct(String code, String name, BigDecimal sell, BigDecimal cost) throws SQLException {
+    private static void insertProduct(String code, String name, String productType,
+                                      BigDecimal sell, BigDecimal cost) throws SQLException {
         try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
             boolean hasProductCode = columnExists(conn, "products", "product_code");
             boolean hasSku = columnExists(conn, "products", "sku");
@@ -221,12 +261,23 @@ public final class GlobalQuickAdd {
             boolean hasCost = columnExists(conn, "products", "cost_price");
             boolean hasIsActive = columnExists(conn, "products", "is_active");
             boolean hasActive = columnExists(conn, "products", "active");
+            boolean hasProductType = columnExists(conn, "products", "product_type");
+            boolean hasUnit = columnExists(conn, "products", "unit");
 
             String codeCol = hasProductCode ? "product_code" : (hasSku ? "sku" : "code");
             String priceCol = hasSelling ? "selling_price" : (hasUnitPrice ? "unit_price" : "price");
 
             StringBuilder cols = new StringBuilder(codeCol + ", name, " + priceCol);
             StringBuilder vals = new StringBuilder("?, ?, ?");
+
+            if (hasProductType) {
+                cols.append(", product_type");
+                vals.append(", ?");
+            }
+            if (hasUnit) {
+                cols.append(", unit");
+                vals.append(", 'PCS'");
+            }
             if (hasCost) {
                 cols.append(", cost_price");
                 vals.append(", ?");
@@ -245,10 +296,42 @@ public final class GlobalQuickAdd {
                 ps.setString(i++, code);
                 ps.setString(i++, name);
                 ps.setBigDecimal(i++, sell);
-                if (hasCost) ps.setBigDecimal(i, cost);
+                if (hasProductType) {
+                    String pt = (productType == null || productType.isBlank()) ? "SPARE_PART" : productType.trim();
+                    // Enforce chk_product_type values
+                    if (!pt.equals("AC_UNIT") && !pt.equals("SPARE_PART") && !pt.equals("SERVICE")) {
+                        pt = "SPARE_PART";
+                    }
+                    ps.setString(i++, pt);
+                }
+                if (hasCost) {
+                    ps.setBigDecimal(i, cost);
+                }
                 ps.executeUpdate();
             }
         }
+    }
+
+    private static String nextCode(Connection conn, String table, String col, String prefix) {
+        String sql = "SELECT " + col + " FROM " + table + " WHERE " + col + " LIKE ? ORDER BY id DESC LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, prefix + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String last = rs.getString(1);
+                    if (last != null && last.startsWith(prefix)) {
+                        String numPart = last.substring(prefix.length()).replaceAll("[^0-9]", "");
+                        if (!numPart.isEmpty()) {
+                            int n = Integer.parseInt(numPart) + 1;
+                            return String.format("%s%05d", prefix, n);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Code sequence fallback for {}.{}", table, col, e);
+        }
+        return String.format("%s%05d", prefix, (int) (System.currentTimeMillis() % 100000));
     }
 
     private static boolean columnExists(Connection conn, String table, String column) {

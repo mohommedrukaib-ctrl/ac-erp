@@ -78,7 +78,7 @@ public class QuotationController {
         setupTable();
         setupListView();
         
-        statusCombo.setItems(FXCollections.observableArrayList("DRAFT", "SENT", "ACCEPTED", "EXPIRED"));
+        statusCombo.setItems(FXCollections.observableArrayList("DRAFT", "SENT", "ACCEPTED", "EXPIRED", "INVOICED"));
         
         if (globalTaxCheck != null) {
             globalTaxCheck.setSelected(TaxUtil.isTaxEnabled());
@@ -202,7 +202,6 @@ public class QuotationController {
         
         lines.setAll(q.getLines());
         
-        // Sync global tax checkbox state based on majority
         if (globalTaxCheck != null && !lines.isEmpty()) {
             boolean allTaxable = lines.stream().allMatch(QuotationLine::isTaxable);
             globalTaxCheck.setSelected(allTaxable);
@@ -218,7 +217,7 @@ public class QuotationController {
             showAlert(Alert.AlertType.WARNING, "Edit", "Please select a saved quotation from the list first.");
             return;
         }
-        if ("ACCEPTED".equalsIgnoreCase(currentQuotation.getStatus())) {
+        if ("ACCEPTED".equalsIgnoreCase(currentQuotation.getStatus()) || "INVOICED".equalsIgnoreCase(currentQuotation.getStatus())) {
             showAlert(Alert.AlertType.WARNING, "Locked", "Converted/Accepted quotations cannot be modified.");
             return;
         }
@@ -292,7 +291,6 @@ public class QuotationController {
         colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colPrice.setOnEditCommit(e -> { e.getRowValue().setUnitPrice(e.getNewValue()); updateTotal(); });
 
-        // Per-line Taxable Checkbox Column - Rate pulled from Settings via TaxUtil
         if (colTaxable != null) {
             colTaxable.setCellValueFactory(cellData -> {
                 QuotationLine line = cellData.getValue();
@@ -539,64 +537,22 @@ public class QuotationController {
         quotationListView.setItems(allQuotations);
     }
 
-    @FXML
+        @FXML
     private void handlePrint() {
-        Dialog<Void> previewDialog = new Dialog<>();
-        previewDialog.setTitle("Print Preview");
-        previewDialog.setHeaderText("Preview Quotation: " + quoteNumberField.getText());
-        ButtonType printBtnType = new ButtonType("Confirm Print", ButtonBar.ButtonData.OK_DONE);
-        previewDialog.getDialogPane().getButtonTypes().addAll(printBtnType, ButtonType.CANCEL);
-
-        VBox printDoc = new VBox(20);
-        printDoc.setPadding(new Insets(40));
-        printDoc.setStyle("-fx-background-color: white;");
-        printDoc.setPrefSize(595, 842);
-
-        Label header = new Label("QUOTATION: " + quoteNumberField.getText());
-        header.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-        Label customerInfo = new Label("Customer: " + (selectedCustomer != null ? selectedCustomer.getName() : "N/A") + 
-                                     "\nPhone: " + customerPhoneField.getText());
-        Label dateInfo = new Label("Date: " + (quoteDatePicker.getValue() != null ? quoteDatePicker.getValue().toString() : ""));
-
-        GridPane table = new GridPane();
-        table.setHgap(30); table.setVgap(10);
-        table.setStyle("-fx-border-color: #ddd; -fx-border-width: 1; -fx-padding: 10;");
-        table.add(new Label("Product"), 0, 0); table.add(new Label("Qty"), 1, 0); table.add(new Label("Price"), 2, 0); table.add(new Label("Total"), 3, 0);
-        
-        int row = 1;
-        for (QuotationLine line : lines) {
-            table.add(new Label(line.getDescription()), 0, row);
-            table.add(new Label(String.valueOf(line.getQuantity())), 1, row);
-            table.add(new Label(CurrencyFormatter.format(line.getUnitPrice())), 2, row);
-            table.add(new Label(CurrencyFormatter.format(line.getTotalPrice())), 3, row);
-            row++;
+        if (currentQuotation == null || currentQuotation.getId() <= 0) {
+            showAlert(Alert.AlertType.WARNING, "Not Saved", "Please save the quotation first before printing.");
+            return;
         }
-
-        Label totalLabelView = new Label("Grand Total: " + (totalLabel != null ? totalLabel.getText().replace("Total: ", "") : "0.00"));
-        totalLabelView.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-
-        printDoc.getChildren().addAll(header, customerInfo, dateInfo, table, totalLabelView);
-
-        ScrollPane scroll = new ScrollPane(printDoc);
-        scroll.setFitToWidth(true);
-        scroll.setPrefHeight(500);
-        previewDialog.getDialogPane().setContent(scroll);
-
-        Button printButton = (Button) previewDialog.getDialogPane().lookupButton(printBtnType);
-        printButton.addEventFilter(ActionEvent.ACTION, event -> {
-            event.consume(); 
-            PrinterJob job = PrinterJob.createPrinterJob();
-            if (job != null && job.showPrintDialog(previewDialog.getOwner())) {
-                if (job.printPage(printDoc)) {
-                    job.endJob();
-                    previewDialog.close();
-                }
-            }
-        });
-
-        previewDialog.showAndWait();
+        try {
+            // This calls the JasperReports engine we built in Option A
+            com.aceerp.service.ReportService.printQuotation(currentQuotation.getId());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Print Error", "Failed to generate quotation report: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
+    
     @FXML
     private void handleConvertToSO() {
         if (currentQuotation == null || currentQuotation.getId() <= 0) {
@@ -610,28 +566,44 @@ public class QuotationController {
         confirm.setContentText("This will convert the quote into an active Sales Order.");
 
         confirm.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
-                try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
-                    String nextSoNum = "SO-" + (System.currentTimeMillis() / 1000);
-                    
-                    String insertSo = "INSERT INTO sales_orders (order_number, quotation_id, customer_id, order_date, status, subtotal, tax_amount, total_amount, notes) " +
-                                      "VALUES (?, ?, ?, CURRENT_DATE, 'APPROVED', ?, ?, ?, ?) RETURNING id";
-                    
-                    int newSoId = 0;
+            if (response != ButtonType.OK) return;
+
+            try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+                conn.setAutoCommit(false);
+                try {
+                    String nextSoNum = generateNextSoNumber(conn);
+
+                    boolean hasOrderNumber = columnExists(conn, "sales_orders", "order_number");
+                    String insertSo = hasOrderNumber
+                            ? "INSERT INTO sales_orders (so_number, order_number, quotation_id, customer_id, order_date, status, subtotal, tax_amount, total_amount, notes) VALUES (?, ?, ?, ?, CURRENT_DATE, 'APPROVED', ?, ?, ?, ?) RETURNING id"
+                            : "INSERT INTO sales_orders (so_number, quotation_id, customer_id, order_date, status, subtotal, tax_amount, total_amount, notes) VALUES (?, ?, ?, CURRENT_DATE, 'APPROVED', ?, ?, ?, ?) RETURNING id";
+
+                    int newSoId;
                     try (PreparedStatement stmt = conn.prepareStatement(insertSo)) {
-                        stmt.setString(1, nextSoNum);
-                        stmt.setInt(2, currentQuotation.getId());
-                        stmt.setInt(3, currentQuotation.getCustomerId());
-                        stmt.setBigDecimal(4, currentQuotation.getSubtotal() != null ? currentQuotation.getSubtotal() : BigDecimal.ZERO);
-                        stmt.setBigDecimal(5, currentQuotation.getTaxAmount() != null ? currentQuotation.getTaxAmount() : BigDecimal.ZERO);
-                        stmt.setBigDecimal(6, currentQuotation.getTotalAmount() != null ? currentQuotation.getTotalAmount() : BigDecimal.ZERO);
-                        stmt.setString(7, "Converted from Quote " + currentQuotation.getQuoteNumber());
-                        ResultSet rs = stmt.executeQuery();
-                        if (rs.next()) newSoId = rs.getInt(1);
+                        int i = 1;
+                        stmt.setString(i++, nextSoNum);
+                        if (hasOrderNumber) stmt.setString(i++, nextSoNum); // order_number alias
+                        stmt.setInt(i++, currentQuotation.getId());
+                        stmt.setInt(i++, currentQuotation.getCustomerId());
+                        stmt.setBigDecimal(i++, nz(currentQuotation.getSubtotal()));
+                        stmt.setBigDecimal(i++, nz(currentQuotation.getTaxAmount()));
+                        stmt.setBigDecimal(i++, nz(currentQuotation.getTotalAmount()));
+                        stmt.setString(i, "Converted from Quote " + currentQuotation.getQuoteNumber());
+                        try (ResultSet rs = stmt.executeQuery()) {
+                            if (!rs.next()) throw new SQLException("Sales order insert returned no id");
+                            newSoId = rs.getInt(1);
+                        }
                     }
 
-                    String copyLines = "INSERT INTO sales_order_lines (so_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, line_total) " +
-                                       "SELECT ?, product_id, description, quantity, unit_price, tax_rate, tax_amount, total_price FROM quotation_lines WHERE quotation_id = ?";
+                    // Copy lines to both total columns to be fully compatible
+                    String copyLines =
+                            "INSERT INTO sales_order_lines (" +
+                            "so_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, line_total, total_price" +
+                            ") SELECT ?, product_id, description, quantity, unit_price, " +
+                            "COALESCE(tax_rate, 0), COALESCE(tax_amount, 0), " +
+                            "COALESCE(line_total, total_price, quantity * unit_price, 0), " +
+                            "COALESCE(total_price, line_total, quantity * unit_price, 0) " +
+                            "FROM quotation_lines WHERE quotation_id = ?";
                     try (PreparedStatement stmt = conn.prepareStatement(copyLines)) {
                         stmt.setInt(1, newSoId);
                         stmt.setInt(2, currentQuotation.getId());
@@ -643,14 +615,152 @@ public class QuotationController {
                         stmt.executeUpdate();
                     }
 
+                    conn.commit();
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Sales Order " + nextSoNum + " created successfully!");
                     loadQuotations();
                     setFormEditable(false);
-                } catch (Exception e) {
-                    showAlert(Alert.AlertType.ERROR, "Conversion Error", e.getMessage());
+                } catch (Exception ex) {
+                    conn.rollback();
+                    throw ex;
                 }
+            } catch (Exception e) {
+                showAlert(Alert.AlertType.ERROR, "Conversion Error", e.getMessage());
             }
         });
+    }
+
+    // ADDED FEATURE: Direct conversion from Quotation to Invoice
+    @FXML
+    private void handleConvertToInvoice() {
+        if (currentQuotation == null || currentQuotation.getId() <= 0) {
+            showAlert(Alert.AlertType.WARNING, "No Quotation Selected", "Please select a saved quotation first.");
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Convert to Invoice");
+        confirm.setHeaderText("Create Sales Invoice from Quotation " + currentQuotation.getQuoteNumber() + "?");
+        confirm.setContentText("This will create an active Sales Invoice.");
+
+        confirm.showAndWait().ifPresent(response -> {
+            if (response != ButtonType.OK) return;
+
+            try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+                conn.setAutoCommit(false);
+                try {
+                    String nextInvNum = generateNextInvoiceNumber(conn);
+
+                    String insertInv = 
+                            "INSERT INTO invoices (invoice_number, quotation_id, customer_id, invoice_date, status, subtotal, tax_amount, total_amount, paid_amount, notes) " +
+                            "VALUES (?, ?, ?, CURRENT_DATE, 'DRAFT', ?, ?, ?, 0, ?) RETURNING id";
+
+                    int newInvId;
+                    try (PreparedStatement stmt = conn.prepareStatement(insertInv)) {
+                        stmt.setString(1, nextInvNum);
+                        stmt.setInt(2, currentQuotation.getId());
+                        stmt.setInt(3, currentQuotation.getCustomerId());
+                        stmt.setBigDecimal(4, nz(currentQuotation.getSubtotal()));
+                        stmt.setBigDecimal(5, nz(currentQuotation.getTaxAmount()));
+                        stmt.setBigDecimal(6, nz(currentQuotation.getTotalAmount()));
+                        stmt.setString(7, "Billed from Quote " + currentQuotation.getQuoteNumber());
+                        try (ResultSet rs = stmt.executeQuery()) {
+                            if (!rs.next()) throw new SQLException("Invoice insert returned no id");
+                            newInvId = rs.getInt(1);
+                        }
+                    }
+
+                    boolean hasTotalPrice = columnExists(conn, "invoice_lines", "total_price");
+                    boolean hasLineTotal = columnExists(conn, "invoice_lines", "line_total");
+                    
+                    String cols = "invoice_id, product_id, description, quantity, unit_price, tax_rate, tax_amount";
+                    String vals = "?, product_id, description, quantity, unit_price, COALESCE(tax_rate, 0), COALESCE(tax_amount, 0)";
+                    
+                    if (hasLineTotal && hasTotalPrice) {
+                        cols += ", line_total, total_price";
+                        vals += ", COALESCE(line_total, total_price, quantity * unit_price, 0), COALESCE(total_price, line_total, quantity * unit_price, 0)";
+                    } else if (hasTotalPrice) {
+                        cols += ", total_price";
+                        vals += ", COALESCE(total_price, line_total, quantity * unit_price, 0)";
+                    } else {
+                        cols += ", line_total";
+                        vals += ", COALESCE(line_total, total_price, quantity * unit_price, 0)";
+                    }
+
+                    String copyLines = "INSERT INTO invoice_lines (" + cols + ") SELECT " + vals + " FROM quotation_lines WHERE quotation_id = ?";
+                    try (PreparedStatement stmt = conn.prepareStatement(copyLines)) {
+                        stmt.setInt(1, newInvId);
+                        stmt.setInt(2, currentQuotation.getId());
+                        stmt.executeUpdate();
+                    }
+
+                    try (PreparedStatement stmt = conn.prepareStatement("UPDATE quotations SET status = 'INVOICED' WHERE id = ?")) {
+                        stmt.setInt(1, currentQuotation.getId());
+                        stmt.executeUpdate();
+                    }
+
+                    conn.commit();
+                    showAlert(Alert.AlertType.INFORMATION, "Success", "Invoice " + nextInvNum + " created successfully!");
+                    loadQuotations();
+                    setFormEditable(false);
+                } catch (Exception ex) {
+                    conn.rollback();
+                    throw ex;
+                }
+            } catch (Exception e) {
+                showAlert(Alert.AlertType.ERROR, "Conversion Error", e.getMessage());
+            }
+        });
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
+    }
+
+    private String generateNextSoNumber(Connection conn) {
+        String sql = "SELECT COALESCE(so_number, order_number) AS num FROM sales_orders WHERE COALESCE(so_number, order_number) IS NOT NULL ORDER BY id DESC LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                String last = rs.getString(1);
+                if (last != null && last.toUpperCase().startsWith("SO-")) {
+                    String digits = last.substring(3).replaceAll("[^0-9]", "");
+                    if (!digits.isEmpty()) return String.format("SO-%05d", Integer.parseInt(digits) + 1);
+                }
+            }
+        } catch (SQLException e) {
+            try (PreparedStatement ps = conn.prepareStatement("SELECT so_number FROM sales_orders ORDER BY id DESC LIMIT 1"); ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String last = rs.getString(1);
+                    if (last != null && last.toUpperCase().startsWith("SO-")) {
+                        String digits = last.substring(3).replaceAll("[^0-9]", "");
+                        if (!digits.isEmpty()) return String.format("SO-%05d", Integer.parseInt(digits) + 1);
+                    }
+                }
+            } catch (SQLException ignored) {}
+        }
+        return "SO-00001";
+    }
+
+    private String generateNextInvoiceNumber(Connection conn) {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT invoice_number FROM invoices ORDER BY id DESC LIMIT 1"); ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                String last = rs.getString(1);
+                if (last != null && last.toUpperCase().startsWith("INV-")) {
+                    String digits = last.substring(4).replaceAll("[^0-9]", "");
+                    if (!digits.isEmpty()) return String.format("INV-%05d", Integer.parseInt(digits) + 1);
+                }
+            }
+        } catch (SQLException ignored) {}
+        return "INV-00001";
+    }
+
+    private boolean columnExists(Connection conn, String table, String column) {
+        try (ResultSet rs = conn.getMetaData().getColumns(null, null, table, column)) {
+            if (rs.next()) return true;
+        } catch (SQLException ignored) {}
+        try (ResultSet rs = conn.getMetaData().getColumns(null, null, table.toLowerCase(), column.toLowerCase())) {
+            if (rs.next()) return true;
+        } catch (SQLException ignored) {}
+        return false;
     }
 
     private void showAlert(String title, String content) {

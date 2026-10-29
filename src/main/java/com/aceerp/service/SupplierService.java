@@ -21,11 +21,21 @@ public class SupplierService {
     public void addSupplier(String name, String contactPerson, String phone, String email,
                             String address, String city, String taxNumber, String notes)
             throws SQLException {
+        addSupplier(null, name, contactPerson, phone, email, address, city, taxNumber, notes);
+    }
+
+    public void addSupplier(String supplierCode, String name, String contactPerson, String phone,
+                            String email, String address, String city, String taxNumber, String notes)
+            throws SQLException {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Supplier name is required.");
         }
         Supplier s = new Supplier();
-        s.setSupplierCode(repo.generateNextCode());
+        if (supplierCode != null && !supplierCode.trim().isEmpty()) {
+            s.setSupplierCode(supplierCode.trim());
+        } else {
+            s.setSupplierCode(repo.generateNextCode());
+        }
         s.setName(name.trim());
         s.setContactPerson(contactPerson != null ? contactPerson.trim() : null);
         s.setPhone(phone != null ? phone.trim() : null);
@@ -60,4 +70,4 @@ public class SupplierService {
         } catch (Exception e) { /* ignore */ }
         return null;
     }
-}   
+}

@@ -6,10 +6,10 @@ import com.aceerp.model.PurchaseOrderLine;
 import com.aceerp.model.Supplier;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.PurchaseOrderService;
+import com.aceerp.service.ReportService;
 import com.aceerp.service.SettingsService;
 import com.aceerp.service.SupplierService;
 import com.aceerp.util.CurrencyFormatter;
-import com.aceerp.util.PrintUtils;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -20,7 +20,6 @@ import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.VBox;
 import javafx.stage.Popup;
 import javafx.util.converter.BigDecimalStringConverter;
 
@@ -125,6 +124,20 @@ public class PurchaseOrderController {
         supplierPopup.setAutoHide(true);
         supplierListView = new ListView<>();
         supplierListView.setPrefHeight(150);
+        
+        supplierListView.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Supplier s, boolean empty) {
+                super.updateItem(s, empty);
+                if (empty || s == null) {
+                    setText(null);
+                } else {
+                    String code = s.getSupplierCode() != null ? s.getSupplierCode() + " | " : "";
+                    setText(code + (s.getName() != null ? s.getName() : ("#" + s.getId())));
+                }
+            }
+        });
+        
         supplierPopup.getContent().add(supplierListView);
 
         supplierSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -134,7 +147,6 @@ public class PurchaseOrderController {
                 return;
             }
             String query = newVal.toLowerCase().trim();
-            // Using correct listAll() method
             List<Supplier> results = supplierService.listAll().stream()
                 .filter(s -> s.getName() != null && s.getName().toLowerCase().contains(query))
                 .collect(Collectors.toList());
@@ -176,10 +188,8 @@ public class PurchaseOrderController {
         colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colPrice.setOnEditCommit(e -> { e.getRowValue().setUnitPrice(e.getNewValue()); updateTotals(); });
 
-        // Add the CheckBox Column setup
         colTaxable.setCellValueFactory(cellData -> cellData.getValue().taxableProperty());
         colTaxable.setCellFactory(CheckBoxTableCell.forTableColumn(colTaxable));
-        // Add listener to redraw totals when checkbox clicked
         linesTable.getItems().addListener((javafx.collections.ListChangeListener.Change<? extends PurchaseOrderLine> c) -> updateTotals());
 
         colTaxRate.setCellValueFactory(new PropertyValueFactory<>("taxRate"));
@@ -195,7 +205,7 @@ public class PurchaseOrderController {
     @FXML
     private void handleGlobalTaxToggle() {
         if (!editMode) {
-            globalTaxCheck.setSelected(!globalTaxCheck.isSelected()); // Revert visual toggle
+            globalTaxCheck.setSelected(!globalTaxCheck.isSelected()); 
             showAlert("Locked", "Click Edit first.");
             return;
         }
@@ -230,7 +240,6 @@ public class PurchaseOrderController {
         selectedSupplier = po.getSupplier();
         supplierSearchField.setText(po.getSupplierName() != null ? po.getSupplierName() : "");
         
-        // Auto check global based on lines
         boolean allTaxed = po.getLines().stream().allMatch(PurchaseOrderLine::isTaxable);
         globalTaxCheck.setSelected(allTaxed);
 
@@ -294,7 +303,6 @@ public class PurchaseOrderController {
             line.setQuantity(BigDecimal.ONE);
             line.setUnitPrice(p.getCostPrice() != null ? p.getCostPrice() : BigDecimal.ZERO);
             
-            // Respect Global Checkbox state
             boolean applyTax = globalTaxCheck.isSelected();
             line.setTaxable(applyTax);
             line.setTaxRate(applyTax ? defaultTaxRate : BigDecimal.ZERO);
@@ -338,7 +346,6 @@ public class PurchaseOrderController {
         BigDecimal total = BigDecimal.ZERO;
 
         for (PurchaseOrderLine line : lines) {
-            // Force recalculate in case checkbox changed directly in table
             line.recalculateTotal();
             subtotal = subtotal.add(line.getQuantity().multiply(line.getUnitPrice()));
             tax = tax.add(line.getTaxAmount());
@@ -402,8 +409,16 @@ public class PurchaseOrderController {
 
     @FXML
     private void handlePrint() {
-        if (currentPO == null || currentPO.getId() <= 0) return;
-        PrintUtils.showPrintPreviewDialog("Purchase Order: " + currentPO.getPoNumber(), linesTable);
+        if (currentPO == null || currentPO.getId() <= 0) {
+            showAlert(Alert.AlertType.WARNING, "Not Saved", "Please save the purchase order first before printing.");
+            return;
+        }
+        try {
+            ReportService.printPurchaseOrder(currentPO.getId());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Print Error", "Failed to generate purchase order report: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     @FXML
@@ -424,7 +439,6 @@ public class PurchaseOrderController {
         dialog.setResultConverter(btn -> {
             if (btn != saveBtn || nameField.getText().trim().isEmpty()) return null;
             try {
-                // Correct signature for your SupplierService
                 supplierService.addSupplier(nameField.getText().trim(), null, null, null, null, null, null, null);
                 return supplierService.listAll().stream()
                         .filter(s -> s.getName().equalsIgnoreCase(nameField.getText().trim()))
@@ -446,7 +460,11 @@ public class PurchaseOrderController {
     }
 
     private void showAlert(String title, String content) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        showAlert(Alert.AlertType.INFORMATION, title, content);
+    }
+
+    private void showAlert(Alert.AlertType type, String title, String content) {
+        Alert alert = new Alert(type);
         alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(content);

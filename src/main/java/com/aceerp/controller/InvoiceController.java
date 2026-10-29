@@ -8,6 +8,7 @@ import com.aceerp.model.Product;
 import com.aceerp.service.CustomerService;
 import com.aceerp.service.InvoiceService;
 import com.aceerp.service.ProductService;
+import com.aceerp.service.ReportService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
 import com.aceerp.util.TaxUtil;
@@ -390,7 +391,6 @@ public class InvoiceController {
         linesTable.setItems(lines);
     }
 
-    // ================= Reorder Lines ↑↓ =================
     @FXML
     public void handleMoveUp() {
         if (!editMode) {
@@ -687,11 +687,14 @@ public class InvoiceController {
     @FXML
     public void handlePrint() {
         if (currentInvoice == null || currentInvoice.getId() <= 0) {
-            showAlert(Alert.AlertType.WARNING, "Print", "Please select a saved invoice to print.");
+            showAlert(Alert.AlertType.WARNING, "Print Error", "Please select a saved invoice to print.");
             return;
         }
-        
-        com.aceerp.service.ReportService.printInvoice(currentInvoice.getId());
+        try {
+            ReportService.printInvoice(currentInvoice.getId());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Print Error", "Failed to generate Invoice report: " + e.getMessage());
+        }
     }
 
     @FXML
