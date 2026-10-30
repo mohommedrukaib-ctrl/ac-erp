@@ -6,12 +6,6 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.geometry.Insets?>
 
-<!--
-    Dashboard View
-    
-    Shows summary cards with key business metrics.
-    Each card is an HBox styled as a "card" with an icon, count, and label.
--->
 <VBox xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.aceerp.controller.DashboardController"
       spacing="25"
@@ -73,10 +67,10 @@
     <VBox spacing="10">
         <Label text="Quick Actions" styleClass="section-title"/>
         <HBox spacing="12">
-            <Label text="📄 New Invoice" styleClass="quick-action-btn"/>
-            <Label text="👤 New Customer" styleClass="quick-action-btn"/>
-            <Label text="📦 New Product" styleClass="quick-action-btn"/>
-            <Label text="🔧 New Service Job" styleClass="quick-action-btn"/>
+            <Label text="📄 New Invoice" onMouseClicked="#handleQuickNewInvoice" styleClass="quick-action-btn" style="-fx-cursor: hand;"/>
+            <Label text="👤 New Customer" onMouseClicked="#handleQuickNewCustomer" styleClass="quick-action-btn" style="-fx-cursor: hand;"/>
+            <Label text="📦 New Product" onMouseClicked="#handleQuickNewProduct" styleClass="quick-action-btn" style="-fx-cursor: hand;"/>
+            <Label text="🔧 New Service Job" onMouseClicked="#handleQuickNewServiceJob" styleClass="quick-action-btn" style="-fx-cursor: hand;"/>
         </HBox>
     </VBox>
 

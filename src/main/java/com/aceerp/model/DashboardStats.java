@@ -8,7 +8,7 @@ package com.aceerp.model;
  *   - Total products
  *   - Total invoices
  *   - Recent revenue (this month)
- */
+ */ 
 public record DashboardStats(
     int totalCustomers,
     int totalProducts,

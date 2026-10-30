@@ -1,3 +1,4 @@
+
 package com.aceerp.controller;
 
 import com.aceerp.config.DatabaseConfig;
@@ -5,6 +6,7 @@ import com.aceerp.model.Customer;
 import com.aceerp.model.Invoice;
 import com.aceerp.model.InvoiceLine;
 import com.aceerp.model.Product;
+import com.aceerp.service.AuditLogService;
 import com.aceerp.service.CustomerService;
 import com.aceerp.service.InvoiceService;
 import com.aceerp.service.ProductService;
@@ -618,22 +620,28 @@ public class InvoiceController {
             "Are you sure you want to delete Invoice #" + currentInvoice.getInvoiceNumber() + "?");
         if (!confirmed) return;
 
+        int deletedId = currentInvoice.getId();
+        String deletedNum = currentInvoice.getInvoiceNumber();
+
         try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
             conn.setAutoCommit(false);
             try (PreparedStatement stmtLines = conn.prepareStatement("DELETE FROM invoice_lines WHERE invoice_id = ?");
                  PreparedStatement stmtPay = conn.prepareStatement("DELETE FROM payments WHERE invoice_id = ?");
                  PreparedStatement stmtInv = conn.prepareStatement("DELETE FROM invoices WHERE id = ?")) {
 
-                stmtLines.setInt(1, currentInvoice.getId());
+                stmtLines.setInt(1, deletedId);
                 stmtLines.executeUpdate();
 
-                stmtPay.setInt(1, currentInvoice.getId());
+                stmtPay.setInt(1, deletedId);
                 stmtPay.executeUpdate();
 
-                stmtInv.setInt(1, currentInvoice.getId());
+                stmtInv.setInt(1, deletedId);
                 stmtInv.executeUpdate();
 
                 conn.commit();
+
+                AuditLogService.log("DELETE", "INVOICE", deletedId, "Deleted Invoice #" + deletedNum);
+
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Invoice deleted successfully.");
                 handleNewInvoice();
                 loadInvoices();
@@ -692,6 +700,7 @@ public class InvoiceController {
         }
         try {
             ReportService.printInvoice(currentInvoice.getId());
+            AuditLogService.log("PRINT", "INVOICE", currentInvoice.getId(), "Printed Invoice #" + currentInvoice.getInvoiceNumber());
         } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Print Error", "Failed to generate Invoice report: " + e.getMessage());
         }
@@ -778,6 +787,8 @@ public class InvoiceController {
                     currentInvoice.setPaidAmount(newTotalPaid);
                     currentInvoice.setStatus(newStatus);
                     int activeId = currentInvoice.getId();
+
+                    AuditLogService.log("PAYMENT", "INVOICE", activeId, "Recorded payment of " + CurrencyFormatter.format(amountPaid) + " for Invoice #" + currentInvoice.getInvoiceNumber());
 
                     showAlert(Alert.AlertType.INFORMATION, "Payment Recorded", "Successfully logged payment of " + CurrencyFormatter.format(amountPaid));
                     loadInvoicesAndSelect(activeId);

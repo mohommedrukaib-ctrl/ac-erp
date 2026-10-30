@@ -17,6 +17,7 @@
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.control.SplitPane?>
 
 <VBox xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.aceerp.controller.SettingsController"
@@ -251,6 +252,63 @@
                     </GridPane>
                 </VBox>
             </ScrollPane>
+        </Tab>
+
+        <!-- ===== REPORT DESIGN TAB ===== -->
+        <Tab text="Report Design">
+            <VBox spacing="12">
+                <padding><Insets top="16" right="16" bottom="16" left="16"/></padding>
+
+                <Label text="Print Templates" styleClass="section-title"/>
+                <Label text="Built-in themes are read-only. Editing always saves a NEW custom template under your user folder (~/.aceerp/templates)."
+                       wrapText="true" style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
+
+                <GridPane hgap="12" vgap="10">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="140" prefWidth="160"/>
+                        <ColumnConstraints hgrow="ALWAYS"/>
+                        <ColumnConstraints minWidth="140" prefWidth="160"/>
+                        <ColumnConstraints hgrow="ALWAYS"/>
+                    </columnConstraints>
+
+                    <Label text="Document Type" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <ComboBox fx:id="cmbReportDocType" maxWidth="Infinity" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                    <Label text="Template" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                    <ComboBox fx:id="cmbReportTemplate" maxWidth="Infinity" GridPane.rowIndex="0" GridPane.columnIndex="3"/>
+
+                    <Label text="Sample Doc ID (optional)" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <TextField fx:id="txtPreviewDocId" promptText="Leave blank = latest saved" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                    <Label text="Active for this doc" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                    <Label fx:id="lblActiveReportTemplate" text="—" GridPane.rowIndex="1" GridPane.columnIndex="3"/>
+                </GridPane>
+
+                <HBox spacing="10">
+                    <Button text="Set Active" onAction="#handleSetActiveReportTemplate" styleClass="btn-primary"/>
+                    <Button text="Preview" onAction="#handlePreviewReportTemplate" styleClass="btn-secondary"/>
+                    <Button text="Load JRXML into Editor" onAction="#handleLoadJrxmlEditor" styleClass="btn-secondary"/>
+                    <Button text="Preview Editor JRXML" onAction="#handlePreviewEditorJrxml" styleClass="btn-secondary"/>
+                    <Button text="Save As New Template…" onAction="#handleSaveAsNewReportTemplate" styleClass="btn-primary"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button text="Open Templates Folder" onAction="#handleOpenTemplatesFolder" styleClass="btn-secondary"/>
+                </HBox>
+
+                <SplitPane VBox.vgrow="ALWAYS" dividerPositions="0.45">
+                    <VBox spacing="6">
+                        <Label text="JRXML Editor (Save As creates a NEW template — never overwrites built-ins)"/>
+                        <TextArea fx:id="txtJrxmlEditor" VBox.vgrow="ALWAYS"
+                                  style="-fx-font-family: Consolas, 'Courier New', monospace; -fx-font-size: 12px;"/>
+                    </VBox>
+                    <VBox spacing="6">
+                        <Label text="Preview"/>
+                        <ScrollPane VBox.vgrow="ALWAYS" fitToWidth="true" fitToHeight="true"
+                                    style="-fx-background-color: #e5e7eb;">
+                            <ImageView fx:id="imgReportPreview" preserveRatio="true" fitWidth="520"/>
+                        </ScrollPane>
+                    </VBox>
+                </SplitPane>
+            </VBox>
         </Tab>
 
     </TabPane>

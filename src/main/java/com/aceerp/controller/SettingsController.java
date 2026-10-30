@@ -10,6 +10,22 @@ import javafx.scene.image.ImageView;
 import javafx.stage.FileChooser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.aceerp.service.ReportTemplateService;
+import javafx.application.Platform;
+import javafx.scene.image.Image;
+import javafx.geometry.Insets;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.Region;
+
+import java.awt.Desktop;
+import java.io.ByteArrayInputStream;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+
 
 import java.io.File;
 
@@ -44,6 +60,17 @@ public class SettingsController {
     @FXML private TextField currencyDecimalsField;
     @FXML private ChoiceBox<String> currencyPositionChoice;
 
+        // ---- Report Design ----
+    @FXML private ComboBox<String> cmbReportDocType;
+    @FXML private ComboBox<String> cmbReportTemplate;
+    @FXML private TextField txtPreviewDocId;
+    @FXML private Label lblActiveReportTemplate;
+    @FXML private TextArea txtJrxmlEditor;
+    @FXML private ImageView imgReportPreview;
+
+
+    
+
     // ---- Invoice & Numbering Settings ----
     @FXML private TextField invoicePrefixField;
     @FXML private TextField invoiceNextNumberField;
@@ -67,6 +94,9 @@ public class SettingsController {
 
     private final CompanyProfileService companyService = new CompanyProfileService();
     private final SettingsService settingsService = SettingsService.getInstance();
+    private final ReportTemplateService reportTemplateService = new ReportTemplateService();
+
+
 
     private CompanyProfile currentProfile;
     private String pendingLogoPath;
@@ -81,6 +111,7 @@ public class SettingsController {
         }
 
         loadAllSettings();
+        initReportDesignTab();
     }
 
     @FXML
@@ -152,6 +183,198 @@ public class SettingsController {
         if (dateFormatField != null) dateFormatField.setText(settingsService.getSetting("date_format", "yyyy-MM-dd"));
         if (itemsPerPageField != null) itemsPerPageField.setText(settingsService.getSetting("items_per_page", "25"));
     }
+
+    private void initReportDesignTab() {
+    if (cmbReportDocType == null) return;
+
+    cmbReportDocType.getItems().setAll(
+            "invoice",
+            "quotation",
+            "sales_order",
+            "delivery_note",
+            "purchase_order",
+            "job_note_a5",
+            "supplier_bill"
+    );
+    cmbReportDocType.setValue("invoice");
+
+    cmbReportDocType.valueProperty().addListener((o, a, b) -> refreshReportTemplateList());
+    cmbReportTemplate.valueProperty().addListener((o, a, b) -> {
+        // optional: auto-load on change — keep manual via button to avoid slow IO
+    });
+
+    refreshReportTemplateList();
+}
+
+private void refreshReportTemplateList() {
+    if (cmbReportDocType == null || cmbReportTemplate == null) return;
+    String doc = cmbReportDocType.getValue();
+    if (doc == null) return;
+
+    List<String> keys = reportTemplateService.listTemplatesFor(doc);
+    cmbReportTemplate.getItems().setAll(keys);
+
+    String active = reportTemplateService.getActiveTemplateKey(doc);
+    if (lblActiveReportTemplate != null) {
+        lblActiveReportTemplate.setText(active);
+    }
+    if (keys.contains(active)) {
+        cmbReportTemplate.setValue(active);
+    } else if (!keys.isEmpty()) {
+        cmbReportTemplate.setValue(keys.getFirst());
+    }
+}
+
+@FXML
+private void handleSetActiveReportTemplate() {
+    String doc = cmbReportDocType.getValue();
+    String tpl = cmbReportTemplate.getValue();
+    if (doc == null || tpl == null) {
+        showAlert(Alert.AlertType.WARNING, "Report Design", "Select document type and template.");
+        return;
+    }
+    reportTemplateService.setActiveTemplateKey(doc, tpl);
+    if (lblActiveReportTemplate != null) lblActiveReportTemplate.setText(tpl);
+    if (statusLabel != null) {
+        statusLabel.setText("Active template for " + doc + " → " + tpl);
+        statusLabel.setStyle("-fx-text-fill: #15803d;");
+    }
+    showAlert(Alert.AlertType.INFORMATION, "Active Template",
+            "Prints for " + doc + " will use: " + tpl);
+}
+
+@FXML
+private void handleLoadJrxmlEditor() {
+    String doc = cmbReportDocType.getValue();
+    String tpl = cmbReportTemplate.getValue();
+    if (doc == null || tpl == null) {
+        showAlert(Alert.AlertType.WARNING, "Report Design", "Select document type and template.");
+        return;
+    }
+    try {
+        String jrxml = reportTemplateService.loadJrxmlText(doc, tpl);
+        txtJrxmlEditor.setText(jrxml);
+        if (reportTemplateService.isBuiltin(tpl)) {
+            showAlert(Alert.AlertType.INFORMATION, "Read-only source",
+                    "Loaded built-in '" + tpl + "'.\n\nUse Save As New Template to create a custom copy. Built-ins are never overwritten.");
+        }
+    } catch (Exception e) {
+        logger.error("Load JRXML failed: {}", e.getMessage(), e);
+        showAlert(Alert.AlertType.ERROR, "Load Failed", e.getMessage());
+    }
+}
+
+@FXML
+private void handleSaveAsNewReportTemplate() {
+    String doc = cmbReportDocType.getValue();
+    if (doc == null) {
+        showAlert(Alert.AlertType.WARNING, "Report Design", "Select a document type.");
+        return;
+    }
+    String jrxml = txtJrxmlEditor != null ? txtJrxmlEditor.getText() : null;
+    if (jrxml == null || jrxml.isBlank()) {
+        showAlert(Alert.AlertType.WARNING, "Report Design", "Editor is empty. Load a template first.");
+        return;
+    }
+
+    TextInputDialog dialog = new TextInputDialog("MyCustom");
+    dialog.setTitle("Save As New Template");
+    dialog.setHeaderText("Create a NEW custom template (built-ins stay unchanged)");
+    dialog.setContentText("Template name:");
+    Optional<String> nameOpt = dialog.showAndWait();
+    if (nameOpt.isEmpty() || nameOpt.get().isBlank()) return;
+
+    try {
+        String key = reportTemplateService.saveAsNewCustomTemplate(doc, nameOpt.get().trim(), jrxml);
+        refreshReportTemplateList();
+        cmbReportTemplate.setValue(key);
+        showAlert(Alert.AlertType.INFORMATION, "Saved",
+                "New template created: " + key + "\n\nClick Set Active if you want prints to use it.");
+    } catch (Exception e) {
+        logger.error("Save custom template failed: {}", e.getMessage(), e);
+        showAlert(Alert.AlertType.ERROR, "Save Failed", e.getMessage());
+    }
+}
+
+@FXML
+private void handlePreviewReportTemplate() {
+    String doc = cmbReportDocType.getValue();
+    String tpl = cmbReportTemplate.getValue();
+    if (doc == null || tpl == null) {
+        showAlert(Alert.AlertType.WARNING, "Preview", "Select document type and template.");
+        return;
+    }
+    runPreview(() -> reportTemplateService.renderPreviewPng(doc, tpl, parsePreviewId(), 1.6f));
+}
+
+@FXML
+private void handlePreviewEditorJrxml() {
+    String doc = cmbReportDocType.getValue();
+    String jrxml = txtJrxmlEditor != null ? txtJrxmlEditor.getText() : null;
+    if (doc == null || jrxml == null || jrxml.isBlank()) {
+        showAlert(Alert.AlertType.WARNING, "Preview", "Select document type and put JRXML in the editor.");
+        return;
+    }
+    runPreview(() -> reportTemplateService.renderPreviewPngFromText(doc, jrxml, parsePreviewId(), 1.6f));
+}
+
+private Integer parsePreviewId() {
+    if (txtPreviewDocId == null || txtPreviewDocId.getText() == null || txtPreviewDocId.getText().isBlank()) {
+        return null;
+    }
+    try {
+        return Integer.parseInt(txtPreviewDocId.getText().trim());
+    } catch (NumberFormatException e) {
+        return null;
+    }
+}
+
+private void runPreview(PreviewSupplier supplier) {
+    if (statusLabel != null) {
+        statusLabel.setText("Generating preview…");
+        statusLabel.setStyle("-fx-text-fill: #2563eb;");
+    }
+    new Thread(() -> {
+        try {
+            byte[] png = supplier.get();
+            Platform.runLater(() -> {
+                imgReportPreview.setImage(new Image(new ByteArrayInputStream(png)));
+                if (statusLabel != null) {
+                    statusLabel.setText("Preview ready.");
+                    statusLabel.setStyle("-fx-text-fill: #15803d;");
+                }
+            });
+        } catch (Exception e) {
+            logger.error("Preview failed: {}", e.getMessage(), e);
+            Platform.runLater(() -> {
+                if (statusLabel != null) {
+                    statusLabel.setText("Preview failed: " + e.getMessage());
+                    statusLabel.setStyle("-fx-text-fill: #dc2626;");
+                }
+                showAlert(Alert.AlertType.ERROR, "Preview Failed", e.getMessage());
+            });
+        }
+    }, "report-preview").start();
+}
+
+@FunctionalInterface
+private interface PreviewSupplier {
+    byte[] get() throws Exception;
+}
+
+@FXML
+private void handleOpenTemplatesFolder() {
+    try {
+        Path root = reportTemplateService.getCustomRoot();
+        if (Desktop.isDesktopSupported()) {
+            Desktop.getDesktop().open(root.toFile());
+        } else {
+            showAlert(Alert.AlertType.INFORMATION, "Templates Folder", root.toAbsolutePath().toString());
+        }
+    } catch (Exception e) {
+        showAlert(Alert.AlertType.ERROR, "Folder", e.getMessage());
+    }
+}
 
     private void refreshLogoPreview(String logoPath) {
         if (imgLogoPreview == null) return;
@@ -291,4 +514,6 @@ public class SettingsController {
         a.setContentText(content);
         a.showAndWait();
     }
+
+    
 }

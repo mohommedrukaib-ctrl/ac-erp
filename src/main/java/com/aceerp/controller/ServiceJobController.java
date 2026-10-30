@@ -1,6 +1,7 @@
 package com.aceerp.controller;
 
 import com.aceerp.model.*;
+import com.aceerp.service.AuditLogService;
 import com.aceerp.service.CustomerService;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.ReportService;
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 
 public class ServiceJobController {
     private static final Logger logger = LoggerFactory.getLogger(ServiceJobController.class);
@@ -127,7 +129,7 @@ public class ServiceJobController {
         colQty.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
         colQty.setOnEditCommit(event -> {
             ServiceJobLine line = event.getRowValue();
-            line.setQuantity(event.getNewValue());
+            line.setQuantity(event.getNewValue() != null ? event.getNewValue() : 1);
             linesTable.refresh();
             recalculateTotals();
         });
@@ -156,8 +158,13 @@ public class ServiceJobController {
     }
 
     private void loadInitialData() {
-        jobList.setAll(jobService.getAllJobs());
-        
+        try {
+            jobList.setAll(jobService.getAllJobs());
+        } catch (Exception e) {
+            logger.error("Error loading service jobs: {}", e.getMessage(), e);
+            jobList.clear();
+        }
+
         try {
             customerList.setAll(customerService.getAllCustomers());
         } catch (Exception e) {
@@ -168,8 +175,18 @@ public class ServiceJobController {
             }
         }
 
-        productList.setAll(productService.listAll());
-        cmbTechnician.setItems(FXCollections.observableArrayList(jobService.getTechnicians()));
+        try {
+            productList.setAll(productService.listAll());
+        } catch (Exception e) {
+            logger.error("Error loading products: {}", e.getMessage());
+        }
+
+        try {
+            cmbTechnician.setItems(FXCollections.observableArrayList(jobService.getTechnicians()));
+        } catch (Exception e) {
+            logger.error("Error loading technicians: {}", e.getMessage());
+            cmbTechnician.setItems(FXCollections.observableArrayList());
+        }
 
         if (!jobList.isEmpty()) {
             jobListView.getSelectionModel().selectFirst();
@@ -186,7 +203,8 @@ public class ServiceJobController {
         String q = query.toLowerCase();
         ObservableList<ServiceJob> filtered = FXCollections.observableArrayList();
         for (ServiceJob job : jobList) {
-            if (job.getJobNumber().toLowerCase().contains(q) || job.getCustomerName().toLowerCase().contains(q)) {
+            if ((job.getJobNumber() != null && job.getJobNumber().toLowerCase().contains(q)) ||
+                (job.getCustomerName() != null && job.getCustomerName().toLowerCase().contains(q))) {
                 filtered.add(job);
             }
         }
@@ -195,7 +213,7 @@ public class ServiceJobController {
 
     private void populateForm(ServiceJob job) {
         if (job == null) return;
-        txtJobNumber.setText(job.getJobNumber());
+        txtJobNumber.setText(job.getJobNumber() != null ? job.getJobNumber() : "Auto-Generated");
         cmbJobType.setValue(job.getJobType());
         cmbStatus.setValue(job.getStatus());
         dpScheduledDate.setValue(job.getScheduledDate());
@@ -203,11 +221,19 @@ public class ServiceJobController {
 
         lblCustomerName.setText(job.getCustomerName() != null ? job.getCustomerName() : "No Customer Selected");
         selectedCustomer = null;
+        if (job.getCustomerId() > 0) {
+            for (Customer c : customerList) {
+                if (c.getId() == job.getCustomerId()) {
+                    selectedCustomer = c;
+                    break;
+                }
+            }
+        }
 
         txtAcModelInfo.setText(job.getAcModelInfo());
         txtReportedIssue.setText(job.getReportedIssue());
         txtResolutionNotes.setText(job.getResolutionNotes());
-        txtLaborCost.setText(job.getLaborCost().toString());
+        txtLaborCost.setText(job.getLaborCost() != null ? job.getLaborCost().toPlainString() : "0.00");
 
         if (job.getTechnicianId() != null) {
             for (User u : cmbTechnician.getItems()) {
@@ -220,7 +246,7 @@ public class ServiceJobController {
             cmbTechnician.setValue(null);
         }
 
-        lineList.setAll(job.getLines());
+        lineList.setAll(job.getLines() != null ? job.getLines() : FXCollections.emptyObservableList());
         recalculateTotals();
         setFormEditable(editMode);
     }
@@ -246,6 +272,7 @@ public class ServiceJobController {
 
     @FXML
     private void handleNew() {
+        jobListView.getSelectionModel().clearSelection();
         currentJob = new ServiceJob();
         editMode = true;
         lineList.clear();
@@ -315,13 +342,25 @@ public class ServiceJobController {
 
     @FXML
     private void handleSave() {
-        if (selectedCustomer == null && (currentJob.getCustomerId() <= 0)) {
+        if (currentJob == null) {
+            currentJob = new ServiceJob();
+            editMode = true;
+        }
+
+        if (selectedCustomer == null && currentJob.getCustomerId() <= 0) {
             showAlert(Alert.AlertType.WARNING, "Validation Error", "Please select a Customer for this Service Job.");
             return;
         }
 
+        if (cmbJobType.getValue() == null || cmbJobType.getValue().isBlank()) {
+            showAlert(Alert.AlertType.WARNING, "Validation Error", "Please select a Job Type.");
+            return;
+        }
+
+        boolean isNew = currentJob.getId() <= 0;
+
         currentJob.setJobType(cmbJobType.getValue());
-        currentJob.setStatus(cmbStatus.getValue());
+        currentJob.setStatus(cmbStatus.getValue() != null ? cmbStatus.getValue() : "PENDING");
         currentJob.setScheduledDate(dpScheduledDate.getValue());
         currentJob.setCompletionDate(dpCompletionDate.getValue());
 
@@ -333,6 +372,9 @@ public class ServiceJobController {
         if (cmbTechnician.getValue() != null) {
             currentJob.setTechnicianId(cmbTechnician.getValue().getId());
             currentJob.setTechnicianName(cmbTechnician.getValue().getFullName());
+        } else {
+            currentJob.setTechnicianId(null);
+            currentJob.setTechnicianName(null);
         }
 
         currentJob.setAcModelInfo(txtAcModelInfo.getText());
@@ -340,14 +382,27 @@ public class ServiceJobController {
         currentJob.setResolutionNotes(txtResolutionNotes.getText());
 
         try {
-            currentJob.setLaborCost(new BigDecimal(txtLaborCost.getText().trim()));
+            String laborText = txtLaborCost.getText();
+            currentJob.setLaborCost(laborText == null || laborText.isBlank() ? BigDecimal.ZERO : new BigDecimal(laborText.trim()));
         } catch (Exception e) {
             currentJob.setLaborCost(BigDecimal.ZERO);
         }
 
-        currentJob.setLines(lineList);
+        currentJob.setLines(new ArrayList<>(lineList));
+        currentJob.recalculateTotal();
 
         if (jobService.saveJob(currentJob)) {
+            try {
+                AuditLogService.log(
+                    isNew ? "CREATE" : "UPDATE",
+                    "SERVICE_JOB",
+                    currentJob.getId(),
+                    (isNew ? "Created" : "Updated") + " service job " + currentJob.getJobNumber() + " (" + currentJob.getJobType() + ")"
+                );
+            } catch (Exception auditEx) {
+                logger.warn("Audit log failed for service job save: {}", auditEx.getMessage());
+            }
+
             showAlert(Alert.AlertType.INFORMATION, "Success", "Service Job saved successfully.");
             editMode = false;
             loadInitialData();
@@ -364,6 +419,16 @@ public class ServiceJobController {
         }
         try {
             ReportService.printJobNote(currentJob.getId());
+            try {
+                AuditLogService.log(
+                    "PRINT",
+                    "SERVICE_JOB",
+                    currentJob.getId(),
+                    "Printed A5 job note for " + currentJob.getJobNumber()
+                );
+            } catch (Exception auditEx) {
+                logger.warn("Audit log failed for service job print: {}", auditEx.getMessage());
+            }
         } catch (Exception e) {
             logger.error("Failed to print job note for ID: {}", currentJob.getId(), e);
             showAlert(Alert.AlertType.ERROR, "Print Error", "Failed to generate A5 Job Note: " + e.getMessage());
@@ -378,11 +443,15 @@ public class ServiceJobController {
     private void recalculateTotals() {
         BigDecimal labor = BigDecimal.ZERO;
         try {
-            labor = new BigDecimal(txtLaborCost.getText().trim());
+            String laborText = txtLaborCost.getText();
+            if (laborText != null && !laborText.isBlank()) {
+                labor = new BigDecimal(laborText.trim());
+            }
         } catch (Exception ignored) {}
 
         BigDecimal partsSum = BigDecimal.ZERO;
         for (ServiceJobLine line : lineList) {
+            line.recalculateTotal();
             partsSum = partsSum.add(line.getLineTotal());
         }
 

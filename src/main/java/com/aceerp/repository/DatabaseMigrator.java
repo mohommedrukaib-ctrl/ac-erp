@@ -55,7 +55,12 @@ public class DatabaseMigrator {
         "V027__fix_report_and_service_job_columns.sql",
         "V028__supplier_bills_column_fixes.sql",
         "V029__fix_all_remaining_schema_mismatches.sql",
-        "V030__fix_status_grn_pr_dn_columns.sql"
+        "V030__fix_status_grn_pr_dn_columns.sql",
+        "V031__fix_all_runtime_mismatches.sql",
+        "V032__fix_grn_stock_quantity_column.sql",
+        "V033__fix_stock_movements_movement_type.sql",
+        "V034__fix_purchase_return_lines_description.sql",
+        "V035__fix_purchase_return_lines_columns.sql"
         
     };
 

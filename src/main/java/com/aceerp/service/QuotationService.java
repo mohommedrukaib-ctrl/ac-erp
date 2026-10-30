@@ -8,7 +8,6 @@ import com.aceerp.repository.QuotationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,11 +31,21 @@ public class QuotationService {
     }
 
     public Quotation saveQuotation(Quotation quotation) {
+        boolean isNew = quotation.getId() <= 0;
         if (quotation.getQuoteNumber() == null || quotation.getQuoteNumber().isBlank()) {
             quotation.setQuoteNumber(generateNextQuoteNumber());
         }
         quotation.recalculateTotals();
-        return quotationRepository.save(quotation);
+        Quotation saved = quotationRepository.save(quotation);
+
+        AuditLogService.log(
+                isNew ? "CREATE" : "UPDATE",
+                "QUOTATION",
+                saved.getId(),
+                "Saved Quotation #" + saved.getQuoteNumber() + " Total: " + saved.getTotalAmount()
+        );
+
+        return saved;
     }
 
     public String generateNextQuoteNumber() {
@@ -68,6 +77,14 @@ public class QuotationService {
             invoiceLines.add(iLine);
         }
         invoice.setLines(invoiceLines);
+
+        AuditLogService.log(
+                "CONVERT",
+                "QUOTATION",
+                quote.getId(),
+                "Converted Quotation #" + quote.getQuoteNumber() + " to Invoice"
+        );
+
         return invoice;
     }
 }

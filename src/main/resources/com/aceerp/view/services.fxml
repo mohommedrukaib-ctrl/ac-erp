@@ -93,6 +93,7 @@
         </ScrollPane>
 
         <HBox spacing="10" alignment="CENTER_RIGHT">
+            <Button text="Print Job Note" onAction="#handlePrint" styleClass="btn-secondary"/>
             <Button fx:id="btnSave" text="Save Service Job" onAction="#handleSave" styleClass="btn-success"/>
         </HBox>
     </VBox>

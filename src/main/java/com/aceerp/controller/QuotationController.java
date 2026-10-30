@@ -5,6 +5,7 @@ import com.aceerp.model.Customer;
 import com.aceerp.model.Product;
 import com.aceerp.model.Quotation;
 import com.aceerp.model.QuotationLine;
+import com.aceerp.service.AuditLogService;
 import com.aceerp.service.CustomerService;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.QuotationService;
@@ -13,11 +14,9 @@ import com.aceerp.util.TaxUtil;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
-import javafx.print.PrinterJob;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -488,18 +487,23 @@ public class QuotationController {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure you want to permanently delete Quotation " + currentQuotation.getQuoteNumber() + "?");
         confirm.showAndWait().ifPresent(res -> {
             if (res == ButtonType.OK) {
+                int deletedId = currentQuotation.getId();
+                String deletedNum = currentQuotation.getQuoteNumber();
+
                 try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
                     conn.setAutoCommit(false);
                     try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM quotation_lines WHERE quotation_id = ?")) {
-                        stmt.setInt(1, currentQuotation.getId());
+                        stmt.setInt(1, deletedId);
                         stmt.executeUpdate();
                     }
                     try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM quotations WHERE id = ?")) {
-                        stmt.setInt(1, currentQuotation.getId());
+                        stmt.setInt(1, deletedId);
                         stmt.executeUpdate();
                     }
                     conn.commit();
-                    
+
+                    AuditLogService.log("DELETE", "QUOTATION", deletedId, "Deleted Quotation #" + deletedNum);
+
                     loadQuotations();
                     handleNewQuotation();
                     showAlert("Success", "Quotation deleted successfully.");
@@ -537,22 +541,21 @@ public class QuotationController {
         quotationListView.setItems(allQuotations);
     }
 
-        @FXML
+    @FXML
     private void handlePrint() {
         if (currentQuotation == null || currentQuotation.getId() <= 0) {
             showAlert(Alert.AlertType.WARNING, "Not Saved", "Please save the quotation first before printing.");
             return;
         }
         try {
-            // This calls the JasperReports engine we built in Option A
             com.aceerp.service.ReportService.printQuotation(currentQuotation.getId());
+            AuditLogService.log("PRINT", "QUOTATION", currentQuotation.getId(), "Printed Quotation #" + currentQuotation.getQuoteNumber());
         } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Print Error", "Failed to generate quotation report: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    
     @FXML
     private void handleConvertToSO() {
         if (currentQuotation == null || currentQuotation.getId() <= 0) {
@@ -582,7 +585,7 @@ public class QuotationController {
                     try (PreparedStatement stmt = conn.prepareStatement(insertSo)) {
                         int i = 1;
                         stmt.setString(i++, nextSoNum);
-                        if (hasOrderNumber) stmt.setString(i++, nextSoNum); // order_number alias
+                        if (hasOrderNumber) stmt.setString(i++, nextSoNum);
                         stmt.setInt(i++, currentQuotation.getId());
                         stmt.setInt(i++, currentQuotation.getCustomerId());
                         stmt.setBigDecimal(i++, nz(currentQuotation.getSubtotal()));
@@ -595,7 +598,6 @@ public class QuotationController {
                         }
                     }
 
-                    // Copy lines to both total columns to be fully compatible
                     String copyLines =
                             "INSERT INTO sales_order_lines (" +
                             "so_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, line_total, total_price" +
@@ -616,6 +618,9 @@ public class QuotationController {
                     }
 
                     conn.commit();
+
+                    AuditLogService.log("CONVERT_TO_SO", "QUOTATION", currentQuotation.getId(), "Converted Quotation #" + currentQuotation.getQuoteNumber() + " to Sales Order " + nextSoNum);
+
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Sales Order " + nextSoNum + " created successfully!");
                     loadQuotations();
                     setFormEditable(false);
@@ -629,7 +634,6 @@ public class QuotationController {
         });
     }
 
-    // ADDED FEATURE: Direct conversion from Quotation to Invoice
     @FXML
     private void handleConvertToInvoice() {
         if (currentQuotation == null || currentQuotation.getId() <= 0) {
@@ -699,6 +703,9 @@ public class QuotationController {
                     }
 
                     conn.commit();
+
+                    AuditLogService.log("CONVERT_TO_INVOICE", "QUOTATION", currentQuotation.getId(), "Converted Quotation #" + currentQuotation.getQuoteNumber() + " to Invoice " + nextInvNum);
+
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Invoice " + nextInvNum + " created successfully!");
                     loadQuotations();
                     setFormEditable(false);

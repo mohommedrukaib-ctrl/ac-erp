@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,11 +25,21 @@ public class InvoiceService {
     }
 
     public Invoice saveInvoice(Invoice invoice) {
+        boolean isNew = invoice.getId() <= 0;
         if (invoice.getInvoiceNumber() == null || invoice.getInvoiceNumber().isBlank()) {
             invoice.setInvoiceNumber(generateNextInvoiceNumber());
         }
         recalculateTotals(invoice);
-        return invoiceRepository.save(invoice);
+        Invoice saved = invoiceRepository.save(invoice);
+
+        AuditLogService.log(
+                isNew ? "CREATE" : "UPDATE",
+                "INVOICE",
+                saved.getId(),
+                "Saved Invoice #" + saved.getInvoiceNumber() + " Total: " + saved.getTotalAmount()
+        );
+
+        return saved;
     }
 
     public String generateNextInvoiceNumber() {
@@ -71,6 +80,13 @@ public class InvoiceService {
 
         updatePaymentStatus(invoice);
         saveInvoice(invoice);
+
+        AuditLogService.log(
+                "PAYMENT",
+                "INVOICE",
+                invoice.getId(),
+                "Recorded payment of " + paymentAmount + " for Invoice #" + invoice.getInvoiceNumber()
+        );
     }
 
     private void updatePaymentStatus(Invoice invoice) {

@@ -42,47 +42,24 @@ public class ReportService {
     }
 
     private void printDocument(String docType, String idParamName, int id) {
-        new Thread(() -> {
-            try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
-                CompanyProfile c = companyProfileService.getProfile();
-                String theme = "classic";
-                if (c != null && c.getDefaultPrintTemplate() != null && !c.getDefaultPrintTemplate().isBlank()) {
-                    theme = c.getDefaultPrintTemplate().toLowerCase();
-                } else {
-                    theme = SettingsService.getInstance().get("PRINT_THEME", "classic").toLowerCase();
-                }
+    new Thread(() -> {
+        try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+            ReportTemplateService templateService = new ReportTemplateService();
+            InputStream stream = templateService.openActiveTemplateStream(docType);
 
-                String templatePath = "/reports/" + theme + "/" + docType + ".jrxml";
-                InputStream stream = ReportService.class.getResourceAsStream(templatePath);
-                
-                if (stream == null) {
-                    logger.warn("Theme template not found: {}. Falling back to classic theme.", templatePath);
-                    templatePath = "/reports/classic/" + docType + ".jrxml";
-                    stream = ReportService.class.getResourceAsStream(templatePath);
-                }
+            JasperReport report = JasperCompileManager.compileReport(stream);
+            stream.close();
 
-                if (stream == null) {
-                    logger.warn("Classic theme template not found: {}. Falling back to root reports folder.", templatePath);
-                    templatePath = "/reports/" + docType + ".jrxml";
-                    stream = ReportService.class.getResourceAsStream(templatePath);
-                }
+            Map<String, Object> parameters = buildCompanyParameters();
+            parameters.put(idParamName, id);
 
-                if (stream == null) {
-                    logger.error("Could not find template anywhere for docType: {}", docType);
-                    return;
-                }
-
-                JasperReport report = JasperCompileManager.compileReport(stream);
-                Map<String, Object> parameters = buildCompanyParameters();
-                parameters.put(idParamName, id);
-
-                JasperPrint print = JasperFillManager.fillReport(report, parameters, conn);
-                JasperViewer.viewReport(print, false);
-            } catch (Exception e) {
-                logger.error("Failed to generate report {} for id {}", docType, id, e);
-            }
-        }).start();
-    }
+            JasperPrint print = JasperFillManager.fillReport(report, parameters, conn);
+            JasperViewer.viewReport(print, false);
+        } catch (Exception e) {
+            logger.error("Failed to generate report {} for id {}", docType, id, e);
+        }
+    }).start();
+}
 
     public static void printInvoice(int invoiceId) {
         new ReportService().printDocument("invoice", "INVOICE_ID", invoiceId);
