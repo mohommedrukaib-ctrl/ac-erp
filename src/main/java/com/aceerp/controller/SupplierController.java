@@ -1,6 +1,7 @@
 package com.aceerp.controller;
 
 import com.aceerp.model.Supplier;
+import com.aceerp.service.AuditLogService;
 import com.aceerp.service.SupplierService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -75,8 +76,14 @@ public class SupplierController {
                 "Deactivate " + sel.getName() + "?", ButtonType.YES, ButtonType.NO);
         confirm.showAndWait().ifPresent(r -> {
             if (r == ButtonType.YES) {
-                try { service.deactivate(sel.getId()); loadData(); }
-                catch (Exception e) { showAlert("Error: " + e.getMessage()); }
+                try { 
+                    service.deactivate(sel.getId()); 
+                    AuditLogService.log("DEACTIVATE", "SUPPLIER", sel.getId(), 
+                        "Deactivated supplier: " + sel.getName() + " (" + sel.getSupplierCode() + ")");
+                    loadData(); 
+                } catch (Exception e) { 
+                    showAlert("Error: " + e.getMessage()); 
+                }
             }
         });
     }
@@ -124,11 +131,14 @@ public class SupplierController {
         dialog.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
                 try {
-                    if (existing == null) {
+                                        if (existing == null) {
                         service.addSupplier(nameField.getText(), contactField.getText(),
                                 phoneField.getText(), emailField.getText(),
                                 addressField.getText(), cityField.getText(),
                                 taxField.getText(), notesField.getText());
+                        
+                        AuditLogService.log("CREATE", "SUPPLIER", 0, 
+                            "Created supplier: " + nameField.getText());
                     } else {
                         existing.setName(nameField.getText());
                         existing.setContactPerson(contactField.getText());
@@ -139,6 +149,9 @@ public class SupplierController {
                         existing.setTaxNumber(taxField.getText());
                         existing.setNotes(notesField.getText());
                         service.updateSupplier(existing);
+
+                        AuditLogService.log("UPDATE", "SUPPLIER", existing.getId(), 
+                            "Updated supplier details for: " + existing.getName() + " (" + existing.getSupplierCode() + ")");
                     }
                     loadData();
                 } catch (Exception e) {

@@ -11,20 +11,19 @@ import com.aceerp.service.ProductService;
 import com.aceerp.service.SupplierBillService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.GlobalQuickAdd;
+import com.aceerp.util.SmartSearchHelper;
 import com.aceerp.util.TaxUtil;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
-import javafx.stage.Popup;
 import javafx.util.converter.BigDecimalStringConverter;
 
 import java.math.BigDecimal;
@@ -95,9 +94,6 @@ public class SupplierBillController {
     private SimpleSupplier selectedSupplier;
     private boolean editMode = true;
 
-    private Popup supplierPopup;
-    private ListView<SimpleSupplier> supplierListView;
-
     @FXML
     public void initialize() {
         setupSmartSearch();
@@ -158,50 +154,22 @@ public class SupplierBillController {
     }
 
     private void setupSmartSearch() {
-        supplierPopup = new Popup();
-        supplierPopup.setAutoHide(true);
-        supplierListView = new ListView<>();
-        supplierListView.setPrefHeight(150);
-        supplierPopup.getContent().add(supplierListView);
-
-        supplierSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (!editMode) return;
-            if (newVal == null || newVal.trim().isEmpty()) {
-                supplierPopup.hide();
-                return;
-            }
-            String query = newVal.toLowerCase().trim();
-            List<SimpleSupplier> results = listSuppliers().stream()
-                    .filter(s -> s.getName() != null && s.getName().toLowerCase().contains(query))
-                    .collect(Collectors.toList());
-
-            if (results.isEmpty()) {
-                supplierPopup.hide();
-            } else {
-                supplierListView.setItems(FXCollections.observableArrayList(results));
-                if (!supplierPopup.isShowing() && supplierSearchField.getScene() != null) {
-                    Bounds bounds = supplierSearchField.localToScreen(supplierSearchField.getBoundsInLocal());
-                    if (bounds != null) {
-                        supplierListView.setPrefWidth(bounds.getWidth());
-                        supplierPopup.show(supplierSearchField, bounds.getMinX(), bounds.getMaxY());
-                    }
-                }
-            }
-        });
-
-        supplierListView.setOnMouseClicked(e -> {
-            SimpleSupplier s = supplierListView.getSelectionModel().getSelectedItem();
-            if (s != null) {
-                selectSupplier(s);
-            }
-        });
+        SmartSearchHelper.setupEntitySearch(
+                supplierSearchField,
+                query -> listSuppliers().stream()
+                        .filter(s -> s.getName() != null && s.getName().toLowerCase().contains(query.toLowerCase().trim()))
+                        .collect(Collectors.toList()),
+                SimpleSupplier::getName,
+                this::selectSupplier,
+                typedText -> GlobalQuickAdd.showSupplierDialog(typedText, s -> selectSupplier(new SimpleSupplier(s.getId(), s.getName(), s.getPhone())))
+        );
     }
 
     private void selectSupplier(SimpleSupplier s) {
+        if (s == null) return;
         selectedSupplier = s;
         supplierSearchField.setText(s.getName());
         supplierPhoneField.setText(s.getPhone() != null && !s.getPhone().isBlank() ? s.getPhone() : "N/A");
-        supplierPopup.hide();
     }
 
     private List<SimpleSupplier> listSuppliers() {
@@ -477,47 +445,9 @@ public class SupplierBillController {
             return;
         }
 
-        Dialog<SimpleSupplier> dialog = new Dialog<>();
-        dialog.setTitle("Quick Add Supplier");
-        dialog.setHeaderText("Enter new supplier details");
-
-        ButtonType saveBtn = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
-
-        GridPane grid = new GridPane();
-        grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(10));
-        TextField nameField = new TextField(); nameField.setPromptText("Company / Supplier Name *");
-        TextField phoneField = new TextField(); phoneField.setPromptText("Phone");
-        TextField emailField = new TextField(); emailField.setPromptText("Email");
-
-        grid.add(new Label("Name *:"), 0, 0); grid.add(nameField, 1, 0);
-        grid.add(new Label("Phone:"), 0, 1); grid.add(phoneField, 1, 1);
-        grid.add(new Label("Email:"), 0, 2); grid.add(emailField, 1, 2);
-
-        dialog.getDialogPane().setContent(grid);
-        dialog.setResultConverter(btn -> {
-            if (btn != saveBtn) return null;
-            if (nameField.getText().trim().isEmpty()) {
-                showAlert(Alert.AlertType.WARNING, "Validation", "Supplier name is required.");
-                return null;
-            }
-            String sql = "INSERT INTO suppliers (name, phone, email) VALUES (?, ?, ?) RETURNING id";
-            try (Connection conn = DatabaseConfig.getInstance().getConnection();
-                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, nameField.getText().trim());
-                stmt.setString(2, phoneField.getText());
-                stmt.setString(3, emailField.getText());
-                ResultSet rs = stmt.executeQuery();
-                if (rs.next()) {
-                    return new SimpleSupplier(rs.getInt(1), nameField.getText().trim(), phoneField.getText());
-                }
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Error", ex.getMessage());
-            }
-            return null;
+        GlobalQuickAdd.showSupplierDialog(supplierSearchField.getText(), s -> {
+            selectSupplier(new SimpleSupplier(s.getId(), s.getName(), s.getPhone()));
         });
-
-        dialog.showAndWait().ifPresent(this::selectSupplier);
     }
 
     @FXML
@@ -667,10 +597,19 @@ public class SupplierBillController {
             showAlert(Alert.AlertType.WARNING, "Bill Locked", "Paid bills cannot be edited or modified.");
             return;
         }
-        if (selectedSupplier == null && supplierSearchField.getText().isBlank()) {
+
+        if (selectedSupplier == null && supplierSearchField.getText() != null && !supplierSearchField.getText().isBlank()) {
+            String typed = supplierSearchField.getText().trim();
+            selectedSupplier = listSuppliers().stream()
+                    .filter(s -> s.getName() != null && s.getName().equalsIgnoreCase(typed))
+                    .findFirst().orElse(null);
+        }
+
+        if (selectedSupplier == null && (supplierSearchField.getText() == null || supplierSearchField.getText().isBlank())) {
             showAlert(Alert.AlertType.WARNING, "Validation", "Please select a supplier.");
             return;
         }
+
         if (currentBill == null) {
             currentBill = new SupplierBill();
         }
@@ -806,3 +745,4 @@ public class SupplierBillController {
         alert.showAndWait();
     }
 }
+

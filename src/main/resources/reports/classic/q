@@ -1,0 +1,24 @@
+Here are the updated source files that add full **drag-and-move visual layout editing** to the Report Designer and **fix the `SAXParseException` schema validation bug** by using DOM-based JRXML manipulation.
+
+---
+
+### Key Improvements Made
+
+1. **SAX Schema Validation Bug Fix**:
+   - Replaced fragile regex replacements in `ReportTemplateService.java` with W3C XML DOM manipulation.
+   - `<printWhenExpression>` tags are now inserted in the exact schema-compliant location (after `<reportElement>` and `<box>`, before `<textElement>`/`<imageExpression>`).
+
+2. **Interactive Drag-and-Move Canvas**:
+   - Embedded a transparent interactive `overlayCanvas` directly on top of the report preview image (`imgReportPreview`).
+   - Draggable & resizable bounding boxes render for report elements (Logo, Company Name, Tagline, Address, Headers, Detail Line, Totals, Footer).
+   - **Click & Drag** to reposition elements; drag the bottom-right handle to resize width/height.
+   - Positions update live in the JRXML editor and re-render the PNG preview on mouse release.
+
+3. **Pixel-Perfect Inspector & Nudge Controls**:
+   - Selected element inspector added to the UI with `X`, `Y`, `W`, `H` fields.
+   - Nudge buttons (`⬆`, `⬇`, `⬅`, `➔`) allow 1-pixel fine adjustments.
+
+---
+```java
+
+```

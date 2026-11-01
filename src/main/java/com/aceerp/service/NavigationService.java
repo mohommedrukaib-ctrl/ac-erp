@@ -40,6 +40,7 @@ public class NavigationService {
         navItems.put("accounting",       new NavItem("Accounting",        "💰", "accounting.fxml",        UserRole.MANAGER));
         navItems.put("reports",          new NavItem("Reports",           "📊", "reports.fxml",           UserRole.MANAGER));
         navItems.put("users",            new NavItem("Users",             "👥", "user-management.fxml",  UserRole.ADMIN));
+        navItems.put("audit_logs",       new NavItem("Audit Logs",        "📜", "audit_logs.fxml",        UserRole.ADMIN));
         navItems.put("settings",         new NavItem("Settings",          "⚙",  "settings.fxml",          UserRole.ADMIN));
     }
 

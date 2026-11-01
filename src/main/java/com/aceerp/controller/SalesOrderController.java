@@ -49,6 +49,10 @@ public class SalesOrderController {
     @FXML private Label totalLabel;
     @FXML private VBox detailsPane;
 
+    @FXML private TableColumn<SalesOrderLine, BigDecimal> colDiscount;
+    @FXML private TableColumn<SalesOrderLine, String> colNotes;
+
+
     private final SalesOrderService salesOrderService = new SalesOrderService();
     private final CustomerService customerService = new CustomerService();
     private final ProductService productService = new ProductService();
@@ -364,14 +368,22 @@ public class SalesOrderController {
         }
     }
 
-    private void updateTotal() {
-        BigDecimal total = BigDecimal.ZERO;
+        private void updateTotal() {
+        BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal taxTotal = BigDecimal.ZERO;
         for (SalesOrderLine line : lines) {
             line.recalculateTotal();
-            if (line.getTotalPrice() != null) total = total.add(line.getTotalPrice());
+            if (line.getTotalPrice() != null) subtotal = subtotal.add(line.getTotalPrice());
+            if (line.getTaxAmount() != null) taxTotal = taxTotal.add(line.getTaxAmount());
         }
         linesTable.refresh();
-        totalLabel.setText("Total: " + CurrencyFormatter.format(total));
+        BigDecimal grand = subtotal.add(taxTotal);
+        totalLabel.setText("Total: " + CurrencyFormatter.format(grand));
+        if (currentSalesOrder != null) {
+            currentSalesOrder.setSubtotal(subtotal);
+            currentSalesOrder.setTaxAmount(taxTotal);
+            currentSalesOrder.setTotalAmount(grand);
+        }
     }
 
     @FXML
@@ -466,5 +478,33 @@ public class SalesOrderController {
     private void showAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title); alert.setHeaderText(null); alert.setContentText(content); alert.showAndWait();
+    }
+
+        @FXML
+    private void handleMoveUp() {
+        if (!editMode) {
+            showAlert("View Mode", "Click Edit first to modify this Sales Order.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx > 0) {
+            SalesOrderLine line = lines.remove(idx);
+            lines.add(idx - 1, line);
+            linesTable.getSelectionModel().select(idx - 1);
+        }
+    }
+
+    @FXML
+    private void handleMoveDown() {
+        if (!editMode) {
+            showAlert("View Mode", "Click Edit first to modify this Sales Order.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx >= 0 && idx < lines.size() - 1) {
+            SalesOrderLine line = lines.remove(idx);
+            lines.add(idx + 1, line);
+            linesTable.getSelectionModel().select(idx + 1);
+        }
     }
 }

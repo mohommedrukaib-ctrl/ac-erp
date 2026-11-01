@@ -3,6 +3,7 @@ package com.aceerp.service;
 import com.aceerp.config.DatabaseConfig;
 import com.aceerp.model.AuditLog;
 import com.aceerp.model.UserSession;
+import com.aceerp.repository.AuditLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,12 +11,14 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AuditLogService {
 
     private static final Logger logger = LoggerFactory.getLogger(AuditLogService.class);
+    private final AuditLogRepository auditLogRepository = new AuditLogRepository();
 
     /**
      * Logs an action using an existing database connection (useful for wrapping in transactions).
@@ -81,5 +84,23 @@ public class AuditLogService {
             logger.error("Failed to fetch audit logs: {}", e.getMessage(), e);
         }
         return logs;
+    }
+
+    public List<AuditLog> findLogs(String keyword, String actionFilter, String entityTypeFilter,
+                                  LocalDate startDate, LocalDate endDate, int limit, int offset) {
+        return auditLogRepository.findLogs(keyword, actionFilter, entityTypeFilter, startDate, endDate, limit, offset);
+    }
+
+    public int countLogs(String keyword, String actionFilter, String entityTypeFilter,
+                         LocalDate startDate, LocalDate endDate) {
+        return auditLogRepository.countLogs(keyword, actionFilter, entityTypeFilter, startDate, endDate);
+    }
+
+    public List<String> getDistinctActions() {
+        return auditLogRepository.getDistinctActions();
+    }
+
+    public List<String> getDistinctEntityTypes() {
+        return auditLogRepository.getDistinctEntityTypes();
     }
 }

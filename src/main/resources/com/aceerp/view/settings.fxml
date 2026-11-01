@@ -5,6 +5,8 @@
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.Pane?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.TextArea?>
@@ -18,6 +20,7 @@
 <?import javafx.scene.image.ImageView?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.ColorPicker?>
 
 <VBox xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.aceerp.controller.SettingsController"
@@ -256,55 +259,156 @@
 
         <!-- ===== REPORT DESIGN TAB ===== -->
         <Tab text="Report Design">
-            <VBox spacing="12">
-                <padding><Insets top="16" right="16" bottom="16" left="16"/></padding>
+            <VBox spacing="0">
+                <!-- Scrollable controls (template pickers + visual style) -->
+                <ScrollPane fitToWidth="true" hbarPolicy="NEVER"
+                            pannable="true"
+                            minHeight="180" prefHeight="300" maxHeight="360">
+                    <VBox spacing="12">
+                        <padding><Insets top="16" right="16" bottom="12" left="16"/></padding>
 
-                <Label text="Print Templates" styleClass="section-title"/>
-                <Label text="Built-in themes are read-only. Editing always saves a NEW custom template under your user folder (~/.aceerp/templates)."
-                       wrapText="true" style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
+                        <Label text="Print Templates" styleClass="section-title"/>
+                        <Label text="Built-in themes are read-only. Editing always saves a NEW custom template under your user folder (~/.aceerp/templates)."
+                               wrapText="true" style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
 
-                <GridPane hgap="12" vgap="10">
-                    <columnConstraints>
-                        <ColumnConstraints minWidth="140" prefWidth="160"/>
-                        <ColumnConstraints hgrow="ALWAYS"/>
-                        <ColumnConstraints minWidth="140" prefWidth="160"/>
-                        <ColumnConstraints hgrow="ALWAYS"/>
-                    </columnConstraints>
+                        <GridPane hgap="12" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="140" prefWidth="160"/>
+                                <ColumnConstraints hgrow="ALWAYS"/>
+                                <ColumnConstraints minWidth="140" prefWidth="160"/>
+                                <ColumnConstraints hgrow="ALWAYS"/>
+                            </columnConstraints>
 
-                    <Label text="Document Type" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                    <ComboBox fx:id="cmbReportDocType" maxWidth="Infinity" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                            <Label text="Document Type" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <ComboBox fx:id="cmbReportDocType" maxWidth="Infinity" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                    <Label text="Template" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
-                    <ComboBox fx:id="cmbReportTemplate" maxWidth="Infinity" GridPane.rowIndex="0" GridPane.columnIndex="3"/>
+                            <Label text="Template" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                            <ComboBox fx:id="cmbReportTemplate" maxWidth="Infinity" GridPane.rowIndex="0" GridPane.columnIndex="3"/>
 
-                    <Label text="Sample Doc ID (optional)" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                    <TextField fx:id="txtPreviewDocId" promptText="Leave blank = latest saved" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                            <Label text="Sample Doc ID (optional)" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <TextField fx:id="txtPreviewDocId" promptText="Leave blank = latest saved" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
 
-                    <Label text="Active for this doc" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
-                    <Label fx:id="lblActiveReportTemplate" text="—" GridPane.rowIndex="1" GridPane.columnIndex="3"/>
-                </GridPane>
+                            <Label text="Active for this doc" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                            <Label fx:id="lblActiveReportTemplate" text="—" GridPane.rowIndex="1" GridPane.columnIndex="3"/>
+                        </GridPane>
 
-                <HBox spacing="10">
-                    <Button text="Set Active" onAction="#handleSetActiveReportTemplate" styleClass="btn-primary"/>
-                    <Button text="Preview" onAction="#handlePreviewReportTemplate" styleClass="btn-secondary"/>
-                    <Button text="Load JRXML into Editor" onAction="#handleLoadJrxmlEditor" styleClass="btn-secondary"/>
-                    <Button text="Preview Editor JRXML" onAction="#handlePreviewEditorJrxml" styleClass="btn-secondary"/>
-                    <Button text="Save As New Template…" onAction="#handleSaveAsNewReportTemplate" styleClass="btn-primary"/>
-                    <Region HBox.hgrow="ALWAYS"/>
-                    <Button text="Open Templates Folder" onAction="#handleOpenTemplatesFolder" styleClass="btn-secondary"/>
-                </HBox>
+                        <HBox spacing="10">
+                            <Button text="Set Active" onAction="#handleSetActiveReportTemplate" styleClass="btn-primary"/>
+                            <Button text="Preview" onAction="#handlePreviewReportTemplate" styleClass="btn-secondary"/>
+                            <Button text="Load JRXML into Editor" onAction="#handleLoadJrxmlEditor" styleClass="btn-secondary"/>
+                            <Button text="Preview Editor JRXML" onAction="#handlePreviewEditorJrxml" styleClass="btn-secondary"/>
+                            <Button text="Save As New Template…" onAction="#handleSaveAsNewReportTemplate" styleClass="btn-primary"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button text="Open Templates Folder" onAction="#handleOpenTemplatesFolder" styleClass="btn-secondary"/>
+                        </HBox>
 
-                <SplitPane VBox.vgrow="ALWAYS" dividerPositions="0.45">
+                        <Label text="Visual Style &amp; Layout Designer" styleClass="section-title"/>
+                        <GridPane hgap="10" vgap="8">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="110" prefWidth="120"/>
+                                <ColumnConstraints hgrow="ALWAYS" minWidth="100"/>
+                                <ColumnConstraints minWidth="110" prefWidth="120"/>
+                                <ColumnConstraints hgrow="ALWAYS" minWidth="100"/>
+                                <ColumnConstraints minWidth="110" prefWidth="120"/>
+                                <ColumnConstraints hgrow="ALWAYS" minWidth="100"/>
+                            </columnConstraints>
+
+                            <Label text="Header Color" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <HBox spacing="6" alignment="CENTER_LEFT" GridPane.rowIndex="0" GridPane.columnIndex="1">
+                                <TextField fx:id="txtStyleHeaderColor" prefWidth="90" promptText="#1e40af"/>
+                                <ColorPicker fx:id="cpHeaderColor"/>
+                            </HBox>
+
+                            <Label text="Accent Color" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                            <HBox spacing="6" alignment="CENTER_LEFT" GridPane.rowIndex="0" GridPane.columnIndex="3">
+                                <TextField fx:id="txtStyleAccentColor" prefWidth="90" promptText="#3b82f6"/>
+                                <ColorPicker fx:id="cpAccentColor"/>
+                            </HBox>
+
+                            <Label text="Text Color" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="4"/>
+                            <HBox spacing="6" alignment="CENTER_LEFT" GridPane.rowIndex="0" GridPane.columnIndex="5">
+                                <TextField fx:id="txtStyleTextColor" prefWidth="90" promptText="#111827"/>
+                                <ColorPicker fx:id="cpTextColor"/>
+                            </HBox>
+
+                            <Label text="Margin Top (px)" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <TextField fx:id="txtMarginTop" promptText="40" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <Label text="Margin Bottom (px)" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                            <TextField fx:id="txtMarginBottom" promptText="40" GridPane.rowIndex="1" GridPane.columnIndex="3"/>
+
+                            <Label text="Margin Left (px)" styleClass="field-label" GridPane.rowIndex="1" GridPane.columnIndex="4"/>
+                            <TextField fx:id="txtMarginLeft" promptText="40" GridPane.rowIndex="1" GridPane.columnIndex="5"/>
+
+                            <Label text="Margin Right (px)" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <TextField fx:id="txtMarginRight" promptText="40" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                            <Label text="Title Font Size" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
+                            <TextField fx:id="txtTitleFontSize" promptText="16" GridPane.rowIndex="2" GridPane.columnIndex="3"/>
+
+                            <Label text="Body Font Size" styleClass="field-label" GridPane.rowIndex="2" GridPane.columnIndex="4"/>
+                            <TextField fx:id="txtBodyFontSize" promptText="10" GridPane.rowIndex="2" GridPane.columnIndex="5"/>
+                        </GridPane>
+
+                        <HBox spacing="14" alignment="CENTER_LEFT">
+                            <CheckBox fx:id="chkShowLogo" text="Show Logo" selected="true"/>
+                            <CheckBox fx:id="chkShowTagline" text="Show Tagline" selected="true"/>
+                            <CheckBox fx:id="chkShowTaxNo" text="Show Tax No." selected="true"/>
+                            <CheckBox fx:id="chkShowWebsite" text="Show Website" selected="true"/>
+                            <CheckBox fx:id="chkShowFooter" text="Show Footer" selected="true"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button text="🎨 Apply Style → Editor" onAction="#handleApplyVisualStyle" styleClass="btn-primary"/>
+                            <Button text="↺ Reset Style Defaults" onAction="#handleResetVisualStyle" styleClass="btn-secondary"/>
+                        </HBox>
+
+                        <!-- Selected Element Inspector Bar -->
+                        <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-background-color: #f3f4f6; -fx-padding: 8; -fx-background-radius: 4;">
+                            <Label text="Selected Element:" styleClass="field-label"/>
+                            <ComboBox fx:id="cmbSelectedElement" prefWidth="200" promptText="Click canvas box or select..."/>
+
+                            <Label text="X:" styleClass="field-label"/>
+                            <TextField fx:id="txtElemX" prefWidth="50" promptText="0"/>
+
+                            <Label text="Y:" styleClass="field-label"/>
+                            <TextField fx:id="txtElemY" prefWidth="50" promptText="0"/>
+
+                            <Label text="W:" styleClass="field-label"/>
+                            <TextField fx:id="txtElemW" prefWidth="50" promptText="100"/>
+
+                            <Label text="H:" styleClass="field-label"/>
+                            <TextField fx:id="txtElemH" prefWidth="50" promptText="20"/>
+
+                            <Button text="⬆" onAction="#handleNudgeUp" styleClass="btn-secondary"/>
+                            <Button text="⬇" onAction="#handleNudgeDown" styleClass="btn-secondary"/>
+                            <Button text="⬅" onAction="#handleNudgeLeft" styleClass="btn-secondary"/>
+                            <Button text="➔" onAction="#handleNudgeRight" styleClass="btn-secondary"/>
+
+                            <Button text="Apply Bounds" onAction="#handleApplyElementBounds" styleClass="btn-primary"/>
+                        </HBox>
+                    </VBox>
+                </ScrollPane>
+
+                <!-- Editor + Preview always visible and takes remaining height -->
+                <SplitPane VBox.vgrow="ALWAYS" dividerPositions="0.45" minHeight="280">
                     <VBox spacing="6">
+                        <padding><Insets top="8" right="8" bottom="8" left="16"/></padding>
                         <Label text="JRXML Editor (Save As creates a NEW template — never overwrites built-ins)"/>
                         <TextArea fx:id="txtJrxmlEditor" VBox.vgrow="ALWAYS"
                                   style="-fx-font-family: Consolas, 'Courier New', monospace; -fx-font-size: 12px;"/>
                     </VBox>
                     <VBox spacing="6">
-                        <Label text="Preview"/>
+                        <padding><Insets top="8" right="16" bottom="8" left="8"/></padding>
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label text="Interactive Canvas (Drag boxes to move / resize)" style="-fx-font-weight: bold;"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Label text="💡 Click &amp; Drag element boxes on preview" style="-fx-font-size: 11px; -fx-text-fill: #2563eb;"/>
+                        </HBox>
                         <ScrollPane VBox.vgrow="ALWAYS" fitToWidth="true" fitToHeight="true"
                                     style="-fx-background-color: #e5e7eb;">
-                            <ImageView fx:id="imgReportPreview" preserveRatio="true" fitWidth="520"/>
+                            <StackPane fx:id="previewStackPane" alignment="TOP_LEFT">
+                                <ImageView fx:id="imgReportPreview" preserveRatio="true" fitWidth="520"/>
+                                <Pane fx:id="overlayCanvas" style="-fx-background-color: transparent;"/>
+                            </StackPane>
                         </ScrollPane>
                     </VBox>
                 </SplitPane>

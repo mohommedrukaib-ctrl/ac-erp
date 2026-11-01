@@ -1,83 +1,65 @@
 package com.aceerp.util;
 
 import javafx.animation.PauseTransition;
+import javafx.collections.FXCollections;
+import javafx.geometry.Bounds;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.stage.Popup;
 import javafx.util.Duration;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
  * Reusable smart search helper.
- * 
- * Connects a TextField to a ListView so that:
+ *
+ * Connects a TextField to a ListView / Popup so that:
  * 1. As you type, matching suggestions appear in the list
  * 2. Click a suggestion to fill the field
- * 3. You can also type a completely new value (free text)
- * 
- * HOW TO USE (simple example):
- * 
- *   SmartSearchHelper.setup(
- *       myTextField,
- *       myListView,
- *       query -> myService.searchBrands(query)
- *   );
- * 
- * That's it! The helper handles everything else.
+ * 3. You can also click "+ Add new" to create a new record
  */
 public class SmartSearchHelper {
 
     /**
-     * Wires a TextField and ListView together for smart searching.
-     *
-     * @param textField      the input field where the user types
-     * @param listView       the list that shows matching suggestions
-     * @param searchFunction a function that takes the typed text and returns
-     *                       a list of matching suggestions from the database
+     * Wires a TextField and ListView together for smart searching (simple String version).
      */
     public static void setup(
             TextField textField,
             ListView<String> listView,
             Function<String, List<String>> searchFunction) {
 
-        // Start with the list hidden
         listView.setVisible(false);
-        listView.setManaged(false); // hidden = takes no space
+        listView.setManaged(false);
 
-        // --- 1. Show suggestions as user types ---
         textField.textProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && newVal.trim().length() >= 1) {
-                // Call the search function to get matching values
                 List<String> results = searchFunction.apply(newVal.trim());
                 listView.getItems().setAll(results);
 
-                // Only show the list if there are matches
                 boolean hasResults = !results.isEmpty();
                 listView.setVisible(hasResults);
                 listView.setManaged(hasResults);
             } else {
-                // Hide list when field is empty
                 listView.getItems().clear();
                 listView.setVisible(false);
                 listView.setManaged(false);
             }
         });
 
-        // --- 2. Fill the field when user clicks a suggestion ---
         listView.setOnMouseClicked(event -> {
             String selected = listView.getSelectionModel().getSelectedItem();
             if (selected != null) {
                 textField.setText(selected);
                 listView.setVisible(false);
                 listView.setManaged(false);
-                // Move cursor to end of text
                 textField.positionCaret(selected.length());
             }
         });
 
-        // --- 3. Hide list when user clicks away ---
-        // Small delay so the click on the list registers first
         textField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
             if (!isFocused) {
                 PauseTransition pause = new PauseTransition(Duration.millis(200));
@@ -91,12 +73,7 @@ public class SmartSearchHelper {
     }
 
     /**
-     * Simpler version: loads ALL suggestions upfront and filters locally.
-     * Good for small lists (under 100 items) like units or product types.
-     *
-     * @param textField  the input field
-     * @param listView   the suggestion list
-     * @param allValues  the complete list of possible values
+     * Local String search version.
      */
     public static void setupLocal(
             TextField textField,
@@ -109,11 +86,10 @@ public class SmartSearchHelper {
         textField.textProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && newVal.trim().length() >= 1) {
                 String query = newVal.trim().toLowerCase();
-                // Filter the full list locally (no database call)
                 List<String> matches = allValues.stream()
-                    .filter(v -> v.toLowerCase().contains(query))
-                    .limit(10)
-                    .toList();
+                        .filter(v -> v.toLowerCase().contains(query))
+                        .limit(10)
+                        .toList();
 
                 listView.getItems().setAll(matches);
                 boolean hasResults = !matches.isEmpty();
@@ -147,4 +123,96 @@ public class SmartSearchHelper {
             }
         });
     }
-}               
+
+    /**
+     * Smart Entity search with dropdown popup and "+ Add new" quick-add support.
+     *
+     * @param textField      TextField to bind
+     * @param searchFunction Function taking typed query and returning matching items
+     * @param displayFunction Function converting an item to display string
+     * @param onSelect       Callback when an existing item is selected
+     * @param onAddNew       Callback when user selects "+ Add new"
+     */
+    public static <T> void setupEntitySearch(
+            TextField textField,
+            Function<String, List<T>> searchFunction,
+            Function<T, String> displayFunction,
+            Consumer<T> onSelect,
+            Consumer<String> onAddNew) {
+
+        Popup popup = new Popup();
+        popup.setAutoHide(true);
+
+        ListView<Object> listView = new ListView<>();
+        listView.setPrefHeight(180);
+        popup.getContent().add(listView);
+
+        listView.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Object item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                } else if (item instanceof String s && s.startsWith("➕")) {
+                    setText(s);
+                    setStyle("-fx-font-weight: bold; -fx-text-fill: #1976D2; -fx-cursor: hand;");
+                } else {
+                    @SuppressWarnings("unchecked")
+                    T entity = (T) item;
+                    setText(displayFunction.apply(entity));
+                    setStyle("");
+                }
+            }
+        });
+
+        textField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.trim().isEmpty()) {
+                popup.hide();
+                return;
+            }
+
+            String query = newVal.trim();
+            List<T> matches = searchFunction.apply(query);
+            List<Object> items = new ArrayList<>(matches);
+            items.add("➕ Add new '" + query + "'...");
+
+            listView.setItems(FXCollections.observableArrayList(items));
+
+            if (!popup.isShowing() && textField.getScene() != null && textField.getScene().getWindow() != null) {
+                Bounds bounds = textField.localToScreen(textField.getBoundsInLocal());
+                if (bounds != null) {
+                    listView.setPrefWidth(Math.max(bounds.getWidth(), 250));
+                    popup.show(textField, bounds.getMinX(), bounds.getMaxY());
+                }
+            }
+        });
+
+        listView.setOnMouseClicked(event -> {
+            Object selected = listView.getSelectionModel().getSelectedItem();
+            if (selected == null) return;
+
+            popup.hide();
+            if (selected instanceof String s && s.startsWith("➕")) {
+                String typedText = textField.getText() != null ? textField.getText().trim() : "";
+                if (onAddNew != null) {
+                    onAddNew.accept(typedText);
+                }
+            } else {
+                @SuppressWarnings("unchecked")
+                T entity = (T) selected;
+                if (onSelect != null) {
+                    onSelect.accept(entity);
+                }
+            }
+        });
+
+        textField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) {
+                PauseTransition pause = new PauseTransition(Duration.millis(200));
+                pause.setOnFinished(e -> popup.hide());
+                pause.play();
+            }
+        });
+    }
+}

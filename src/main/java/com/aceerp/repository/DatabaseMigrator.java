@@ -60,7 +60,8 @@ public class DatabaseMigrator {
         "V032__fix_grn_stock_quantity_column.sql",
         "V033__fix_stock_movements_movement_type.sql",
         "V034__fix_purchase_return_lines_description.sql",
-        "V035__fix_purchase_return_lines_columns.sql"
+        "V035__fix_purchase_return_lines_columns.sql",
+        "V036__line_discount_notes.sql"
         
     };
 

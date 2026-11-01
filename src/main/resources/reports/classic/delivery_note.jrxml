@@ -1,16 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="DeliveryNote" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30">
     <parameter name="DN_ID" class="java.lang.Integer"/>
+    <!-- Company Branding Parameters -->
     <parameter name="COMPANY_NAME" class="java.lang.String"/>
-    
+    <parameter name="COMPANY_TAGLINE" class="java.lang.String"/>
+    <parameter name="COMPANY_ADDRESS" class="java.lang.String"/>
+    <parameter name="COMPANY_PHONE" class="java.lang.String"/>
+    <parameter name="COMPANY_EMAIL" class="java.lang.String"/>
+    <parameter name="COMPANY_WEBSITE" class="java.lang.String"/>
+    <parameter name="COMPANY_TAX_NO" class="java.lang.String"/>
+    <parameter name="COMPANY_FOOTER" class="java.lang.String"/>
+    <parameter name="COMPANY_LOGO" class="java.lang.String"/>
     <queryString>
         <![CDATA[
-            SELECT d.dn_number, d.dn_date, d.driver_name, d.vehicle_plate, d.delivery_address,
+            SELECT d.dn_number, d.delivery_date AS dn_date, d.driver_name, d.vehicle_no AS vehicle_plate, d.delivery_address,
                    c.name AS customer_name, c.phone,
-                   dl.description, dl.quantity
+                   p.name AS description, dl.shipped_qty AS quantity
             FROM delivery_notes d
             LEFT JOIN customers c ON d.customer_id = c.id
             JOIN delivery_note_lines dl ON d.id = dl.dn_id
+            JOIN products p ON dl.product_id = p.id
             WHERE d.id = $P{DN_ID}
         ]]>
     </queryString>
@@ -25,45 +34,31 @@
     <field name="quantity" class="java.math.BigDecimal"/>
     
     <title>
-        <band height="120">
+        <band height="70">
+            <!-- Company Logo from Settings -->
+            <image onErrorType="Blank">
+                <reportElement x="0" y="0" width="150" height="60"/>
+                <imageExpression><![CDATA[$P{COMPANY_LOGO}]]></imageExpression>
+            </image>
+
+            <!-- Company Name & Tagline from Settings -->
             <textField>
-                <reportElement x="0" y="0" width="300" height="25"/>
-                <textElement><font size="16" isBold="true"/></textElement>
+                <reportElement x="160" y="0" width="220" height="20"/>
+                <textElement><font size="14" isBold="true"/></textElement>
                 <textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression>
             </textField>
-            <staticText>
-                <reportElement x="350" y="0" width="185" height="30"/>
-                <textElement textAlignment="Right"><font size="20" isBold="true"/></textElement>
-                <text><![CDATA[DELIVERY NOTE]]></text>
-            </staticText>
+            
             <textField>
-                <reportElement x="0" y="35" width="250" height="20"/>
-                <textFieldExpression><![CDATA["DN Number: " + $F{dn_number}]]></textFieldExpression>
+                <reportElement x="160" y="22" width="220" height="15"/>
+                <textElement><font size="9" isItalic="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COMPANY_TAGLINE}]]></textFieldExpression>
             </textField>
+            
             <textField>
-                <reportElement x="350" y="35" width="185" height="20"/>
-                <textElement textAlignment="Right"/>
-                <textFieldExpression><![CDATA["Date: " + $F{dn_date}]]></textFieldExpression>
+                <reportElement x="160" y="38" width="220" height="25"/>
+                <textElement><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$P{COMPANY_ADDRESS} + "\nPh: " + $P{COMPANY_PHONE}]]></textFieldExpression>
             </textField>
-            <textField>
-                <reportElement x="0" y="60" width="250" height="20"/>
-                <textFieldExpression><![CDATA["Customer: " + ($F{customer_name} != null ? $F{customer_name} : "N/A")]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="0" y="80" width="250" height="30"/>
-                <textFieldExpression><![CDATA["Address: " + ($F{delivery_address} != null ? $F{delivery_address} : "")]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="350" y="60" width="185" height="20"/>
-                <textElement textAlignment="Right"/>
-                <textFieldExpression><![CDATA["Driver: " + ($F{driver_name} != null ? $F{driver_name} : "Pending")]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="350" y="80" width="185" height="20"/>
-                <textElement textAlignment="Right"/>
-                <textFieldExpression><![CDATA["Vehicle: " + ($F{vehicle_plate} != null ? $F{vehicle_plate} : "Pending")]]></textFieldExpression>
-            </textField>
-            <line><reportElement x="0" y="115" width="535" height="1"/></line>
         </band>
     </title>
     

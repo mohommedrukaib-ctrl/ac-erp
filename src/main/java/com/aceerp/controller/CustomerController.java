@@ -1,6 +1,7 @@
 package com.aceerp.controller;
 
 import com.aceerp.model.Customer;
+import com.aceerp.service.AuditLogService;
 import com.aceerp.service.CustomerService;
 import com.aceerp.util.AlertHelper;
 import javafx.collections.FXCollections;
@@ -97,6 +98,8 @@ public class CustomerController implements Initializable {
         if (AlertHelper.confirm("Deactivate Customer", "Are you sure you want to deactivate '" + selected.getName() + "'?")) {
             try {
                 customerService.deactivate(selected.getId());
+                AuditLogService.log("DEACTIVATE", "CUSTOMER", selected.getId(), 
+                    "Deactivated customer: " + selected.getName() + " (" + selected.getCustomerCode() + ")");
                 loadCustomers();
             } catch (Exception e) {
                 AlertHelper.error("Error", "Failed to deactivate customer: " + e.getMessage());
@@ -175,9 +178,13 @@ public class CustomerController implements Initializable {
                         existing.setTaxNumber(taxField.getText().trim());
                         existing.setNotes(notesArea.getText().trim());
                         customerService.updateCustomer(existing);
+                        
+                        AuditLogService.log("UPDATE", "CUSTOMER", existing.getId(), 
+                            "Updated customer details for: " + existing.getName() + " (" + existing.getCustomerCode() + ")");
+                        
                         AlertHelper.info("Success", "Customer updated.");
-                    } else {
-                        customerService.addCustomer(
+                                        } else {
+                        int newId = customerService.addCustomer(
                             name,
                             phoneField.getText().trim(),
                             emailField.getText().trim(),
@@ -186,8 +193,14 @@ public class CustomerController implements Initializable {
                             taxField.getText().trim(),
                             notesArea.getText().trim()
                         );
+                        
+                        AuditLogService.log("CREATE", "CUSTOMER", newId, 
+                            "Created new customer: " + name);
+                        
                         AlertHelper.info("Success", "Customer created.");
                     }
+                        
+                        
                     loadCustomers();
                 } catch (Exception e) {
                     AlertHelper.error("Error", "Failed to save customer: " + e.getMessage());

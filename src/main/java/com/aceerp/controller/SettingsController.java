@@ -2,32 +2,27 @@ package com.aceerp.controller;
 
 import com.aceerp.model.CompanyProfile;
 import com.aceerp.service.CompanyProfileService;
+import com.aceerp.service.ReportTemplateService;
 import com.aceerp.service.SettingsService;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.aceerp.service.ReportTemplateService;
-import javafx.application.Platform;
-import javafx.scene.image.Image;
-import javafx.geometry.Insets;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.SplitPane;
-import javafx.scene.control.TextInputDialog;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.Region;
 
 import java.awt.Desktop;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-
-
-import java.io.File;
 
 public class SettingsController {
 
@@ -54,13 +49,32 @@ public class SettingsController {
     @FXML private ImageView imgLogoPreview;
     @FXML private Label lblLogoPath;
 
+    // ---- Report Visual Style ----
+    @FXML private TextField txtStyleHeaderColor;
+    @FXML private TextField txtStyleAccentColor;
+    @FXML private TextField txtStyleTextColor;
+    @FXML private ColorPicker cpHeaderColor;
+    @FXML private ColorPicker cpAccentColor;
+    @FXML private ColorPicker cpTextColor;
+    @FXML private TextField txtMarginTop;
+    @FXML private TextField txtMarginBottom;
+    @FXML private TextField txtMarginLeft;
+    @FXML private TextField txtMarginRight;
+    @FXML private TextField txtTitleFontSize;
+    @FXML private TextField txtBodyFontSize;
+    @FXML private CheckBox chkShowLogo;
+    @FXML private CheckBox chkShowTagline;
+    @FXML private CheckBox chkShowTaxNo;
+    @FXML private CheckBox chkShowWebsite;
+    @FXML private CheckBox chkShowFooter;
+
     // ---- Currency Settings ----
     @FXML private TextField currencyCodeField;
     @FXML private TextField currencySymbolField;
     @FXML private TextField currencyDecimalsField;
     @FXML private ChoiceBox<String> currencyPositionChoice;
 
-        // ---- Report Design ----
+    // ---- Report Design ----
     @FXML private ComboBox<String> cmbReportDocType;
     @FXML private ComboBox<String> cmbReportTemplate;
     @FXML private TextField txtPreviewDocId;
@@ -68,8 +82,14 @@ public class SettingsController {
     @FXML private TextArea txtJrxmlEditor;
     @FXML private ImageView imgReportPreview;
 
-
-    
+    // ---- Interactive Drag & Layout Designer Controls ----
+    @FXML private StackPane previewStackPane;
+    @FXML private Pane overlayCanvas;
+    @FXML private ComboBox<ReportTemplateService.ReportElementItem> cmbSelectedElement;
+    @FXML private TextField txtElemX;
+    @FXML private TextField txtElemY;
+    @FXML private TextField txtElemW;
+    @FXML private TextField txtElemH;
 
     // ---- Invoice & Numbering Settings ----
     @FXML private TextField invoicePrefixField;
@@ -96,10 +116,10 @@ public class SettingsController {
     private final SettingsService settingsService = SettingsService.getInstance();
     private final ReportTemplateService reportTemplateService = new ReportTemplateService();
 
-
-
     private CompanyProfile currentProfile;
     private String pendingLogoPath;
+    private double dragStartX, dragStartY;
+    private int elementStartX, elementStartY, elementStartW, elementStartH;
 
     @FXML
     public void initialize() {
@@ -112,6 +132,8 @@ public class SettingsController {
 
         loadAllSettings();
         initReportDesignTab();
+        initVisualStyleControls();
+        initElementInspector();
     }
 
     @FXML
@@ -185,196 +207,376 @@ public class SettingsController {
     }
 
     private void initReportDesignTab() {
-    if (cmbReportDocType == null) return;
+        if (cmbReportDocType == null) return;
 
-    cmbReportDocType.getItems().setAll(
-            "invoice",
-            "quotation",
-            "sales_order",
-            "delivery_note",
-            "purchase_order",
-            "job_note_a5",
-            "supplier_bill"
-    );
-    cmbReportDocType.setValue("invoice");
+        cmbReportDocType.getItems().setAll(
+                "invoice",
+                "quotation",
+                "sales_order",
+                "delivery_note",
+                "purchase_order",
+                "job_note_a5",
+                "supplier_bill"
+        );
+        cmbReportDocType.setValue("invoice");
 
-    cmbReportDocType.valueProperty().addListener((o, a, b) -> refreshReportTemplateList());
-    cmbReportTemplate.valueProperty().addListener((o, a, b) -> {
-        // optional: auto-load on change — keep manual via button to avoid slow IO
-    });
-
-    refreshReportTemplateList();
-}
-
-private void refreshReportTemplateList() {
-    if (cmbReportDocType == null || cmbReportTemplate == null) return;
-    String doc = cmbReportDocType.getValue();
-    if (doc == null) return;
-
-    List<String> keys = reportTemplateService.listTemplatesFor(doc);
-    cmbReportTemplate.getItems().setAll(keys);
-
-    String active = reportTemplateService.getActiveTemplateKey(doc);
-    if (lblActiveReportTemplate != null) {
-        lblActiveReportTemplate.setText(active);
-    }
-    if (keys.contains(active)) {
-        cmbReportTemplate.setValue(active);
-    } else if (!keys.isEmpty()) {
-        cmbReportTemplate.setValue(keys.getFirst());
-    }
-}
-
-@FXML
-private void handleSetActiveReportTemplate() {
-    String doc = cmbReportDocType.getValue();
-    String tpl = cmbReportTemplate.getValue();
-    if (doc == null || tpl == null) {
-        showAlert(Alert.AlertType.WARNING, "Report Design", "Select document type and template.");
-        return;
-    }
-    reportTemplateService.setActiveTemplateKey(doc, tpl);
-    if (lblActiveReportTemplate != null) lblActiveReportTemplate.setText(tpl);
-    if (statusLabel != null) {
-        statusLabel.setText("Active template for " + doc + " → " + tpl);
-        statusLabel.setStyle("-fx-text-fill: #15803d;");
-    }
-    showAlert(Alert.AlertType.INFORMATION, "Active Template",
-            "Prints for " + doc + " will use: " + tpl);
-}
-
-@FXML
-private void handleLoadJrxmlEditor() {
-    String doc = cmbReportDocType.getValue();
-    String tpl = cmbReportTemplate.getValue();
-    if (doc == null || tpl == null) {
-        showAlert(Alert.AlertType.WARNING, "Report Design", "Select document type and template.");
-        return;
-    }
-    try {
-        String jrxml = reportTemplateService.loadJrxmlText(doc, tpl);
-        txtJrxmlEditor.setText(jrxml);
-        if (reportTemplateService.isBuiltin(tpl)) {
-            showAlert(Alert.AlertType.INFORMATION, "Read-only source",
-                    "Loaded built-in '" + tpl + "'.\n\nUse Save As New Template to create a custom copy. Built-ins are never overwritten.");
-        }
-    } catch (Exception e) {
-        logger.error("Load JRXML failed: {}", e.getMessage(), e);
-        showAlert(Alert.AlertType.ERROR, "Load Failed", e.getMessage());
-    }
-}
-
-@FXML
-private void handleSaveAsNewReportTemplate() {
-    String doc = cmbReportDocType.getValue();
-    if (doc == null) {
-        showAlert(Alert.AlertType.WARNING, "Report Design", "Select a document type.");
-        return;
-    }
-    String jrxml = txtJrxmlEditor != null ? txtJrxmlEditor.getText() : null;
-    if (jrxml == null || jrxml.isBlank()) {
-        showAlert(Alert.AlertType.WARNING, "Report Design", "Editor is empty. Load a template first.");
-        return;
-    }
-
-    TextInputDialog dialog = new TextInputDialog("MyCustom");
-    dialog.setTitle("Save As New Template");
-    dialog.setHeaderText("Create a NEW custom template (built-ins stay unchanged)");
-    dialog.setContentText("Template name:");
-    Optional<String> nameOpt = dialog.showAndWait();
-    if (nameOpt.isEmpty() || nameOpt.get().isBlank()) return;
-
-    try {
-        String key = reportTemplateService.saveAsNewCustomTemplate(doc, nameOpt.get().trim(), jrxml);
+        cmbReportDocType.valueProperty().addListener((o, a, b) -> refreshReportTemplateList());
         refreshReportTemplateList();
-        cmbReportTemplate.setValue(key);
-        showAlert(Alert.AlertType.INFORMATION, "Saved",
-                "New template created: " + key + "\n\nClick Set Active if you want prints to use it.");
-    } catch (Exception e) {
-        logger.error("Save custom template failed: {}", e.getMessage(), e);
-        showAlert(Alert.AlertType.ERROR, "Save Failed", e.getMessage());
     }
-}
 
-@FXML
-private void handlePreviewReportTemplate() {
-    String doc = cmbReportDocType.getValue();
-    String tpl = cmbReportTemplate.getValue();
-    if (doc == null || tpl == null) {
-        showAlert(Alert.AlertType.WARNING, "Preview", "Select document type and template.");
-        return;
+    private void initElementInspector() {
+        if (cmbSelectedElement == null) return;
+        cmbSelectedElement.valueProperty().addListener((o, oldItem, newItem) -> {
+            if (newItem != null) {
+                if (txtElemX != null) txtElemX.setText(String.valueOf(newItem.x));
+                if (txtElemY != null) txtElemY.setText(String.valueOf(newItem.y));
+                if (txtElemW != null) txtElemW.setText(String.valueOf(newItem.width));
+                if (txtElemH != null) txtElemH.setText(String.valueOf(newItem.height));
+                highlightElementOnCanvas(newItem);
+            }
+        });
     }
-    runPreview(() -> reportTemplateService.renderPreviewPng(doc, tpl, parsePreviewId(), 1.6f));
-}
 
-@FXML
-private void handlePreviewEditorJrxml() {
-    String doc = cmbReportDocType.getValue();
-    String jrxml = txtJrxmlEditor != null ? txtJrxmlEditor.getText() : null;
-    if (doc == null || jrxml == null || jrxml.isBlank()) {
-        showAlert(Alert.AlertType.WARNING, "Preview", "Select document type and put JRXML in the editor.");
-        return;
-    }
-    runPreview(() -> reportTemplateService.renderPreviewPngFromText(doc, jrxml, parsePreviewId(), 1.6f));
-}
+    private void refreshReportTemplateList() {
+        if (cmbReportDocType == null || cmbReportTemplate == null) return;
+        String doc = cmbReportDocType.getValue();
+        if (doc == null) return;
 
-private Integer parsePreviewId() {
-    if (txtPreviewDocId == null || txtPreviewDocId.getText() == null || txtPreviewDocId.getText().isBlank()) {
-        return null;
-    }
-    try {
-        return Integer.parseInt(txtPreviewDocId.getText().trim());
-    } catch (NumberFormatException e) {
-        return null;
-    }
-}
+        List<String> keys = reportTemplateService.listTemplatesFor(doc);
+        cmbReportTemplate.getItems().setAll(keys);
 
-private void runPreview(PreviewSupplier supplier) {
-    if (statusLabel != null) {
-        statusLabel.setText("Generating preview…");
-        statusLabel.setStyle("-fx-text-fill: #2563eb;");
+        String active = reportTemplateService.getActiveTemplateKey(doc);
+        if (lblActiveReportTemplate != null) {
+            lblActiveReportTemplate.setText(active);
+        }
+        if (keys.contains(active)) {
+            cmbReportTemplate.setValue(active);
+        } else if (!keys.isEmpty()) {
+            cmbReportTemplate.setValue(keys.getFirst());
+        }
     }
-    new Thread(() -> {
+
+    @FXML
+    private void handleSetActiveReportTemplate() {
+        String doc = cmbReportDocType.getValue();
+        String tpl = cmbReportTemplate.getValue();
+        if (doc == null || tpl == null) {
+            showAlert(Alert.AlertType.WARNING, "Report Design", "Select document type and template.");
+            return;
+        }
+        reportTemplateService.setActiveTemplateKey(doc, tpl);
+        if (lblActiveReportTemplate != null) lblActiveReportTemplate.setText(tpl);
+        if (statusLabel != null) {
+            statusLabel.setText("Active template for " + doc + " → " + tpl);
+            statusLabel.setStyle("-fx-text-fill: #15803d;");
+        }
+        showAlert(Alert.AlertType.INFORMATION, "Active Template",
+                "Prints for " + doc + " will use: " + tpl);
+    }
+
+    @FXML
+    private void handleLoadJrxmlEditor() {
+        String doc = cmbReportDocType.getValue();
+        String tpl = cmbReportTemplate.getValue();
+        if (doc == null || tpl == null) {
+            showAlert(Alert.AlertType.WARNING, "Report Design", "Select document type and template.");
+            return;
+        }
         try {
-            byte[] png = supplier.get();
-            Platform.runLater(() -> {
-                imgReportPreview.setImage(new Image(new ByteArrayInputStream(png)));
-                if (statusLabel != null) {
-                    statusLabel.setText("Preview ready.");
-                    statusLabel.setStyle("-fx-text-fill: #15803d;");
-                }
-            });
+            String jrxml = reportTemplateService.loadJrxmlText(doc, tpl);
+            txtJrxmlEditor.setText(jrxml);
+            handlePreviewEditorJrxml();
+            if (reportTemplateService.isBuiltin(tpl)) {
+                showAlert(Alert.AlertType.INFORMATION, "Read-only source",
+                        "Loaded built-in '" + tpl + "'.\n\nUse Save As New Template to create a custom copy. Built-ins are never overwritten.");
+            }
         } catch (Exception e) {
-            logger.error("Preview failed: {}", e.getMessage(), e);
-            Platform.runLater(() -> {
-                if (statusLabel != null) {
-                    statusLabel.setText("Preview failed: " + e.getMessage());
-                    statusLabel.setStyle("-fx-text-fill: #dc2626;");
-                }
-                showAlert(Alert.AlertType.ERROR, "Preview Failed", e.getMessage());
-            });
+            logger.error("Load JRXML failed: {}", e.getMessage(), e);
+            showAlert(Alert.AlertType.ERROR, "Load Failed", e.getMessage());
         }
-    }, "report-preview").start();
-}
-
-@FunctionalInterface
-private interface PreviewSupplier {
-    byte[] get() throws Exception;
-}
-
-@FXML
-private void handleOpenTemplatesFolder() {
-    try {
-        Path root = reportTemplateService.getCustomRoot();
-        if (Desktop.isDesktopSupported()) {
-            Desktop.getDesktop().open(root.toFile());
-        } else {
-            showAlert(Alert.AlertType.INFORMATION, "Templates Folder", root.toAbsolutePath().toString());
-        }
-    } catch (Exception e) {
-        showAlert(Alert.AlertType.ERROR, "Folder", e.getMessage());
     }
-}
+
+    @FXML
+    private void handleSaveAsNewReportTemplate() {
+        String doc = cmbReportDocType.getValue();
+        if (doc == null) {
+            showAlert(Alert.AlertType.WARNING, "Report Design", "Select a document type.");
+            return;
+        }
+        String jrxml = txtJrxmlEditor != null ? txtJrxmlEditor.getText() : null;
+        if (jrxml == null || jrxml.isBlank()) {
+            showAlert(Alert.AlertType.WARNING, "Report Design", "Editor is empty. Load a template first.");
+            return;
+        }
+
+        TextInputDialog dialog = new TextInputDialog("MyCustom");
+        dialog.setTitle("Save As New Template");
+        dialog.setHeaderText("Create a NEW custom template (built-ins stay unchanged)");
+        dialog.setContentText("Template name:");
+        Optional<String> nameOpt = dialog.showAndWait();
+        if (nameOpt.isEmpty() || nameOpt.get().isBlank()) return;
+
+        try {
+            String key = reportTemplateService.saveAsNewCustomTemplate(doc, nameOpt.get().trim(), jrxml);
+            refreshReportTemplateList();
+            cmbReportTemplate.setValue(key);
+            showAlert(Alert.AlertType.INFORMATION, "Saved",
+                    "New template created: " + key + "\n\nClick Set Active if you want prints to use it.");
+        } catch (Exception e) {
+            logger.error("Save custom template failed: {}", e.getMessage(), e);
+            showAlert(Alert.AlertType.ERROR, "Save Failed", e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handlePreviewReportTemplate() {
+        String doc = cmbReportDocType.getValue();
+        String tpl = cmbReportTemplate.getValue();
+        if (doc == null || tpl == null) {
+            showAlert(Alert.AlertType.WARNING, "Preview", "Select document type and template.");
+            return;
+        }
+        runPreview(() -> reportTemplateService.renderPreviewPng(doc, tpl, parsePreviewId(), 1.6f));
+    }
+
+    @FXML
+    private void handlePreviewEditorJrxml() {
+        String doc = cmbReportDocType.getValue();
+        String jrxml = txtJrxmlEditor != null ? txtJrxmlEditor.getText() : null;
+        if (doc == null || jrxml == null || jrxml.isBlank()) {
+            showAlert(Alert.AlertType.WARNING, "Preview", "Select document type and put JRXML in the editor.");
+            return;
+        }
+        runPreview(() -> reportTemplateService.renderPreviewPngFromText(doc, jrxml, parsePreviewId(), 1.6f));
+    }
+
+    private Integer parsePreviewId() {
+        if (txtPreviewDocId == null || txtPreviewDocId.getText() == null || txtPreviewDocId.getText().isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(txtPreviewDocId.getText().trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private void runPreview(PreviewSupplier supplier) {
+        if (statusLabel != null) {
+            statusLabel.setText("Generating preview…");
+            statusLabel.setStyle("-fx-text-fill: #2563eb;");
+        }
+        new Thread(() -> {
+            try {
+                byte[] png = supplier.get();
+                Platform.runLater(() -> {
+                    imgReportPreview.setImage(new Image(new ByteArrayInputStream(png)));
+                    refreshOverlayCanvas();
+                    if (statusLabel != null) {
+                        statusLabel.setText("Preview & Layout ready.");
+                        statusLabel.setStyle("-fx-text-fill: #15803d;");
+                    }
+                });
+            } catch (Exception e) {
+                logger.error("Preview failed: {}", e.getMessage(), e);
+                Platform.runLater(() -> {
+                    if (statusLabel != null) {
+                        statusLabel.setText("Preview failed: " + e.getMessage());
+                        statusLabel.setStyle("-fx-text-fill: #dc2626;");
+                    }
+                    showAlert(Alert.AlertType.ERROR, "Preview Failed", e.getMessage());
+                });
+            }
+        }, "report-preview").start();
+    }
+
+    @FunctionalInterface
+    private interface PreviewSupplier {
+        byte[] get() throws Exception;
+    }
+
+    // ---- Interactive Drag-and-Move Canvas Logic ----
+
+    private void refreshOverlayCanvas() {
+        if (overlayCanvas == null || txtJrxmlEditor == null || imgReportPreview == null || imgReportPreview.getImage() == null) {
+            return;
+        }
+        overlayCanvas.getChildren().clear();
+
+        String jrxml = txtJrxmlEditor.getText();
+        if (jrxml == null || jrxml.isBlank()) return;
+
+        List<ReportTemplateService.ReportElementItem> elements = reportTemplateService.parseReportElements(jrxml);
+        if (cmbSelectedElement != null) {
+            cmbSelectedElement.getItems().setAll(elements);
+        }
+
+        double imgWidth = imgReportPreview.getBoundsInParent().getWidth();
+        if (imgWidth <= 0) imgWidth = 520;
+        double scale = imgWidth / 595.0; // Standard JRXML A4 page width
+
+        overlayCanvas.setPrefSize(imgReportPreview.getBoundsInParent().getWidth(), imgReportPreview.getBoundsInParent().getHeight());
+
+        for (ReportTemplateService.ReportElementItem item : elements) {
+            Pane box = createDraggableBox(item, scale);
+            overlayCanvas.getChildren().add(box);
+        }
+    }
+
+    private Pane createDraggableBox(ReportTemplateService.ReportElementItem item, double scale) {
+        Pane box = new Pane();
+        double sx = item.x * scale;
+        double sy = (item.bandOffsetY + item.y) * scale;
+        double sw = item.width * scale;
+        double sh = item.height * scale;
+
+        box.setLayoutX(sx);
+        box.setLayoutY(sy);
+        box.setPrefSize(sw, sh);
+        box.setStyle("-fx-border-color: #2563eb; -fx-border-style: dashed; -fx-border-width: 1.5; -fx-background-color: rgba(59, 130, 246, 0.12);");
+
+        Label label = new Label(item.label);
+        label.setStyle("-fx-font-size: 10px; -fx-text-fill: #1e3a8a; -fx-font-weight: bold; -fx-padding: 2;");
+        box.getChildren().add(label);
+
+        // Resize handle at bottom-right
+        Rectangle handle = new Rectangle(8, 8, Color.web("#2563eb"));
+        handle.setX(sw - 8);
+        handle.setY(sh - 8);
+        box.getChildren().add(handle);
+
+        // Drag Handler
+        box.setOnMousePressed(e -> {
+            dragStartX = e.getSceneX();
+            dragStartY = e.getSceneY();
+            elementStartX = item.x;
+            elementStartY = item.y;
+            elementStartW = item.width;
+            elementStartH = item.height;
+            if (cmbSelectedElement != null) {
+                cmbSelectedElement.setValue(item);
+            }
+            highlightElementOnCanvas(item);
+            e.consume();
+        });
+
+        box.setOnMouseDragged(e -> {
+            double dx = (e.getSceneX() - dragStartX) / scale;
+            double dy = (e.getSceneY() - dragStartY) / scale;
+
+            int newX = Math.max(0, elementStartX + (int) Math.round(dx));
+            int newY = Math.max(0, elementStartY + (int) Math.round(dy));
+
+            item.x = newX;
+            item.y = newY;
+
+            box.setLayoutX(newX * scale);
+            box.setLayoutY((item.bandOffsetY + newY) * scale);
+
+            if (txtElemX != null) txtElemX.setText(String.valueOf(newX));
+            if (txtElemY != null) txtElemY.setText(String.valueOf(newY));
+            e.consume();
+        });
+
+        box.setOnMouseReleased(e -> {
+            applyUpdatedBoundsToEditor(item);
+            e.consume();
+        });
+
+        // Resize Handler
+        handle.setOnMouseDragged(e -> {
+            double dw = (e.getSceneX() - dragStartX) / scale;
+            double dh = (e.getSceneY() - dragStartY) / scale;
+
+            int newW = Math.max(10, elementStartW + (int) Math.round(dw));
+            int newH = Math.max(10, elementStartH + (int) Math.round(dh));
+
+            item.width = newW;
+            item.height = newH;
+
+            box.setPrefSize(newW * scale, newH * scale);
+            handle.setX((newW * scale) - 8);
+            handle.setY((newH * scale) - 8);
+
+            if (txtElemW != null) txtElemW.setText(String.valueOf(newW));
+            if (txtElemH != null) txtElemH.setText(String.valueOf(newH));
+            e.consume();
+        });
+
+        handle.setOnMouseReleased(e -> {
+            applyUpdatedBoundsToEditor(item);
+            e.consume();
+        });
+
+        return box;
+    }
+
+    private void highlightElementOnCanvas(ReportTemplateService.ReportElementItem item) {
+        if (overlayCanvas == null) return;
+        for (javafx.scene.Node node : overlayCanvas.getChildren()) {
+            if (node instanceof Pane p) {
+                p.setStyle("-fx-border-color: #2563eb; -fx-border-style: dashed; -fx-border-width: 1.5; -fx-background-color: rgba(59, 130, 246, 0.12);");
+            }
+        }
+    }
+
+    private void applyUpdatedBoundsToEditor(ReportTemplateService.ReportElementItem item) {
+        try {
+            String jrxml = txtJrxmlEditor.getText();
+            String updated = reportTemplateService.updateElementBounds(jrxml, item.key, item.x, item.y, item.width, item.height);
+            txtJrxmlEditor.setText(updated);
+            handlePreviewEditorJrxml();
+        } catch (Exception e) {
+            logger.error("Update element bounds failed: {}", e.getMessage(), e);
+        }
+    }
+
+    @FXML
+    private void handleNudgeUp() { nudgeElement(0, -1); }
+
+    @FXML
+    private void handleNudgeDown() { nudgeElement(0, 1); }
+
+    @FXML
+    private void handleNudgeLeft() { nudgeElement(-1, 0); }
+
+    @FXML
+    private void handleNudgeRight() { nudgeElement(1, 0); }
+
+    private void nudgeElement(int dx, int dy) {
+        ReportTemplateService.ReportElementItem sel = cmbSelectedElement != null ? cmbSelectedElement.getValue() : null;
+        if (sel == null) return;
+        sel.x = Math.max(0, sel.x + dx);
+        sel.y = Math.max(0, sel.y + dy);
+        if (txtElemX != null) txtElemX.setText(String.valueOf(sel.x));
+        if (txtElemY != null) txtElemY.setText(String.valueOf(sel.y));
+        applyUpdatedBoundsToEditor(sel);
+    }
+
+    @FXML
+    private void handleApplyElementBounds() {
+        ReportTemplateService.ReportElementItem sel = cmbSelectedElement != null ? cmbSelectedElement.getValue() : null;
+        if (sel == null) return;
+        sel.x = parseIntOr(txtElemX, sel.x);
+        sel.y = parseIntOr(txtElemY, sel.y);
+        sel.width = parseIntOr(txtElemW, sel.width);
+        sel.height = parseIntOr(txtElemH, sel.height);
+        applyUpdatedBoundsToEditor(sel);
+    }
+
+    @FXML
+    private void handleOpenTemplatesFolder() {
+        try {
+            Path root = reportTemplateService.getCustomRoot();
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(root.toFile());
+            } else {
+                showAlert(Alert.AlertType.INFORMATION, "Templates Folder", root.toAbsolutePath().toString());
+            }
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Folder", e.getMessage());
+        }
+    }
 
     private void refreshLogoPreview(String logoPath) {
         if (imgLogoPreview == null) return;
@@ -415,6 +617,116 @@ private void handleOpenTemplatesFolder() {
         }
     }
 
+    private void initVisualStyleControls() {
+        setColorPair(cpHeaderColor, txtStyleHeaderColor, Color.web("#1e40af"));
+        setColorPair(cpAccentColor, txtStyleAccentColor, Color.web("#3b82f6"));
+        setColorPair(cpTextColor, txtStyleTextColor, Color.web("#111827"));
+
+        if (txtMarginTop != null) txtMarginTop.setText("40");
+        if (txtMarginBottom != null) txtMarginBottom.setText("40");
+        if (txtMarginLeft != null) txtMarginLeft.setText("40");
+        if (txtMarginRight != null) txtMarginRight.setText("40");
+        if (txtTitleFontSize != null) txtTitleFontSize.setText("16");
+        if (txtBodyFontSize != null) txtBodyFontSize.setText("10");
+    }
+
+    private void setColorPair(ColorPicker picker, TextField field, Color color) {
+        if (picker == null || field == null) return;
+        picker.setValue(color);
+        field.setText(toHex(color));
+        picker.valueProperty().addListener((o, a, b) -> {
+            if (b != null) field.setText(toHex(b));
+        });
+        field.focusedProperty().addListener((o, was, isNow) -> {
+            if (!isNow) {
+                try {
+                    picker.setValue(Color.web(field.getText().trim()));
+                } catch (Exception ignored) {
+                    field.setText(toHex(picker.getValue()));
+                }
+            }
+        });
+    }
+
+    private static String toHex(Color c) {
+        if (c == null) return "#000000";
+        return String.format("#%02x%02x%02x",
+                (int) Math.round(c.getRed() * 255),
+                (int) Math.round(c.getGreen() * 255),
+                (int) Math.round(c.getBlue() * 255));
+    }
+
+    @FXML
+    private void handleResetVisualStyle() {
+        initVisualStyleControls();
+        if (chkShowLogo != null) chkShowLogo.setSelected(true);
+        if (chkShowTagline != null) chkShowTagline.setSelected(true);
+        if (chkShowTaxNo != null) chkShowTaxNo.setSelected(true);
+        if (chkShowWebsite != null) chkShowWebsite.setSelected(true);
+        if (chkShowFooter != null) chkShowFooter.setSelected(true);
+        if (statusLabel != null) {
+            statusLabel.setText("Visual style defaults restored.");
+            statusLabel.setStyle("-fx-text-fill: #15803d;");
+        }
+    }
+
+    @FXML
+    private void handleApplyVisualStyle() {
+        String jrxml = txtJrxmlEditor != null ? txtJrxmlEditor.getText() : null;
+        if (jrxml == null || jrxml.isBlank()) {
+            showAlert(Alert.AlertType.WARNING, "Visual Style",
+                    "Load a template into the editor first, then apply styles.");
+            return;
+        }
+        try {
+            ReportTemplateService.VisualStyle style = buildVisualStyleFromUi();
+            String patched = reportTemplateService.applyVisualStyle(jrxml, style);
+            txtJrxmlEditor.setText(patched);
+            handlePreviewEditorJrxml();
+            if (statusLabel != null) {
+                statusLabel.setText("Style applied to editor. Preview or Save As New Template.");
+                statusLabel.setStyle("-fx-text-fill: #15803d;");
+            }
+        } catch (Exception e) {
+            logger.error("Apply visual style failed: {}", e.getMessage(), e);
+            showAlert(Alert.AlertType.ERROR, "Style Failed", e.getMessage());
+        }
+    }
+
+    private ReportTemplateService.VisualStyle buildVisualStyleFromUi() {
+        ReportTemplateService.VisualStyle s = new ReportTemplateService.VisualStyle();
+        s.headerColor = safeColorText(txtStyleHeaderColor, "#1e40af");
+        s.accentColor = safeColorText(txtStyleAccentColor, "#3b82f6");
+        s.textColor = safeColorText(txtStyleTextColor, "#111827");
+        s.marginTop = parseIntOr(txtMarginTop, 40);
+        s.marginBottom = parseIntOr(txtMarginBottom, 40);
+        s.marginLeft = parseIntOr(txtMarginLeft, 40);
+        s.marginRight = parseIntOr(txtMarginRight, 40);
+        s.titleFontSize = parseIntOr(txtTitleFontSize, 16);
+        s.bodyFontSize = parseIntOr(txtBodyFontSize, 10);
+        s.showLogo = chkShowLogo == null || chkShowLogo.isSelected();
+        s.showTagline = chkShowTagline == null || chkShowTagline.isSelected();
+        s.showTaxNo = chkShowTaxNo == null || chkShowTaxNo.isSelected();
+        s.showWebsite = chkShowWebsite == null || chkShowWebsite.isSelected();
+        s.showFooter = chkShowFooter == null || chkShowFooter.isSelected();
+        return s;
+    }
+
+    private static String safeColorText(TextField f, String fallback) {
+        if (f == null || f.getText() == null || f.getText().isBlank()) return fallback;
+        String t = f.getText().trim();
+        return t.startsWith("#") ? t : "#" + t;
+    }
+
+    private static int parseIntOr(TextField f, int fallback) {
+        if (f == null || f.getText() == null || f.getText().isBlank()) return fallback;
+        try {
+            return Integer.parseInt(f.getText().trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
     @FXML
     private void handleRemoveLogo() {
         pendingLogoPath = null;
@@ -429,7 +741,6 @@ private void handleOpenTemplatesFolder() {
             return;
         }
 
-        // 1. Save Company Profile & Theme
         if (currentProfile == null) {
             currentProfile = new CompanyProfile();
         }
@@ -447,7 +758,7 @@ private void handleOpenTemplatesFolder() {
         if (txtTaxNumber != null) currentProfile.setTaxNumber(val(txtTaxNumber));
         if (txtInvoiceFooter != null) currentProfile.setInvoiceFooter(txtInvoiceFooter.getText());
         currentProfile.setLogoPath(pendingLogoPath);
-        
+
         if (cmbPrintTemplate != null && cmbPrintTemplate.getValue() != null) {
             String selectedTheme = cmbPrintTemplate.getValue();
             currentProfile.setDefaultPrintTemplate(selectedTheme);
@@ -455,8 +766,6 @@ private void handleOpenTemplatesFolder() {
         }
 
         boolean companySaved = companyService.saveProfile(currentProfile);
-
-        // 2. Save Key-Value Settings
         saveKeyValueSettings();
 
         if (companySaved) {
@@ -514,6 +823,4 @@ private void handleOpenTemplatesFolder() {
         a.setContentText(content);
         a.showAndWait();
     }
-
-    
 }

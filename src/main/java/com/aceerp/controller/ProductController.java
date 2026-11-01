@@ -3,6 +3,7 @@ package com.aceerp.controller;
 import com.aceerp.model.Product;
 import com.aceerp.model.StockMovement;
 import com.aceerp.model.UserSession;
+import com.aceerp.service.AuditLogService;
 import com.aceerp.service.InventoryService;
 import com.aceerp.service.ProductService;
 import com.aceerp.util.AlertHelper;
@@ -23,15 +24,6 @@ import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.ResourceBundle;
 
-/**
- * Combined controller for Products AND Stock Management.
- * 
- * Tab 1 - Product List: CRUD operations with smart search fields
- * Tab 2 - Stock Movements: Stock In, Out, Adjust with full history
- * 
- * Both tabs share the same product data, so changes in one
- * are immediately visible in the other.
- */
 public class ProductController implements Initializable {
 
     // ==================== TAB 1: PRODUCT LIST FIELDS ====================
@@ -182,6 +174,8 @@ public class ProductController implements Initializable {
                 "Deactivate product '" + selected.getName() + "'?")) {
             try {
                 productService.deactivate(selected.getId());
+                AuditLogService.log("DEACTIVATE", "PRODUCT", selected.getId(), 
+                    "Deactivated product: " + selected.getName() + " (" + selected.getProductCode() + ")");
                 loadProducts();
             } catch (Exception e) {
                 AlertHelper.error("Error", "Failed: " + e.getMessage());
@@ -320,6 +314,8 @@ public class ProductController implements Initializable {
 
                     if (isEdit) {
                         productService.updateProduct(p);
+                        AuditLogService.log("UPDATE", "PRODUCT", p.getId(), 
+                            "Updated product details for: " + p.getName() + " (" + p.getProductCode() + ")");
                         AlertHelper.info("Success", "Product updated.");
                     } else {
                         productService.addProduct(
@@ -328,6 +324,8 @@ public class ProductController implements Initializable {
                             p.getSellingPrice(), p.getCostPrice(), p.getTaxRate(),
                             p.getStockQuantity(), p.getMinStockLevel()
                         );
+                        AuditLogService.log("CREATE", "PRODUCT", 0, 
+                            "Created new product: " + p.getName());
                         AlertHelper.info("Success", "Product created.");
                     }
                     loadProducts();
@@ -542,8 +540,12 @@ public class ProductController implements Initializable {
 
                     if ("IN".equals(movementType)) {
                         inventoryService.stockIn(selected[0].getId(), qty, refType, refNum, notes, userId);
+                        AuditLogService.log("STOCK_IN", "PRODUCT", selected[0].getId(), 
+                            "Stock In: +" + qty + " units for " + selected[0].getName() + (refNum != null ? " (Ref: " + refNum + ")" : ""));
                     } else {
                         inventoryService.stockOut(selected[0].getId(), qty, refType, refNum, notes, userId);
+                        AuditLogService.log("STOCK_OUT", "PRODUCT", selected[0].getId(), 
+                            "Stock Out: -" + qty + " units for " + selected[0].getName() + (refNum != null ? " (Ref: " + refNum + ")" : ""));
                     }
                     AlertHelper.info("Success", title + " recorded: " + qty + " units of " + selected[0].getName());
                     loadMovements();
@@ -634,6 +636,10 @@ public class ProductController implements Initializable {
                 try {
                     int userId = getCurrentUserId();
                     inventoryService.adjustStock(selected[0].getId(), actualCount, reason, userId);
+                    
+                    AuditLogService.log("STOCK_ADJUST", "PRODUCT", selected[0].getId(), 
+                        "Adjusted stock for " + selected[0].getName() + " to " + actualCount + " units. Reason: " + reason);
+                    
                     AlertHelper.info("Success", "Stock adjusted for " + selected[0].getName() + " to " + actualCount);
                     loadMovements();
                     loadLowStockAlerts();

@@ -56,6 +56,8 @@ public class QuotationController {
     @FXML private Label lblTaxTitle;
     @FXML private CheckBox globalTaxCheck;
     @FXML private VBox detailsPane;
+        @FXML private TableColumn<QuotationLine, BigDecimal> colDiscount;
+    @FXML private TableColumn<QuotationLine, String> colNotes;
 
     private final QuotationService quotationService = new QuotationService();
     private final CustomerService customerService = new CustomerService();
@@ -255,13 +257,15 @@ public class QuotationController {
             }
             try {
                 int newId = customerService.addCustomer(nameField.getText().trim(), phoneField.getText(), emailField.getText(), "", "", null, null);
-                return customerService.getById(newId).orElseGet(() -> {
+                Customer c = customerService.getById(newId).orElseGet(() -> {
                     Customer fallback = new Customer();
                     fallback.setId(newId);
                     fallback.setName(nameField.getText().trim());
                     fallback.setPhone(phoneField.getText());
                     return fallback;
                 });
+                AuditLogService.log("CREATE", "CUSTOMER", newId, "Quick added customer: " + c.getName());
+                return c;
             } catch (SQLException ex) {
                 showAlert("Error", ex.getMessage());
                 return null;
@@ -290,6 +294,27 @@ public class QuotationController {
         colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colPrice.setOnEditCommit(e -> { e.getRowValue().setUnitPrice(e.getNewValue()); updateTotal(); });
 
+                if (colDiscount != null) {
+            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
+            colDiscount.setOnEditCommit(e -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                e.getRowValue().setDiscountPercent(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
+                updateTotal();
+            });
+        }
+
+        if (colNotes != null) {
+            colNotes.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+                d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
+            ));
+            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            colNotes.setOnEditCommit(e -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                e.getRowValue().setNotes(e.getNewValue());
+                linesTable.refresh();
+            });
+        }
         if (colTaxable != null) {
             colTaxable.setCellValueFactory(cellData -> {
                 QuotationLine line = cellData.getValue();
@@ -382,6 +407,8 @@ public class QuotationController {
             line.recalculateTotal();
             
             lines.add(line);
+                        line.setDiscountPercent(BigDecimal.ZERO);
+            line.setNotes("");
             updateTotal();
         });
     }
@@ -464,6 +491,8 @@ public class QuotationController {
             return;
         }
         
+        boolean isNew = currentQuotation.getId() <= 0;
+
         currentQuotation.setCustomer(selectedCustomer);
         currentQuotation.setCustomerId(selectedCustomer.getId());
         currentQuotation.setQuoteDate(quoteDatePicker.getValue());
@@ -471,6 +500,14 @@ public class QuotationController {
         currentQuotation.setLines(lines);
 
         quotationService.saveQuotation(currentQuotation);
+
+        AuditLogService.log(
+            isNew ? "CREATE" : "UPDATE",
+            "QUOTATION",
+            currentQuotation.getId(),
+            (isNew ? "Created" : "Updated") + " Quotation #" + currentQuotation.getQuoteNumber() + " for " + selectedCustomer.getName()
+        );
+
         loadQuotations();
         
         showAlert("Success", "Quotation saved successfully!");
@@ -780,5 +817,38 @@ public class QuotationController {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    @FXML
+    private void handleMoveUp() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx > 0) {
+            QuotationLine line = lines.remove(idx);
+            lines.add(idx - 1, line);
+            linesTable.getSelectionModel().select(idx - 1);
+        }
+    }
+
+    @FXML
+    private void handleMoveDown() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx >= 0 && idx < lines.size() - 1) {
+            QuotationLine line = lines.remove(idx);
+            lines.add(idx + 1, line);
+            linesTable.getSelectionModel().select(idx + 1);
+        }
+    }
+
+    @FXML
+    private void handleRefresh() {
+        loadQuotations();
     }
 }

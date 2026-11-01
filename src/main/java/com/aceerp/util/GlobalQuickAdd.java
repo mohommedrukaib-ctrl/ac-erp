@@ -1,6 +1,8 @@
 package com.aceerp.util;
 
 import com.aceerp.config.DatabaseConfig;
+import com.aceerp.model.Customer;
+import com.aceerp.model.Supplier;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -14,6 +16,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.function.Consumer;
+import java.sql.Statement;
 
 public final class GlobalQuickAdd {
 
@@ -22,7 +26,13 @@ public final class GlobalQuickAdd {
     private GlobalQuickAdd() {}
 
     public static void showCustomerDialog(Runnable onSuccess) {
-        Dialog<Boolean> dialog = new Dialog<>();
+        showCustomerDialog(null, c -> {
+            if (onSuccess != null) onSuccess.run();
+        });
+    }
+
+    public static void showCustomerDialog(String initialName, Consumer<Customer> onSuccess) {
+        Dialog<Customer> dialog = new Dialog<>();
         dialog.setTitle("Quick Add Customer");
         dialog.setHeaderText("Add a customer without leaving this screen");
 
@@ -30,7 +40,7 @@ public final class GlobalQuickAdd {
         dialog.getDialogPane().getButtonTypes().addAll(saveType, ButtonType.CANCEL);
 
         GridPane grid = formGrid();
-        TextField name = new TextField();
+        TextField name = new TextField(initialName != null ? initialName : "");
         TextField phone = new TextField();
         TextField email = new TextField();
         name.setPromptText("Required");
@@ -45,33 +55,38 @@ public final class GlobalQuickAdd {
         Platform.runLater(name::requestFocus);
 
         dialog.setResultConverter(btn -> {
-            if (btn != saveType) return false;
+            if (btn != saveType) return null;
             if (name.getText() == null || name.getText().isBlank()) {
                 showAlert(Alert.AlertType.WARNING, "Validation", "Customer name is required.");
-                return false;
+                return null;
             }
             try {
-                insertCustomer(name.getText().trim(),
+                return insertCustomer(name.getText().trim(),
                         emptyToNull(phone.getText()),
                         emptyToNull(email.getText()));
-                return true;
             } catch (Exception e) {
                 log.error("Quick-add customer failed", e);
                 showAlert(Alert.AlertType.ERROR, "Error", e.getMessage());
-                return false;
+                return null;
             }
         });
 
-        dialog.showAndWait().ifPresent(ok -> {
-            if (Boolean.TRUE.equals(ok)) {
-                showAlert(Alert.AlertType.INFORMATION, "Saved", "Customer added.");
-                if (onSuccess != null) onSuccess.run();
+        dialog.showAndWait().ifPresent(c -> {
+            if (c != null) {
+                showAlert(Alert.AlertType.INFORMATION, "Saved", "Customer added: " + c.getName());
+                if (onSuccess != null) onSuccess.accept(c);
             }
         });
     }
 
     public static void showSupplierDialog(Runnable onSuccess) {
-        Dialog<Boolean> dialog = new Dialog<>();
+        showSupplierDialog(null, s -> {
+            if (onSuccess != null) onSuccess.run();
+        });
+    }
+
+    public static void showSupplierDialog(String initialName, Consumer<Supplier> onSuccess) {
+        Dialog<Supplier> dialog = new Dialog<>();
         dialog.setTitle("Quick Add Supplier");
         dialog.setHeaderText("Add a supplier without leaving this screen");
 
@@ -79,7 +94,7 @@ public final class GlobalQuickAdd {
         dialog.getDialogPane().getButtonTypes().addAll(saveType, ButtonType.CANCEL);
 
         GridPane grid = formGrid();
-        TextField name = new TextField();
+        TextField name = new TextField(initialName != null ? initialName : "");
         TextField phone = new TextField();
         TextField email = new TextField();
         name.setPromptText("Required");
@@ -92,27 +107,26 @@ public final class GlobalQuickAdd {
         Platform.runLater(name::requestFocus);
 
         dialog.setResultConverter(btn -> {
-            if (btn != saveType) return false;
+            if (btn != saveType) return null;
             if (name.getText() == null || name.getText().isBlank()) {
                 showAlert(Alert.AlertType.WARNING, "Validation", "Supplier name is required.");
-                return false;
+                return null;
             }
             try {
-                insertSupplier(name.getText().trim(),
+                return insertSupplier(name.getText().trim(),
                         emptyToNull(phone.getText()),
                         emptyToNull(email.getText()));
-                return true;
             } catch (Exception e) {
                 log.error("Quick-add supplier failed", e);
                 showAlert(Alert.AlertType.ERROR, "Error", e.getMessage());
-                return false;
+                return null;
             }
         });
 
-        dialog.showAndWait().ifPresent(ok -> {
-            if (Boolean.TRUE.equals(ok)) {
-                showAlert(Alert.AlertType.INFORMATION, "Saved", "Supplier added.");
-                if (onSuccess != null) onSuccess.run();
+        dialog.showAndWait().ifPresent(s -> {
+            if (s != null) {
+                showAlert(Alert.AlertType.INFORMATION, "Saved", "Supplier added: " + s.getName());
+                if (onSuccess != null) onSuccess.accept(s);
             }
         });
     }
@@ -173,9 +187,9 @@ public final class GlobalQuickAdd {
         });
     }
 
-    // ---- DB helpers (schema-tolerant) ----
+    // ---- DB helpers ----
 
-    private static void insertCustomer(String name, String phone, String email) throws SQLException {
+    private static Customer insertCustomer(String name, String phone, String email) throws SQLException {
         try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
             boolean hasCode = columnExists(conn, "customers", "customer_code");
             boolean hasStatus = columnExists(conn, "customers", "status");
@@ -200,20 +214,37 @@ public final class GlobalQuickAdd {
             }
 
             String sql = "INSERT INTO customers (" + cols + ") VALUES (" + vals + ")";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 int i = 1;
+                String code = null;
                 if (hasCode) {
-                    ps.setString(i++, nextCode(conn, "customers", "customer_code", "CUS-"));
+                    code = nextCode(conn, "customers", "customer_code", "CUS-");
+                    ps.setString(i++, code);
                 }
                 ps.setString(i++, name);
                 ps.setString(i++, phone);
                 ps.setString(i, email);
                 ps.executeUpdate();
+
+                int generatedId = 0;
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        generatedId = rs.getInt(1);
+                    }
+                }
+
+                Customer c = new Customer();
+                c.setId(generatedId);
+                c.setCustomerCode(code);
+                c.setName(name);
+                c.setPhone(phone);
+                c.setEmail(email);
+                return c;
             }
         }
     }
 
-    private static void insertSupplier(String name, String phone, String email) throws SQLException {
+    private static Supplier insertSupplier(String name, String phone, String email) throws SQLException {
         try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
             boolean hasCode = columnExists(conn, "suppliers", "supplier_code");
             boolean hasStatus = columnExists(conn, "suppliers", "status");
@@ -238,15 +269,32 @@ public final class GlobalQuickAdd {
             }
 
             String sql = "INSERT INTO suppliers (" + cols + ") VALUES (" + vals + ")";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 int i = 1;
+                String code = null;
                 if (hasCode) {
-                    ps.setString(i++, nextCode(conn, "suppliers", "supplier_code", "SUP-"));
+                    code = nextCode(conn, "suppliers", "supplier_code", "SUP-");
+                    ps.setString(i++, code);
                 }
                 ps.setString(i++, name);
                 ps.setString(i++, phone);
                 ps.setString(i, email);
                 ps.executeUpdate();
+
+                int generatedId = 0;
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        generatedId = rs.getInt(1);
+                    }
+                }
+
+                Supplier s = new Supplier();
+                s.setId(generatedId);
+                s.setSupplierCode(code);
+                s.setName(name);
+                s.setPhone(phone);
+                s.setEmail(email);
+                return s;
             }
         }
     }
@@ -298,7 +346,6 @@ public final class GlobalQuickAdd {
                 ps.setBigDecimal(i++, sell);
                 if (hasProductType) {
                     String pt = (productType == null || productType.isBlank()) ? "SPARE_PART" : productType.trim();
-                    // Enforce chk_product_type values
                     if (!pt.equals("AC_UNIT") && !pt.equals("SPARE_PART") && !pt.equals("SERVICE")) {
                         pt = "SPARE_PART";
                     }

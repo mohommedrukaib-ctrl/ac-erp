@@ -5,6 +5,17 @@
               name="Invoice" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30">
     
     <parameter name="INVOICE_ID" class="java.lang.Integer"/>
+        <!-- Company Branding Parameters -->
+    <parameter name="COMPANY_NAME" class="java.lang.String"/>
+    <parameter name="COMPANY_TAGLINE" class="java.lang.String"/>
+    <parameter name="COMPANY_ADDRESS" class="java.lang.String"/>
+    <parameter name="COMPANY_PHONE" class="java.lang.String"/>
+    <parameter name="COMPANY_EMAIL" class="java.lang.String"/>
+    <parameter name="COMPANY_WEBSITE" class="java.lang.String"/>
+    <parameter name="COMPANY_TAX_NO" class="java.lang.String"/>
+    <parameter name="COMPANY_FOOTER" class="java.lang.String"/>
+    <parameter name="COMPANY_LOGO" class="java.lang.String"/>
+    
     
     <!-- This SQL runs directly inside Jasper using your database connection -->
     <queryString>
@@ -29,25 +40,33 @@
     <field name="line_total" class="java.math.BigDecimal"/>
     
     <title>
-        <band height="80">
-            <staticText>
-                <reportElement x="0" y="0" width="200" height="30"/>
-                <textElement><font size="22" isBold="true"/></textElement>
-                <text><![CDATA[TAX INVOICE]]></text>
-            </staticText>
-            <textField>
-                <reportElement x="0" y="35" width="250" height="20"/>
-                <textFieldExpression><![CDATA["Invoice Number: " + $F{invoice_number}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="350" y="35" width="185" height="20"/>
-                <textFieldExpression><![CDATA["Customer: " + $F{customer_name}]]></textFieldExpression>
-            </textField>
-            <line>
-                <reportElement x="0" y="70" width="535" height="1"/>
-            </line>
-        </band>
-    </title>
+    <band height="70">
+        <!-- Company Logo from Settings -->
+        <image onErrorType="Blank">
+            <reportElement x="0" y="0" width="150" height="60"/>
+            <imageExpression><![CDATA[$P{COMPANY_LOGO}]]></imageExpression>
+        </image>
+
+        <!-- Company Name & Tagline from Settings -->
+        <textField>
+            <reportElement x="160" y="0" width="220" height="20"/>
+            <textElement><font size="14" isBold="true"/></textElement>
+            <textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression>
+        </textField>
+        
+        <textField>
+            <reportElement x="160" y="22" width="220" height="15"/>
+            <textElement><font size="9" isItalic="true"/></textElement>
+            <textFieldExpression><![CDATA[$P{COMPANY_TAGLINE}]]></textFieldExpression>
+        </textField>
+        
+        <textField>
+            <reportElement x="160" y="38" width="220" height="25"/>
+            <textElement><font size="8"/></textElement>
+            <textFieldExpression><![CDATA[$P{COMPANY_ADDRESS} + "\nPh: " + $P{COMPANY_PHONE}]]></textFieldExpression>
+        </textField>
+    </band>
+</title>
     
     <columnHeader>
         <band height="30">

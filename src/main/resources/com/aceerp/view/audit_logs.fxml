@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.aceerp.controller.AuditLogController"
+      spacing="15" stylesheets="@../css/style.css">
+    
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <!-- Header -->
+    <HBox alignment="CENTER_LEFT" spacing="10">
+        <VBox spacing="2">
+            <Label text="Audit Log &amp; System Trail" styleClass="page-title"/>
+            <Label text="Track user operations, document updates, status changes, and administrative actions" styleClass="page-subtitle"/>
+        </VBox>
+        <Region HBox.hgrow="ALWAYS"/>
+    </HBox>
+
+    <!-- Filter Bar -->
+    <HBox spacing="10" alignment="CENTER_LEFT" styleClass="filter-pane">
+        <TextField fx:id="txtSearch" promptText="Search username, details, ID..." prefWidth="220" onAction="#handleFilter"/>
+        <ComboBox fx:id="comboAction" promptText="All Actions" prefWidth="140" onAction="#handleFilter"/>
+        <ComboBox fx:id="comboEntityType" promptText="All Entities" prefWidth="160" onAction="#handleFilter"/>
+        <DatePicker fx:id="dpStartDate" promptText="Start Date" prefWidth="130" onAction="#handleFilter"/>
+        <DatePicker fx:id="dpEndDate" promptText="End Date" prefWidth="130" onAction="#handleFilter"/>
+        
+        <Button text="Filter" fx:id="btnFilter" styleClass="btn, btn-primary" onAction="#handleFilter"/>
+        <Button text="Reset" fx:id="btnReset" styleClass="btn, btn-secondary" onAction="#handleReset"/>
+    </HBox>
+
+    <!-- Audit Log Table -->
+    <TableView fx:id="tblAuditLogs" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colTimestamp" text="Timestamp" prefWidth="160"/>
+            <TableColumn fx:id="colUser" text="User" prefWidth="120"/>
+            <TableColumn fx:id="colAction" text="Action" prefWidth="110"/>
+            <TableColumn fx:id="colEntityType" text="Entity Type" prefWidth="140"/>
+            <TableColumn fx:id="colEntityId" text="Entity ID" prefWidth="90"/>
+            <TableColumn fx:id="colDescription" text="Description" prefWidth="420"/>
+        </columns>
+        <columnResizePolicy>
+            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+        </columnResizePolicy>
+    </TableView>
+
+    <!-- Pagination / Summary Footer -->
+    <HBox alignment="CENTER_LEFT" spacing="15">
+        <Label fx:id="lblCount" text="Showing 0 entries" styleClass="text-muted"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button fx:id="btnPrevPage" text="&lt; Previous" onAction="#handlePrevPage"/>
+        <Label fx:id="lblPage" text="Page 1"/>
+        <Button fx:id="btnNextPage" text="Next &gt;" onAction="#handleNextPage"/>
+    </HBox>
+
+</VBox>

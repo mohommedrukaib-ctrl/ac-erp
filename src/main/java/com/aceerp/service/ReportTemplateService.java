@@ -5,8 +5,17 @@ import com.aceerp.model.CompanyProfile;
 import net.sf.jasperreports.engine.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.*;
+import org.xml.sax.InputSource;
 
 import javax.imageio.ImageIO;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -16,11 +25,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.*;
 
-/**
- * Built-in themes live on the classpath.
- * Custom templates are saved under ~/.aceerp/templates/{docType}/{name}.jrxml
- * Editing always creates a NEW custom template — built-ins are never overwritten.
- */
 public class ReportTemplateService {
 
     private static final Logger logger = LoggerFactory.getLogger(ReportTemplateService.class);
@@ -57,13 +61,42 @@ public class ReportTemplateService {
             "supplier_bill", "SELECT id FROM supplier_bills ORDER BY id DESC LIMIT 1"
     );
 
-    static {
-    // Disable XML Schema validation so minor band/tag order differences don't throw SAXParseExceptions
-    System.setProperty("net.sf.jasperreports.compiler.xml.validation", "false");
-    DefaultJasperReportsContext.getInstance().setProperty("net.sf.jasperreports.compiler.xml.validation", "false");
-}
     private final CompanyProfileService companyProfileService = new CompanyProfileService();
     private final SettingsService settingsService = SettingsService.getInstance();
+
+    public static final class VisualStyle {
+        public String headerColor = "#1e40af";
+        public String accentColor = "#3b82f6";
+        public String textColor = "#111827";
+        public int marginTop = 40;
+        public int marginBottom = 40;
+        public int marginLeft = 40;
+        public int marginRight = 40;
+        public int titleFontSize = 16;
+        public int bodyFontSize = 10;
+        public boolean showLogo = true;
+        public boolean showTagline = true;
+        public boolean showTaxNo = true;
+        public boolean showWebsite = true;
+        public boolean showFooter = true;
+    }
+
+    public static class ReportElementItem {
+        public String key;
+        public String label;
+        public String tag;
+        public String band;
+        public int x;
+        public int y;
+        public int width;
+        public int height;
+        public int bandOffsetY;
+
+        @Override
+        public String toString() {
+            return label + " (" + x + ", " + y + " " + width + "x" + height + ")";
+        }
+    }
 
     public Path getCustomRoot() throws IOException {
         Path root = Paths.get(System.getProperty("user.home"), ".aceerp", "templates");
@@ -77,7 +110,6 @@ public class ReportTemplateService {
         return dir;
     }
 
-    /** Display keys: classic, modern, professional, custom:MyName */
     public List<String> listTemplatesFor(String docType) {
         LinkedHashSet<String> keys = new LinkedHashSet<>();
         for (String theme : BUILTIN_THEMES) {
@@ -121,7 +153,7 @@ public class ReportTemplateService {
         settingsService.setSetting("print.template." + docType, templateKey);
     }
 
-       public String loadJrxmlText(String docType, String templateKey) throws IOException {
+    public String loadJrxmlText(String docType, String templateKey) throws IOException {
         if (templateKey != null && templateKey.toLowerCase(Locale.ROOT).startsWith("custom:")) {
             String name = templateKey.substring("custom:".length()).trim();
             Path file = getCustomDocDir(docType).resolve(name + ".jrxml");
@@ -150,10 +182,6 @@ public class ReportTemplateService {
         }
     }
 
-    /**
-     * Validates JRXML and saves as a NEW custom template. Never overwrites built-ins.
-     * @return template key e.g. custom:MyInvoice
-     */
     public String saveAsNewCustomTemplate(String docType, String newName, String jrxmlContent) throws Exception {
         if (newName == null || newName.isBlank()) {
             throw new IllegalArgumentException("Template name is required.");
@@ -166,7 +194,6 @@ public class ReportTemplateService {
             throw new IllegalArgumentException("Name conflicts with a built-in theme. Choose another name.");
         }
 
-        // Compile to validate
         try (InputStream in = new ByteArrayInputStream(jrxmlContent.getBytes(StandardCharsets.UTF_8))) {
             JasperCompileManager.compileReport(in);
         }
@@ -175,8 +202,7 @@ public class ReportTemplateService {
         if (Files.exists(target)) {
             throw new IllegalArgumentException("A custom template named '" + safe + "' already exists. Choose a new name.");
         }
-        Files.writeString(target, jrxmlContent, StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        Files.writeString(target, jrxmlContent, StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
 
         return "custom:" + safe;
     }
@@ -188,7 +214,6 @@ public class ReportTemplateService {
         }
     }
 
-    /** Compile raw JRXML text (for preview-before-save). */
     public JasperReport compileJrxmlText(String jrxmlContent) throws Exception {
         try (InputStream in = new ByteArrayInputStream(jrxmlContent.getBytes(StandardCharsets.UTF_8))) {
             return JasperCompileManager.compileReport(in);
@@ -227,30 +252,23 @@ public class ReportTemplateService {
         return p;
     }
 
-    /**
-     * Renders first page of a template to PNG bytes for ImageView preview.
-     */
-    public byte[] renderPreviewPng(String docType, String templateKey, Integer documentId, float zoom)
-            throws Exception {
+    public byte[] renderPreviewPng(String docType, String templateKey, Integer documentId, float zoom) throws Exception {
         JasperReport report = compileTemplate(docType, templateKey);
         return fillToPng(report, docType, documentId, zoom);
     }
 
-    public byte[] renderPreviewPngFromText(String docType, String jrxmlText, Integer documentId, float zoom)
-            throws Exception {
+    public byte[] renderPreviewPngFromText(String docType, String jrxmlText, Integer documentId, float zoom) throws Exception {
         JasperReport report = compileJrxmlText(jrxmlText);
         return fillToPng(report, docType, documentId, zoom);
     }
 
-    private byte[] fillToPng(JasperReport report, String docType, Integer documentId, float zoom)
-            throws Exception {
+    private byte[] fillToPng(JasperReport report, String docType, Integer documentId, float zoom) throws Exception {
         Integer id = documentId;
         if (id == null || id <= 0) {
             id = findLatestDocumentId(docType);
         }
         if (id == null || id <= 0) {
-            throw new IllegalStateException(
-                    "No saved " + docType + " found to preview. Create one document first, then preview.");
+            throw new IllegalStateException("No saved " + docType + " found to preview. Create one document first, then preview.");
         }
 
         Map<String, Object> params = buildCompanyParameters();
@@ -304,5 +322,173 @@ public class ReportTemplateService {
             throw new FileNotFoundException("No template for docType=" + docType);
         }
         return stream;
+    }
+
+    // ---- DOM-based JRXML Parser & Layout Patcher ----
+
+    public List<ReportElementItem> parseReportElements(String jrxml) {
+        List<ReportElementItem> items = new ArrayList<>();
+        try {
+            Document doc = parseDom(jrxml);
+            NodeList bands = doc.getElementsByTagName("band");
+
+            int cumulativeBandY = 0;
+            for (int i = 0; i < bands.getLength(); i++) {
+                Element band = (Element) bands.item(i);
+                int bandHeight = parseInt(band.getAttribute("height"), 0);
+                String bandName = band.getParentNode() != null ? band.getParentNode().getNodeName() : "band";
+
+                NodeList children = band.getChildNodes();
+                for (int j = 0; j < children.getLength(); j++) {
+                    if (children.item(j) instanceof Element elem) {
+                        String tagName = elem.getNodeName();
+                        if (List.of("image", "textField", "staticText", "rectangle", "line").contains(tagName)) {
+                            Element reportElem = getSingleChild(elem, "reportElement");
+                            if (reportElem != null) {
+                                ReportElementItem item = new ReportElementItem();
+                                item.tag = tagName;
+                                item.band = bandName;
+                                item.x = parseInt(reportElem.getAttribute("x"), 0);
+                                item.y = parseInt(reportElem.getAttribute("y"), 0);
+                                item.width = parseInt(reportElem.getAttribute("width"), 100);
+                                item.height = parseInt(reportElem.getAttribute("height"), 20);
+                                item.bandOffsetY = cumulativeBandY;
+
+                                String text = elem.getTextContent();
+                                if (text.contains("$P{COMPANY_LOGO}")) { item.key = "COMPANY_LOGO"; item.label = "Company Logo"; }
+                                else if (text.contains("$P{COMPANY_NAME}")) { item.key = "COMPANY_NAME"; item.label = "Company Name"; }
+                                else if (text.contains("$P{COMPANY_TAGLINE}")) { item.key = "COMPANY_TAGLINE"; item.label = "Tagline"; }
+                                else if (text.contains("$P{COMPANY_ADDRESS}")) { item.key = "COMPANY_ADDRESS"; item.label = "Address Block"; }
+                                else if (text.contains("$P{COMPANY_FOOTER}")) { item.key = "COMPANY_FOOTER"; item.label = "Footer"; }
+                                else if (text.contains("total_amount") || text.contains("Total:")) { item.key = "SUMMARY_TOTAL"; item.label = "Summary Total"; }
+                                else {
+                                    item.key = bandName + "_" + tagName + "_" + j;
+                                    item.label = bandName + " " + tagName + " (" + item.x + "," + item.y + ")";
+                                }
+                                items.add(item);
+                            }
+                        }
+                    }
+                }
+                cumulativeBandY += bandHeight;
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to parse report elements: {}", e.getMessage());
+        }
+        return items;
+    }
+
+    public String updateElementBounds(String jrxml, String elementKey, int x, int y, int width, int height) throws Exception {
+        Document doc = parseDom(jrxml);
+        NodeList bands = doc.getElementsByTagName("band");
+
+        for (int i = 0; i < bands.getLength(); i++) {
+            Element band = (Element) bands.item(i);
+            NodeList children = band.getChildNodes();
+            for (int j = 0; j < children.getLength(); j++) {
+                if (children.item(j) instanceof Element elem) {
+                    String text = elem.getTextContent();
+                    boolean matches = (elementKey.equals("COMPANY_LOGO") && text.contains("$P{COMPANY_LOGO}"))
+                            || (elementKey.equals("COMPANY_NAME") && text.contains("$P{COMPANY_NAME}"))
+                            || (elementKey.equals("COMPANY_TAGLINE") && text.contains("$P{COMPANY_TAGLINE}"))
+                            || (elementKey.equals("COMPANY_ADDRESS") && text.contains("$P{COMPANY_ADDRESS}"))
+                            || (elementKey.equals("COMPANY_FOOTER") && text.contains("$P{COMPANY_FOOTER}"))
+                            || (elementKey.equals("SUMMARY_TOTAL") && (text.contains("total_amount") || text.contains("Total:")));
+
+                    if (matches) {
+                        Element reportElem = getSingleChild(elem, "reportElement");
+                        if (reportElem != null) {
+                            reportElem.setAttribute("x", String.valueOf(x));
+                            reportElem.setAttribute("y", String.valueOf(y));
+                            reportElem.setAttribute("width", String.valueOf(width));
+                            reportElem.setAttribute("height", String.valueOf(height));
+                            return domToString(doc);
+                        }
+                    }
+                }
+            }
+        }
+        return jrxml;
+    }
+
+    public String applyVisualStyle(String jrxml, VisualStyle style) throws Exception {
+        Document doc = parseDom(jrxml);
+        Element root = doc.getDocumentElement();
+
+        // Page Margins
+        root.setAttribute("topMargin", String.valueOf(style.marginTop));
+        root.setAttribute("bottomMargin", String.valueOf(style.marginBottom));
+        root.setAttribute("leftMargin", String.valueOf(style.marginLeft));
+        root.setAttribute("rightMargin", String.valueOf(style.marginRight));
+
+        // Schema-compliant Visibility Toggling
+        toggleParamVisibilityDom(doc, "$P{COMPANY_LOGO}", style.showLogo);
+        toggleParamVisibilityDom(doc, "$P{COMPANY_TAGLINE}", style.showTagline);
+        toggleParamVisibilityDom(doc, "$P{COMPANY_TAX_NO}", style.showTaxNo);
+        toggleParamVisibilityDom(doc, "$P{COMPANY_WEBSITE}", style.showWebsite);
+        toggleParamVisibilityDom(doc, "$P{COMPANY_FOOTER}", style.showFooter);
+
+        return domToString(doc);
+    }
+
+    private void toggleParamVisibilityDom(Document doc, String paramToken, boolean show) {
+        NodeList elements = doc.getElementsByTagName("*");
+        for (int i = 0; i < elements.getLength(); i++) {
+            Element elem = (Element) elements.item(i);
+            String name = elem.getNodeName();
+            if ("image".equals(name) || "textField".equals(name)) {
+                if (elem.getTextContent().contains(paramToken)) {
+                    Element printWhen = getSingleChild(elem, "printWhenExpression");
+                    String exprText = show ? "Boolean.TRUE" : "Boolean.FALSE";
+
+                    if (printWhen != null) {
+                        printWhen.setTextContent(exprText);
+                    } else {
+                        // Create printWhenExpression and insert AFTER reportElement & box to maintain XSD validity
+                        Element newPrintWhen = doc.createElement("printWhenExpression");
+                        newPrintWhen.setTextContent(exprText);
+
+                        Element reportElem = getSingleChild(elem, "reportElement");
+                        Element boxElem = getSingleChild(elem, "box");
+
+                        Node refNode = boxElem != null ? boxElem.getNextSibling() : (reportElem != null ? reportElem.getNextSibling() : elem.getFirstChild());
+                        elem.insertBefore(newPrintWhen, refNode);
+                    }
+                }
+            }
+        }
+    }
+
+    private Document parseDom(String jrxml) throws Exception {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setNamespaceAware(false);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        return db.parse(new InputSource(new StringReader(jrxml)));
+    }
+
+    private String domToString(Document doc) throws Exception {
+        TransformerFactory tf = TransformerFactory.newInstance();
+        Transformer transformer = tf.newTransformer();
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
+        StringWriter writer = new StringWriter();
+        transformer.transform(new DOMSource(doc), new StreamResult(writer));
+        return writer.toString();
+    }
+
+    private Element getSingleChild(Element parent, String childName) {
+        NodeList list = parent.getElementsByTagName(childName);
+        if (list.getLength() > 0) return (Element) list.item(0);
+        return null;
+    }
+
+    private int parseInt(String val, int fallback) {
+        try {
+            return Integer.parseInt(val);
+        } catch (Exception e) {
+            return fallback;
+        }
     }
 }

@@ -19,8 +19,7 @@
             <Region HBox.hgrow="ALWAYS"/>
             <TextField fx:id="searchField" promptText="Search quotations..." prefWidth="260"/>
             <Button text="+ New Quotation" onAction="#handleNewQuotation" styleClass="btn-primary"/>
-            <Button text="Refresh" onAction="#handleNewQuotation" styleClass="btn-secondary"/>
-        </HBox>
+                   <Button text="Refresh" onAction="#handleRefresh" styleClass="btn-secondary"/>
     </top>
 
     <!-- CENTER: List (left) + Form (right) -->
@@ -96,22 +95,30 @@
                     <Separator/>
 
                     <!-- Line items toolbar -->
-                    <HBox spacing="8" alignment="CENTER_LEFT">
+                   <HBox spacing="8" alignment="CENTER_LEFT">
                         <Label text="Line Items" styleClass="section-title"/>
                         <Region HBox.hgrow="ALWAYS"/>
+                        <Button text="↑" onAction="#handleMoveUp" styleClass="btn-secondary">
+                            <tooltip><Tooltip text="Move line up"/></tooltip>
+                        </Button>
+                        <Button text="↓" onAction="#handleMoveDown" styleClass="btn-secondary">
+                            <tooltip><Tooltip text="Move line down"/></tooltip>
+                        </Button>
                         <Button text="+ Add Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
                         <Button text="+ Empty Line" onAction="#handleAddEmptyLine" styleClass="btn-secondary"/>
                         <Button text="Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>
                     </HBox>
 
                     <!-- Lines table -->
-                    <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="280">
+                      <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="280">
                         <columns>
-                            <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="280"/>
-                            <TableColumn fx:id="colQty" text="Qty" prefWidth="80"/>
-                            <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="110"/>
-                            <TableColumn fx:id="colTaxable" text="Tax" prefWidth="60"/>
-                            <TableColumn fx:id="colTotal" text="Line Total" prefWidth="120"/>
+                            <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="220"/>
+                            <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
+                            <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="100"/>
+                            <TableColumn fx:id="colDiscount" text="Disc %" prefWidth="70"/>
+                            <TableColumn fx:id="colTaxable" text="Tax" prefWidth="55"/>
+                            <TableColumn fx:id="colNotes" text="Notes" prefWidth="140"/>
+                            <TableColumn fx:id="colTotal" text="Line Total" prefWidth="110"/>
                         </columns>
                         <columnResizePolicy>
                             <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>

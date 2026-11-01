@@ -4,8 +4,16 @@
               xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" 
               name="SupplierBill" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30">
     <parameter name="BILL_ID" class="java.lang.Integer"/>
+       <!-- Company Branding Parameters -->
     <parameter name="COMPANY_NAME" class="java.lang.String"/>
-    
+    <parameter name="COMPANY_TAGLINE" class="java.lang.String"/>
+    <parameter name="COMPANY_ADDRESS" class="java.lang.String"/>
+    <parameter name="COMPANY_PHONE" class="java.lang.String"/>
+    <parameter name="COMPANY_EMAIL" class="java.lang.String"/>
+    <parameter name="COMPANY_WEBSITE" class="java.lang.String"/>
+    <parameter name="COMPANY_TAX_NO" class="java.lang.String"/>
+    <parameter name="COMPANY_FOOTER" class="java.lang.String"/>
+    <parameter name="COMPANY_LOGO" class="java.lang.String"/>
     <queryString>
         <![CDATA[
             SELECT b.bill_number, b.bill_date, b.due_date, b.supplier_invoice_ref, b.status, 
@@ -33,21 +41,33 @@
     <field name="line_total" class="java.math.BigDecimal"/>
     
     <title>
-        <band height="100">
-            <textField><reportElement x="0" y="0" width="300" height="25"/><textElement><font size="16" isBold="true"/></textElement><textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression></textField>
-            <staticText><reportElement x="350" y="0" width="185" height="30"/><textElement textAlignment="Right"><font size="18" isBold="true"/></textElement><text><![CDATA[SUPPLIER BILL]]></text></staticText>
-            
-            <textField><reportElement x="0" y="40" width="250" height="15"/><textFieldExpression><![CDATA["Bill #: " + $F{bill_number}]]></textFieldExpression></textField>
-            <textField><reportElement x="0" y="55" width="250" height="15"/><textFieldExpression><![CDATA["Supplier: " + ($F{supplier_name} != null ? $F{supplier_name} : "")]]></textFieldExpression></textField>
-            <textField><reportElement x="0" y="70" width="250" height="15"/><textFieldExpression><![CDATA["Supplier Ref: " + ($F{supplier_invoice_ref} != null ? $F{supplier_invoice_ref} : "")]]></textFieldExpression></textField>
+    <band height="70">
+        <!-- Company Logo from Settings -->
+        <image onErrorType="Blank">
+            <reportElement x="0" y="0" width="150" height="60"/>
+            <imageExpression><![CDATA[$P{COMPANY_LOGO}]]></imageExpression>
+        </image>
 
-            <textField><reportElement x="350" y="40" width="185" height="15"/><textElement textAlignment="Right"/></textFieldExpression><![CDATA["Date: " + $F{bill_date}]]></textFieldExpression></textField>
-            <textField><reportElement x="350" y="55" width="185" height="15"/><textElement textAlignment="Right"/></textFieldExpression><![CDATA["Due Date: " + $F{due_date}]]></textFieldExpression></textField>
-            <textField><reportElement x="350" y="70" width="185" height="15"/><textElement textAlignment="Right"/></textFieldExpression><![CDATA["Status: " + $F{status}]]></textFieldExpression></textField>
-            
-            <line><reportElement x="0" y="95" width="535" height="1"/></line>
-        </band>
-    </title>
+        <!-- Company Name & Tagline from Settings -->
+        <textField>
+            <reportElement x="160" y="0" width="220" height="20"/>
+            <textElement><font size="14" isBold="true"/></textElement>
+            <textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression>
+        </textField>
+        
+        <textField>
+            <reportElement x="160" y="22" width="220" height="15"/>
+            <textElement><font size="9" isItalic="true"/></textElement>
+            <textFieldExpression><![CDATA[$P{COMPANY_TAGLINE}]]></textFieldExpression>
+        </textField>
+        
+        <textField>
+            <reportElement x="160" y="38" width="220" height="25"/>
+            <textElement><font size="8"/></textElement>
+            <textFieldExpression><![CDATA[$P{COMPANY_ADDRESS} + "\nPh: " + $P{COMPANY_PHONE}]]></textFieldExpression>
+        </textField>
+    </band>
+</title>
     <columnHeader>
         <band height="25">
             <staticText><reportElement x="0" y="0" width="250" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Description]]></text></staticText>

@@ -18,7 +18,7 @@ public class DeliveryNoteRepository {
         List<DeliveryNote> list = new ArrayList<>();
         String sql = "SELECT dn.*, c.name AS customer_name, so.so_number AS so_number " +
                      "FROM delivery_notes dn " +
-                     "JOIN customers c ON dn.customer_id = c.id " +
+                     "LEFT JOIN customers c ON dn.customer_id = c.id " +
                      "LEFT JOIN sales_orders so ON dn.so_id = so.id " +
                      "ORDER BY dn.id DESC";
 
@@ -38,6 +38,10 @@ public class DeliveryNoteRepository {
     }
 
     public DeliveryNote save(DeliveryNote dn) throws SQLException {
+        if (dn.getCustomerId() == null || dn.getCustomerId() <= 0) {
+            throw new SQLException("A valid Customer must be selected to save a Delivery Note.");
+        }
+
         Connection conn = null;
         try {
             conn = DatabaseConfig.getInstance().getConnection();
@@ -204,7 +208,7 @@ public class DeliveryNoteRepository {
         dn.setDnNumber(rs.getString("dn_number"));
         dn.setSoId(rs.getObject("so_id") != null ? rs.getInt("so_id") : null);
         dn.setSoNumber(rs.getString("so_number"));
-        dn.setCustomerId(rs.getInt("customer_id"));
+        dn.setCustomerId(rs.getObject("customer_id") != null ? rs.getInt("customer_id") : null);
         dn.setCustomerName(rs.getString("customer_name"));
         
         Date dateVal = rs.getDate("delivery_date");

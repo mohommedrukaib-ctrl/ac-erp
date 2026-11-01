@@ -1,4 +1,3 @@
-
 package com.aceerp.controller;
 
 import com.aceerp.config.DatabaseConfig;
@@ -307,13 +306,15 @@ public class InvoiceController {
             }
             try {
                 int newId = customerService.addCustomer(nameField.getText().trim(), phoneField.getText(), emailField.getText(), "", "", null, null);
-                return customerService.getById(newId).orElseGet(() -> {
+                Customer c = customerService.getById(newId).orElseGet(() -> {
                     Customer fallback = new Customer();
                     fallback.setId(newId);
                     fallback.setName(nameField.getText().trim());
                     fallback.setPhone(phoneField.getText());
                     return fallback;
                 });
+                AuditLogService.log("CREATE", "CUSTOMER", newId, "Quick added customer: " + c.getName());
+                return c;
             } catch (SQLException ex) {
                 showAlert(Alert.AlertType.ERROR, "Error", ex.getMessage()); return null;
             }
@@ -460,14 +461,14 @@ public class InvoiceController {
             }
         });
 
-        List<Product> allProducts = productService.listAll();
-        itemListView.setItems(FXCollections.observableArrayList(allProducts));
+        List<Product> allProductsList = productService.listAll();
+        itemListView.setItems(FXCollections.observableArrayList(allProductsList));
 
         itemSearch.textProperty().addListener((obs, old, newVal) -> {
-            if (newVal == null || newVal.isBlank()) itemListView.setItems(FXCollections.observableArrayList(allProducts));
+            if (newVal == null || newVal.isBlank()) itemListView.setItems(FXCollections.observableArrayList(allProductsList));
             else {
                 String q = newVal.toLowerCase().trim();
-                itemListView.setItems(FXCollections.observableArrayList(allProducts.stream()
+                itemListView.setItems(FXCollections.observableArrayList(allProductsList.stream()
                     .filter(p -> (p.getName() != null && p.getName().toLowerCase().contains(q)) ||
                                  (p.getProductCode() != null && p.getProductCode().toLowerCase().contains(q)))
                     .collect(Collectors.toList())));
@@ -575,6 +576,8 @@ public class InvoiceController {
             currentInvoice = new Invoice();
         }
 
+        boolean isNew = currentInvoice.getId() <= 0;
+
         currentInvoice.setCustomerId(selectedCustomer.getId());
         currentInvoice.setCustomerName(selectedCustomer.getName());
         currentInvoice.setInvoiceDate(invoiceDatePicker.getValue());
@@ -598,6 +601,14 @@ public class InvoiceController {
         invoiceService.saveInvoice(currentInvoice);
 
         int savedId = currentInvoice.getId();
+        
+        AuditLogService.log(
+            isNew ? "CREATE" : "UPDATE",
+            "INVOICE",
+            savedId,
+            (isNew ? "Created" : "Updated") + " Invoice #" + currentInvoice.getInvoiceNumber() + " for " + selectedCustomer.getName()
+        );
+
         loadInvoicesAndSelect(savedId);
         setFormEditable(false);
 

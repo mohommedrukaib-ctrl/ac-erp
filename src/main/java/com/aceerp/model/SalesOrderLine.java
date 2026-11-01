@@ -19,6 +19,8 @@ public class SalesOrderLine {
     private BigDecimal taxRate = TaxUtil.getDefaultTaxRate();
     private BigDecimal taxAmount = BigDecimal.ZERO;
     private BigDecimal totalPrice = BigDecimal.ZERO;
+    private BigDecimal discountPercent = BigDecimal.ZERO;
+    private String notes;
 
     public SalesOrderLine() {}
 
@@ -33,6 +35,15 @@ public class SalesOrderLine {
 
     public Integer getProductId() { return productId; }
     public void setProductId(Integer productId) { this.productId = productId; }
+
+      public BigDecimal getDiscountPercent() { return discountPercent; }
+    public void setDiscountPercent(BigDecimal discountPercent) {
+        this.discountPercent = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
 
     public Product getProduct() { return product; }
     public void setProduct(Product product) {
@@ -94,10 +105,19 @@ public class SalesOrderLine {
     public BigDecimal getLineTotal() { return totalPrice; }
     public void setLineTotal(BigDecimal lineTotal) { this.totalPrice = lineTotal; }
 
-    public void recalculateTotal() {
+      public void recalculateTotal() {
         BigDecimal qty = quantity != null ? quantity : BigDecimal.ZERO;
         BigDecimal price = unitPrice != null ? unitPrice : BigDecimal.ZERO;
-        this.totalPrice = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal gross = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal disc = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        if (disc.compareTo(BigDecimal.ZERO) < 0) disc = BigDecimal.ZERO;
+        if (disc.compareTo(BigDecimal.valueOf(100)) > 0) disc = BigDecimal.valueOf(100);
+        this.discountPercent = disc;
+
+        BigDecimal discountAmount = gross.multiply(disc)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        this.totalPrice = gross.subtract(discountAmount);
 
         if (taxable && taxRate != null && taxRate.compareTo(BigDecimal.ZERO) > 0) {
             this.taxAmount = this.totalPrice.multiply(taxRate)

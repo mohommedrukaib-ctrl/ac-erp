@@ -12,6 +12,7 @@ import com.aceerp.service.PurchaseOrderService;
 import com.aceerp.service.SupplierService;
 import com.aceerp.util.CurrencyFormatter;
 import com.aceerp.util.GlobalQuickAdd;
+import com.aceerp.util.SmartSearchHelper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -67,10 +68,23 @@ public class GrnController {
 
     @FXML
     public void initialize() {
+        setupSmartSupplierSearch();
         setupTable();
         setupListAndSelection();
         loadGrns();
         handleNewGrn();
+    }
+
+    private void setupSmartSupplierSearch() {
+        SmartSearchHelper.setupEntitySearch(
+                supplierNameField,
+                query -> supplierService.listAll().stream()
+                        .filter(s -> s.getName() != null && s.getName().toLowerCase().contains(query.toLowerCase().trim()))
+                        .collect(Collectors.toList()),
+                Supplier::getName,
+                this::applySupplier,
+                typedText -> GlobalQuickAdd.showSupplierDialog(typedText, this::applySupplier)
+        );
     }
 
     private void setupTable() {
@@ -182,6 +196,7 @@ public class GrnController {
     private void setFormEditable(boolean editable) {
         this.editMode = editable;
         receivedDatePicker.setDisable(!editable);
+        supplierNameField.setEditable(editable);
         deliveryNoteRefField.setEditable(editable);
         notesField.setEditable(editable);
         linesTable.setEditable(editable);
@@ -190,8 +205,10 @@ public class GrnController {
     private void applySupplier(Supplier supplier) {
         if (supplier == null) return;
         selectedSupplier = supplier;
-        currentGrn.setSupplierId(supplier.getId());
-        currentGrn.setSupplier(supplier);
+        if (currentGrn != null) {
+            currentGrn.setSupplierId(supplier.getId());
+            currentGrn.setSupplier(supplier);
+        }
         supplierNameField.setText(supplier.getName());
     }
 
@@ -381,18 +398,7 @@ public class GrnController {
             return;
         }
 
-        GlobalQuickAdd.showSupplierDialog(() -> {
-            List<Supplier> suppliers = supplierService.listAll();
-            if (!suppliers.isEmpty()) {
-                Supplier newest = suppliers.get(suppliers.size() - 1);
-                for (Supplier s : suppliers) {
-                    if (s.getId() > newest.getId()) {
-                        newest = s;
-                    }
-                }
-                applySupplier(newest);
-            }
-        });
+        GlobalQuickAdd.showSupplierDialog(supplierNameField.getText(), this::applySupplier);
     }
 
     @FXML
@@ -539,10 +545,18 @@ public class GrnController {
             return;
         }
 
-        if (currentGrn.getSupplierId() <= 0 && selectedSupplier != null && selectedSupplier.getId() > 0) {
+        if (selectedSupplier == null && supplierNameField.getText() != null && !supplierNameField.getText().isBlank()) {
+            String typed = supplierNameField.getText().trim();
+            selectedSupplier = supplierService.listAll().stream()
+                    .filter(s -> s.getName() != null && s.getName().equalsIgnoreCase(typed))
+                    .findFirst().orElse(null);
+        }
+
+        if (selectedSupplier != null && selectedSupplier.getId() > 0) {
             currentGrn.setSupplierId(selectedSupplier.getId());
             currentGrn.setSupplier(selectedSupplier);
         }
+
         if (currentGrn.getSupplierId() <= 0 && selectedPo != null && selectedPo.getSupplierId() > 0) {
             currentGrn.setSupplierId(selectedPo.getSupplierId());
             currentGrn.setSupplier(selectedPo.getSupplier());
@@ -607,3 +621,4 @@ public class GrnController {
         alert.showAndWait();
     }
 }
+

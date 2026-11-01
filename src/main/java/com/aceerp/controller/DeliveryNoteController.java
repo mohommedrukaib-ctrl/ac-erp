@@ -9,15 +9,15 @@ import com.aceerp.service.DeliveryNoteService;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.ReportService;
 import com.aceerp.util.AlertHelper;
+import com.aceerp.util.GlobalQuickAdd;
+import com.aceerp.util.SmartSearchHelper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.VBox;
-import javafx.stage.Popup;
 import javafx.util.converter.NumberStringConverter;
 
 import java.time.LocalDate;
@@ -58,9 +58,6 @@ public class DeliveryNoteController {
     private DeliveryNote currentDN = new DeliveryNote();
     private Customer selectedCustomer;
     private boolean editMode = false;
-
-    private Popup customerPopup;
-    private ListView<Customer> customerListView;
 
     @FXML
     public void initialize() {
@@ -114,50 +111,22 @@ public class DeliveryNoteController {
     }
 
     private void setupSmartCustomerSearch() {
-        customerPopup = new Popup();
-        customerPopup.setAutoHide(true);
-        customerListView = new ListView<>();
-        customerListView.setPrefHeight(150);
-        customerPopup.getContent().add(customerListView);
-
-        txtCustomerSearch.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (!editMode) return;
-            if (newVal == null || newVal.trim().isEmpty()) {
-                customerPopup.hide();
-                return;
-            }
-            String query = newVal.toLowerCase().trim();
-            List<Customer> results = customerService.listAll().stream()
-                    .filter(c -> c.getName() != null && c.getName().toLowerCase().contains(query))
-                    .collect(Collectors.toList());
-
-            if (results.isEmpty()) {
-                customerPopup.hide();
-            } else {
-                customerListView.setItems(FXCollections.observableArrayList(results));
-                if (!customerPopup.isShowing() && txtCustomerSearch.getScene() != null) {
-                    Bounds bounds = txtCustomerSearch.localToScreen(txtCustomerSearch.getBoundsInLocal());
-                    if (bounds != null) {
-                        customerListView.setPrefWidth(bounds.getWidth());
-                        customerPopup.show(txtCustomerSearch, bounds.getMinX(), bounds.getMaxY());
-                    }
-                }
-            }
-        });
-
-        customerListView.setOnMouseClicked(e -> {
-            Customer c = customerListView.getSelectionModel().getSelectedItem();
-            if (c != null) {
-                selectCustomer(c);
-            }
-        });
+        SmartSearchHelper.setupEntitySearch(
+                txtCustomerSearch,
+                query -> customerService.listAll().stream()
+                        .filter(c -> c.getName() != null && c.getName().toLowerCase().contains(query.toLowerCase().trim()))
+                        .collect(Collectors.toList()),
+                Customer::getName,
+                this::selectCustomer,
+                typedText -> GlobalQuickAdd.showCustomerDialog(typedText, this::selectCustomer)
+        );
     }
 
     private void selectCustomer(Customer c) {
+        if (c == null) return;
         selectedCustomer = c;
         txtCustomerSearch.setText(c.getName());
         txtPhone.setText(c.getPhone() != null && !c.getPhone().isEmpty() ? c.getPhone() : "N/A");
-        customerPopup.hide();
     }
 
     private void setupStatusCombo() {
@@ -245,7 +214,7 @@ public class DeliveryNoteController {
         statusCombo.setValue(dn.getStatus() != null ? dn.getStatus() : "DRAFT");
         txtNotes.setText(dn.getNotes() != null ? dn.getNotes() : "");
 
-        if (dn.getCustomerId() > 0) {
+        if (dn.getCustomerId() != null && dn.getCustomerId() > 0) {
             selectedCustomer = customerService.getById(dn.getCustomerId()).orElse(null);
             if (selectedCustomer != null) {
                 txtPhone.setText(selectedCustomer.getPhone() != null ? selectedCustomer.getPhone() : "N/A");
@@ -345,6 +314,22 @@ public class DeliveryNoteController {
                 showAlert(Alert.AlertType.WARNING, "Customer Required", "Please specify a customer.");
                 return;
             }
+
+            if (selectedCustomer == null || selectedCustomer.getId() <= 0) {
+                String typed = txtCustomerSearch.getText().trim();
+                List<Customer> matches = customerService.listAll().stream()
+                        .filter(c -> c.getName() != null && c.getName().equalsIgnoreCase(typed))
+                        .toList();
+                if (!matches.isEmpty()) {
+                    selectCustomer(matches.get(0));
+                }
+            }
+
+            if (selectedCustomer == null || selectedCustomer.getId() <= 0) {
+                showAlert(Alert.AlertType.WARNING, "Customer Required", "Please select a valid customer from the search list or use Quick Add.");
+                return;
+            }
+
             if (linesObservableList.isEmpty()) {
                 showAlert(Alert.AlertType.WARNING, "Empty Lines", "Please add at least one item to ship.");
                 return;
@@ -352,10 +337,8 @@ public class DeliveryNoteController {
 
             currentDN.setDnNumber(txtDnNumber.getText());
             currentDN.setDispatchDate(dpDispatchDate.getValue());
-            currentDN.setCustomerName(txtCustomerSearch.getText());
-            if (selectedCustomer != null) {
-                currentDN.setCustomerId(selectedCustomer.getId());
-            }
+            currentDN.setCustomerName(selectedCustomer.getName());
+            currentDN.setCustomerId(selectedCustomer.getId());
             currentDN.setDriverName(txtDriverName.getText());
             currentDN.setVehicleNo(txtVehicleNo.getText());
             currentDN.setDeliveryAddress(txtDeliveryAddress.getText());
