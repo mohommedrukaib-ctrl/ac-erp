@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.aceerp.controller.FixedAssetController"
+      spacing="12" styleClass="content-pane">
+    <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+    <!-- Header Toolbar -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Fixed Asset Management &amp; Depreciation"
+               style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button text="＋ Add Fixed Asset" onAction="#handleAddAsset" styleClass="btn-primary"/>
+        <Button text="✏ Edit Selected" onAction="#handleEditAsset" styleClass="btn-secondary"/>
+        <Button text="⚡ Run Monthly Depreciation" onAction="#handleRunDepreciation" styleClass="btn-success"/>
+        <Button text="Refresh" onAction="#handleRefresh" styleClass="btn-secondary"/>
+    </HBox>
+
+    <!-- KPI Metrics Header -->
+    <HBox spacing="20" alignment="CENTER">
+        <VBox alignment="CENTER" prefWidth="220" style="-fx-background-color: #ffffff; -fx-padding: 10; -fx-border-color: #cbd5e1; -fx-border-radius: 4;">
+            <Label text="Total Asset Cost" style="-fx-font-size: 11px; -fx-text-fill: #64748b;"/>
+            <Label fx:id="lblTotalCost" text="0.00" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+        </VBox>
+        <VBox alignment="CENTER" prefWidth="220" style="-fx-background-color: #ffffff; -fx-padding: 10; -fx-border-color: #cbd5e1; -fx-border-radius: 4;">
+            <Label text="Total Accumulated Dep." style="-fx-font-size: 11px; -fx-text-fill: #64748b;"/>
+            <Label fx:id="lblTotalAccumDep" text="0.00" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #c0392b;"/>
+        </VBox>
+        <VBox alignment="CENTER" prefWidth="220" style="-fx-background-color: #ffffff; -fx-padding: 10; -fx-border-color: #cbd5e1; -fx-border-radius: 4;">
+            <Label text="Net Book Value" style="-fx-font-size: 11px; -fx-text-fill: #64748b;"/>
+            <Label fx:id="lblTotalBookValue" text="0.00" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
+        </VBox>
+    </HBox>
+
+    <!-- Asset Table -->
+    <TableView fx:id="tblAssets" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colAssetCode" text="Asset #" prefWidth="100"/>
+            <TableColumn fx:id="colAssetName" text="Asset Description" prefWidth="220"/>
+            <TableColumn fx:id="colCategory" text="Category" prefWidth="110"/>
+            <TableColumn fx:id="colAcquisitionDate" text="Acquired" prefWidth="100"/>
+            <TableColumn fx:id="colCost" text="Cost Price" prefWidth="120"/>
+            <TableColumn fx:id="colAccumDep" text="Accum. Dep." prefWidth="120"/>
+            <TableColumn fx:id="colBookValue" text="Book Value" prefWidth="120"/>
+            <TableColumn fx:id="colMonthlyDep" text="Monthly Dep." prefWidth="120"/>
+            <TableColumn fx:id="colStatus" text="Status" prefWidth="110"/>
+        </columns>
+    </TableView>
+</VBox>

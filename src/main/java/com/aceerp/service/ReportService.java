@@ -1,10 +1,8 @@
+
 package com.aceerp.service;
 
 import com.aceerp.config.DatabaseConfig;
-import com.aceerp.model.AgingReportDTO;
-import com.aceerp.model.CompanyProfile;
-import com.aceerp.model.ProfitAndLossDTO;
-import com.aceerp.model.StockValuationDTO;
+import com.aceerp.model.*;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.view.JasperViewer;
 import org.slf4j.Logger;
@@ -12,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -23,8 +22,6 @@ public class ReportService {
 
     private static final Logger logger = LoggerFactory.getLogger(ReportService.class);
     private final CompanyProfileService companyProfileService = new CompanyProfileService();
-
-    // ===================== Branding parameters for ALL prints =====================
 
     private Map<String, Object> buildCompanyParameters() {
         CompanyProfile c = companyProfileService.getProfile();
@@ -42,90 +39,233 @@ public class ReportService {
     }
 
     private void printDocument(String docType, String idParamName, int id) {
-    new Thread(() -> {
-        try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
-            ReportTemplateService templateService = new ReportTemplateService();
-            InputStream stream = templateService.openActiveTemplateStream(docType);
+        new Thread(() -> {
+            try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+                ReportTemplateService templateService = new ReportTemplateService();
+                InputStream stream = templateService.openActiveTemplateStream(docType);
 
-            JasperReport report = JasperCompileManager.compileReport(stream);
-            stream.close();
+                JasperReport report = JasperCompileManager.compileReport(stream);
+                stream.close();
 
-            Map<String, Object> parameters = buildCompanyParameters();
-            parameters.put(idParamName, id);
+                Map<String, Object> parameters = buildCompanyParameters();
+                parameters.put(idParamName, id);
 
-            JasperPrint print = JasperFillManager.fillReport(report, parameters, conn);
-            JasperViewer.viewReport(print, false);
-        } catch (Exception e) {
-            logger.error("Failed to generate report {} for id {}", docType, id, e);
-        }
-    }).start();
-}
-
-    public static void printInvoice(int invoiceId) {
-        new ReportService().printDocument("invoice", "INVOICE_ID", invoiceId);
+                JasperPrint print = JasperFillManager.fillReport(report, parameters, conn);
+                JasperViewer.viewReport(print, false);
+            } catch (Exception e) {
+                logger.error("Failed to generate report {} for id {}", docType, id, e);
+            }
+        }).start();
     }
 
-    public static void printQuotation(int quotationId) {
-        new ReportService().printDocument("quotation", "QUOTE_ID", quotationId);
-    }
+    public static void printInvoice(int invoiceId) { new ReportService().printDocument("invoice", "INVOICE_ID", invoiceId); }
+    public static void printQuotation(int quotationId) { new ReportService().printDocument("quotation", "QUOTE_ID", quotationId); }
+    public static void printSalesOrder(int orderId) { new ReportService().printDocument("sales_order", "ORDER_ID", orderId); }
+    public static void printSupplierBill(int billId) { new ReportService().printDocument("supplier_bill", "BILL_ID", billId); }
+    public static void printDeliveryNote(int dnId) { new ReportService().printDocument("delivery_note", "DN_ID", dnId); }
+    public static void printPurchaseOrder(int poId) { new ReportService().printDocument("purchase_order", "PO_ID", poId); }
+    public static void printJobNote(int jobId) { new ReportService().printDocument("job_note_a5", "JOB_ID", jobId); }
 
-    public static void printSalesOrder(int orderId) {
-        new ReportService().printDocument("sales_order", "ORDER_ID", orderId);
-    }
+    // ===================== Double-Entry General Ledger Financials =====================
 
-        public static void printSupplierBill(int billId) {
-        new ReportService().printDocument("supplier_bill", "BILL_ID", billId);
-    }
-
-    public static void printDeliveryNote(int dnId) {
-        new ReportService().printDocument("delivery_note", "DN_ID", dnId);
-    }
-
-    public static void printPurchaseOrder(int poId) {
-        new ReportService().printDocument("purchase_order", "PO_ID", poId);
-    }
-
-    public static void printJobNote(int jobId) {
-        new ReportService().printDocument("job_note_a5", "JOB_ID", jobId);
-    }
-
-    // ===================== Analytics =====================
-
+    /**
+     * GL-based Profit & Loss Statement (Income Statement)
+     */
     public ProfitAndLossDTO getProfitAndLoss(LocalDate startDate, LocalDate endDate) {
         ProfitAndLossDTO dto = new ProfitAndLossDTO();
-        String sqlSales = "SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE COALESCE(status,'') <> 'CANCELLED' AND invoice_date BETWEEN ? AND ?";
-        String sqlServices = "SELECT COALESCE(SUM(labor_cost), 0) FROM service_jobs WHERE status = 'COMPLETED' AND COALESCE(completion_date, scheduled_date) BETWEEN ? AND ?";
-        String sqlPurchases = "SELECT COALESCE(SUM(total_amount), 0) FROM supplier_bills WHERE COALESCE(status,'') <> 'CANCELLED' AND bill_date BETWEEN ? AND ?";
 
-        try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
-            try (PreparedStatement stmt = conn.prepareStatement(sqlSales)) {
-                stmt.setDate(1, Date.valueOf(startDate));
-                stmt.setDate(2, Date.valueOf(endDate));
-                ResultSet rs = stmt.executeQuery();
-                if (rs.next()) dto.setSalesRevenue(rs.getBigDecimal(1));
-            } catch (SQLException e) { logger.warn("P&L sales: {}", e.getMessage()); }
+        String glSql = """
+            SELECT a.code, a.account_type,
+                   SUM(jel.debit) AS total_debit, SUM(jel.credit) AS total_credit
+            FROM journal_entry_lines jel
+            JOIN journal_entries je ON jel.journal_entry_id = je.id
+            JOIN accounts a ON jel.account_id = a.id
+            WHERE je.status = 'POSTED' AND je.entry_date BETWEEN ? AND ?
+            GROUP BY a.code, a.account_type
+        """;
 
-            try (PreparedStatement stmt = conn.prepareStatement(sqlServices)) {
-                stmt.setDate(1, Date.valueOf(startDate));
-                stmt.setDate(2, Date.valueOf(endDate));
-                ResultSet rs = stmt.executeQuery();
-                if (rs.next()) dto.setServiceRevenue(rs.getBigDecimal(1));
-            } catch (SQLException e) { logger.warn("P&L services: {}", e.getMessage()); }
+        BigDecimal salesRevenue = BigDecimal.ZERO;
+        BigDecimal serviceRevenue = BigDecimal.ZERO;
+        BigDecimal cogs = BigDecimal.ZERO;
+        BigDecimal operatingExpenses = BigDecimal.ZERO;
 
-            try (PreparedStatement stmt = conn.prepareStatement(sqlPurchases)) {
-                stmt.setDate(1, Date.valueOf(startDate));
-                stmt.setDate(2, Date.valueOf(endDate));
-                ResultSet rs = stmt.executeQuery();
-                if (rs.next()) dto.setPurchaseExpenses(rs.getBigDecimal(1));
-            } catch (SQLException e) { logger.warn("P&L purchases: {}", e.getMessage()); }
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(glSql)) {
 
-            dto.setCostOfGoodsSold(dto.getSalesRevenue().multiply(BigDecimal.valueOf(0.65)));
+            stmt.setDate(1, Date.valueOf(startDate));
+            stmt.setDate(2, Date.valueOf(endDate));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("code");
+                    String type = rs.getString("account_type");
+                    BigDecimal dr = rs.getBigDecimal("total_debit");
+                    BigDecimal cr = rs.getBigDecimal("total_credit");
+
+                    if ("REVENUE".equalsIgnoreCase(type)) {
+                        BigDecimal netRev = cr.subtract(dr);
+                        if ("4100".equals(code)) {
+                            serviceRevenue = serviceRevenue.add(netRev);
+                        } else {
+                            salesRevenue = salesRevenue.add(netRev);
+                        }
+                    } else if ("EXPENSE".equalsIgnoreCase(type)) {
+                        BigDecimal netExp = dr.subtract(cr);
+                        if (code.startsWith("5")) {
+                            cogs = cogs.add(netExp);
+                        } else {
+                            operatingExpenses = operatingExpenses.add(netExp);
+                        }
+                    }
+                }
+            }
+
+            dto.setSalesRevenue(salesRevenue.setScale(2, RoundingMode.HALF_UP));
+            dto.setServiceRevenue(serviceRevenue.setScale(2, RoundingMode.HALF_UP));
+            dto.setCostOfGoodsSold(cogs.setScale(2, RoundingMode.HALF_UP));
+            dto.setPurchaseExpenses(operatingExpenses.setScale(2, RoundingMode.HALF_UP));
             dto.calculateTotals();
+
         } catch (SQLException e) {
-            logger.error("P&L error: {}", e.getMessage(), e);
+            logger.error("Error generating GL Profit & Loss: {}", e.getMessage(), e);
         }
+
         return dto;
     }
+
+    /**
+     * GL-based Balance Sheet Statement (Assets = Liabilities + Equity)
+     */
+    public BalanceSheetDTO getBalanceSheet(LocalDate asOfDate) {
+        BalanceSheetDTO dto = new BalanceSheetDTO();
+
+        String sql = """
+            SELECT a.code, a.name, a.account_type, a.normal_balance,
+                   COALESCE(SUM(jel.debit), 0) AS total_debit,
+                   COALESCE(SUM(jel.credit), 0) AS total_credit
+            FROM accounts a
+            LEFT JOIN journal_entry_lines jel ON jel.account_id = a.id
+            LEFT JOIN journal_entries je ON jel.journal_entry_id = je.id AND je.status = 'POSTED' AND je.entry_date <= ?
+            WHERE a.is_active = TRUE
+            GROUP BY a.id, a.code, a.name, a.account_type, a.normal_balance
+            ORDER BY a.code ASC
+        """;
+
+        BigDecimal totalAssets = BigDecimal.ZERO;
+        BigDecimal totalLiabilities = BigDecimal.ZERO;
+        BigDecimal totalEquity = BigDecimal.ZERO;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(asOfDate));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("code");
+                    String name = rs.getString("name");
+                    String type = rs.getString("account_type");
+                    BigDecimal dr = rs.getBigDecimal("total_debit");
+                    BigDecimal cr = rs.getBigDecimal("total_credit");
+
+                    BigDecimal balance;
+                    if ("ASSET".equalsIgnoreCase(type) || "EXPENSE".equalsIgnoreCase(type)) {
+                        balance = dr.subtract(cr);
+                    } else {
+                        balance = cr.subtract(dr);
+                    }
+
+                    if (balance.compareTo(BigDecimal.ZERO) == 0) continue;
+
+                    BalanceSheetDTO.BalanceRow row = new BalanceSheetDTO.BalanceRow(code, name, type, balance.setScale(2, RoundingMode.HALF_UP));
+
+                    if ("ASSET".equalsIgnoreCase(type)) {
+                        dto.getAssets().add(row);
+                        totalAssets = totalAssets.add(balance);
+                    } else if ("LIABILITY".equalsIgnoreCase(type)) {
+                        dto.getLiabilities().add(row);
+                        totalLiabilities = totalLiabilities.add(balance);
+                    } else if ("EQUITY".equalsIgnoreCase(type)) {
+                        dto.getEquity().add(row);
+                        totalEquity = totalEquity.add(balance);
+                    }
+                }
+            }
+
+            // Calculate Current Year Net Income up to asOfDate
+            LocalDate startOfYear = asOfDate.withDayOfYear(1);
+            ProfitAndLossDTO pnl = getProfitAndLoss(startOfYear, asOfDate);
+            BigDecimal netIncome = pnl.getNetProfit();
+            dto.setCurrentYearNetIncome(netIncome);
+
+            dto.setTotalAssets(totalAssets.setScale(2, RoundingMode.HALF_UP));
+            dto.setTotalLiabilities(totalLiabilities.setScale(2, RoundingMode.HALF_UP));
+            dto.setTotalEquity(totalEquity.setScale(2, RoundingMode.HALF_UP));
+            dto.setTotalLiabilitiesAndEquity(totalLiabilities.add(totalEquity).add(netIncome).setScale(2, RoundingMode.HALF_UP));
+
+        } catch (SQLException e) {
+            logger.error("Error generating Balance Sheet: {}", e.getMessage(), e);
+        }
+
+        return dto;
+    }
+
+    /**
+     * GL-based Statement of Cash Flows
+     */
+    public CashFlowDTO getCashFlowStatement(LocalDate startDate, LocalDate endDate) {
+        CashFlowDTO dto = new CashFlowDTO();
+        ProfitAndLossDTO pnl = getProfitAndLoss(startDate, endDate);
+        dto.setNetIncome(pnl.getNetProfit());
+
+        // Cash flow changes from working capital
+        String sql = """
+            SELECT a.code,
+                   COALESCE(SUM(jel.debit - jel.credit), 0) AS net_dr_change
+            FROM journal_entry_lines jel
+            JOIN journal_entries je ON jel.journal_entry_id = je.id
+            JOIN accounts a ON jel.account_id = a.id
+            WHERE je.status = 'POSTED' AND je.entry_date BETWEEN ? AND ?
+            GROUP BY a.code
+        """;
+
+        BigDecimal arChange = BigDecimal.ZERO;
+        BigDecimal apChange = BigDecimal.ZERO;
+        BigDecimal invChange = BigDecimal.ZERO;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(startDate));
+            stmt.setDate(2, Date.valueOf(endDate));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("code");
+                    BigDecimal change = rs.getBigDecimal("net_dr_change");
+
+                    if ("1200".equals(code)) arChange = change.negate();      // Increase in AR reduces cash
+                    if ("1300".equals(code)) invChange = change.negate();     // Increase in Inventory reduces cash
+                    if ("2100".equals(code)) apChange = change;               // Increase in AP increases cash
+                }
+            }
+
+            dto.setArChange(arChange.setScale(2, RoundingMode.HALF_UP));
+            dto.setApChange(apChange.setScale(2, RoundingMode.HALF_UP));
+            dto.setInventoryChange(invChange.setScale(2, RoundingMode.HALF_UP));
+
+            BigDecimal operating = pnl.getNetProfit().add(arChange).add(apChange).add(invChange);
+            dto.setOperatingCashFlow(operating.setScale(2, RoundingMode.HALF_UP));
+            dto.setNetCashChange(operating);
+
+        } catch (SQLException e) {
+            logger.error("Error generating Cash Flow Statement: {}", e.getMessage(), e);
+        }
+
+        return dto;
+    }
+
+    // ===================== Sub-Ledgers & Inventory =====================
 
     public List<StockValuationDTO> getStockValuation() {
         List<StockValuationDTO> list = new ArrayList<>();
@@ -177,6 +317,7 @@ public class ReportService {
                 dto.setEntityName(rs.getString("entity_name"));
                 dto.setCurrent0To30(rs.getBigDecimal("current_30"));
                 dto.setDays31To60(rs.getBigDecimal("days_60"));
+                dto.setDays61To90(rs.getBigDecimal("days_90"));
                 dto.setDaysOver90(rs.getBigDecimal("over_90"));
                 list.add(dto);
             }

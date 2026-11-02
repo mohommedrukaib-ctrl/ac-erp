@@ -1,8 +1,7 @@
+
 package com.aceerp.controller;
 
-import com.aceerp.model.AgingReportDTO;
-import com.aceerp.model.ProfitAndLossDTO;
-import com.aceerp.model.StockValuationDTO;
+import com.aceerp.model.*;
 import com.aceerp.service.ReportService;
 import com.aceerp.util.CurrencyFormatter;
 import javafx.beans.property.SimpleStringProperty;
@@ -18,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
@@ -29,6 +29,7 @@ public class ReportController {
     @FXML private DatePicker dpTo;
     @FXML private TabPane reportTabs;
 
+    // P&L
     @FXML private Label lblSalesRevenue;
     @FXML private Label lblServiceRevenue;
     @FXML private Label lblTotalRevenue;
@@ -37,6 +38,24 @@ public class ReportController {
     @FXML private Label lblPurchases;
     @FXML private Label lblNetProfit;
 
+    // Balance Sheet Controls
+    @FXML private TableView<BalanceSheetDTO.BalanceRow> bsTable;
+    @FXML private TableColumn<BalanceSheetDTO.BalanceRow, String> colBsCode;
+    @FXML private TableColumn<BalanceSheetDTO.BalanceRow, String> colBsName;
+    @FXML private TableColumn<BalanceSheetDTO.BalanceRow, String> colBsType;
+    @FXML private TableColumn<BalanceSheetDTO.BalanceRow, String> colBsAmount;
+    @FXML private Label lblBsTotalAssets;
+    @FXML private Label lblBsTotalLiabEquity;
+    @FXML private Label lblBsStatus;
+
+    // Cash Flow Controls
+    @FXML private Label lblCfNetIncome;
+    @FXML private Label lblCfArChange;
+    @FXML private Label lblCfApChange;
+    @FXML private Label lblCfInvChange;
+    @FXML private Label lblCfNetOperating;
+
+    // Sub-ledger Tables
     @FXML private TableView<StockValuationDTO> stockValuationTable;
     @FXML private TableColumn<StockValuationDTO, String> colStockCode;
     @FXML private TableColumn<StockValuationDTO, String> colStockName;
@@ -63,11 +82,13 @@ public class ReportController {
     @FXML private TableColumn<AgingReportDTO, String> colSuppTotal;
 
     private final ReportService reportService = new ReportService();
+    private final ObservableList<BalanceSheetDTO.BalanceRow> bsList = FXCollections.observableArrayList();
     private final ObservableList<StockValuationDTO> stockList = FXCollections.observableArrayList();
     private final ObservableList<AgingReportDTO> customerAgingList = FXCollections.observableArrayList();
     private final ObservableList<AgingReportDTO> supplierAgingList = FXCollections.observableArrayList();
 
     private ProfitAndLossDTO currentPnl = new ProfitAndLossDTO();
+    private BalanceSheetDTO currentBs = new BalanceSheetDTO();
 
     @FXML
     public void initialize() {
@@ -78,6 +99,14 @@ public class ReportController {
     }
 
     private void setupTables() {
+        if (bsTable != null) {
+            colBsCode.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().accountCode()));
+            colBsName.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().accountName()));
+            colBsType.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().accountType()));
+            colBsAmount.setCellValueFactory(c -> new SimpleStringProperty(CurrencyFormatter.format(c.getValue().balance())));
+            bsTable.setItems(bsList);
+        }
+
         colStockCode.setCellValueFactory(new PropertyValueFactory<>("productCode"));
         colStockName.setCellValueFactory(new PropertyValueFactory<>("productName"));
         colStockCategory.setCellValueFactory(new PropertyValueFactory<>("category"));
@@ -109,6 +138,7 @@ public class ReportController {
         LocalDate from = dpFrom.getValue() != null ? dpFrom.getValue() : LocalDate.now().withDayOfMonth(1);
         LocalDate to = dpTo.getValue() != null ? dpTo.getValue() : LocalDate.now();
 
+        // 1. Profit & Loss
         currentPnl = reportService.getProfitAndLoss(from, to);
         lblSalesRevenue.setText(CurrencyFormatter.format(currentPnl.getSalesRevenue()));
         lblServiceRevenue.setText(CurrencyFormatter.format(currentPnl.getServiceRevenue()));
@@ -118,6 +148,33 @@ public class ReportController {
         lblPurchases.setText(CurrencyFormatter.format(currentPnl.getPurchaseExpenses()));
         lblNetProfit.setText(CurrencyFormatter.format(currentPnl.getNetProfit()));
 
+        // 2. Balance Sheet
+        currentBs = reportService.getBalanceSheet(to);
+        bsList.clear();
+        bsList.addAll(currentBs.getAssets());
+        bsList.addAll(currentBs.getLiabilities());
+        bsList.addAll(currentBs.getEquity());
+        if (lblBsTotalAssets != null) lblBsTotalAssets.setText(CurrencyFormatter.format(currentBs.getTotalAssets()));
+        if (lblBsTotalLiabEquity != null) lblBsTotalLiabEquity.setText(CurrencyFormatter.format(currentBs.getTotalLiabilitiesAndEquity()));
+        if (lblBsStatus != null) {
+            if (currentBs.isBalanced()) {
+                lblBsStatus.setText("● BALANCED");
+                lblBsStatus.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+            } else {
+                lblBsStatus.setText("● UNBALANCED");
+                lblBsStatus.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+            }
+        }
+
+        // 3. Statement of Cash Flows
+        CashFlowDTO cf = reportService.getCashFlowStatement(from, to);
+        if (lblCfNetIncome != null) lblCfNetIncome.setText(CurrencyFormatter.format(cf.getNetIncome()));
+        if (lblCfArChange != null) lblCfArChange.setText(CurrencyFormatter.format(cf.getArChange()));
+        if (lblCfApChange != null) lblCfApChange.setText(CurrencyFormatter.format(cf.getApChange()));
+        if (lblCfInvChange != null) lblCfInvChange.setText(CurrencyFormatter.format(cf.getInventoryChange()));
+        if (lblCfNetOperating != null) lblCfNetOperating.setText(CurrencyFormatter.format(cf.getOperatingCashFlow()));
+
+        // 4. Sub-ledgers
         stockList.setAll(reportService.getStockValuation());
         customerAgingList.setAll(reportService.getCustomerAging());
         supplierAgingList.setAll(reportService.getSupplierAging());
@@ -133,9 +190,11 @@ public class ReportController {
 
         switch (tabIndex) {
             case 0 -> chooser.setInitialFileName("profit_and_loss_" + stamp + ".csv");
-            case 1 -> chooser.setInitialFileName("stock_valuation_" + stamp + ".csv");
-            case 2 -> chooser.setInitialFileName("customer_aging_" + stamp + ".csv");
-            case 3 -> chooser.setInitialFileName("supplier_aging_" + stamp + ".csv");
+            case 1 -> chooser.setInitialFileName("balance_sheet_" + stamp + ".csv");
+            case 2 -> chooser.setInitialFileName("cash_flow_" + stamp + ".csv");
+            case 3 -> chooser.setInitialFileName("stock_valuation_" + stamp + ".csv");
+            case 4 -> chooser.setInitialFileName("customer_aging_" + stamp + ".csv");
+            case 5 -> chooser.setInitialFileName("supplier_aging_" + stamp + ".csv");
             default -> chooser.setInitialFileName("report_" + stamp + ".csv");
         }
 
@@ -145,9 +204,11 @@ public class ReportController {
         try (PrintWriter out = new PrintWriter(new FileWriter(file))) {
             switch (tabIndex) {
                 case 0 -> exportPnl(out);
-                case 1 -> exportStock(out);
-                case 2 -> exportAging(out, customerAgingList, "Customer");
-                case 3 -> exportAging(out, supplierAgingList, "Supplier");
+                case 1 -> exportBs(out);
+                case 2 -> exportCf(out);
+                case 3 -> exportStock(out);
+                case 4 -> exportAging(out, customerAgingList, "Customer");
+                case 5 -> exportAging(out, supplierAgingList, "Supplier");
                 default -> out.println("No data");
             }
             showAlert(Alert.AlertType.INFORMATION, "Export Complete", "Report exported to:\n" + file.getAbsolutePath());
@@ -164,8 +225,28 @@ public class ReportController {
         out.println("Total Revenue," + currentPnl.getTotalRevenue());
         out.println("Cost of Goods Sold," + currentPnl.getCostOfGoodsSold());
         out.println("Gross Profit," + currentPnl.getGrossProfit());
-        out.println("Purchase Expenses," + currentPnl.getPurchaseExpenses());
+        out.println("Operating Expenses," + currentPnl.getPurchaseExpenses());
         out.println("Net Profit," + currentPnl.getNetProfit());
+    }
+
+    private void exportBs(PrintWriter out) {
+        out.println("Account Code,Account Name,Type,Balance");
+        for (BalanceSheetDTO.BalanceRow row : bsList) {
+            out.printf("%s,%s,%s,%s%n", csv(row.accountCode()), csv(row.accountName()), csv(row.accountType()), row.balance());
+        }
+    }
+
+    private void exportCf(PrintWriter out) {
+        CashFlowDTO cf = reportService.getCashFlowStatement(
+            dpFrom.getValue() != null ? dpFrom.getValue() : LocalDate.now().withDayOfMonth(1),
+            dpTo.getValue() != null ? dpTo.getValue() : LocalDate.now()
+        );
+        out.println("Cash Flow Activity,Amount");
+        out.println("Net Income," + cf.getNetIncome());
+        out.println("AR Change," + cf.getArChange());
+        out.println("AP Change," + cf.getApChange());
+        out.println("Inventory Change," + cf.getInventoryChange());
+        out.println("Net Operating Cash Flow," + cf.getOperatingCashFlow());
     }
 
     private void exportStock(PrintWriter out) {

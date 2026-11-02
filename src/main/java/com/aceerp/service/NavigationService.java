@@ -1,5 +1,6 @@
-package com.aceerp.service;
+    package com.aceerp.service;
 
+  
 import com.aceerp.model.UserRole;
 import com.aceerp.model.UserSession;
 import org.slf4j.Logger;
@@ -37,6 +38,7 @@ public class NavigationService {
 
         // Operations, Financials & Analytics
         navItems.put("services",         new NavItem("Services",          "🔧", "services.fxml",          UserRole.TECHNICIAN));
+        navItems.put("fixed_assets",     new NavItem("Fixed Assets",      "🚚", "fixed_assets.fxml",      UserRole.MANAGER));
         navItems.put("accounting",       new NavItem("Accounting",        "💰", "accounting.fxml",        UserRole.MANAGER));
         navItems.put("reports",          new NavItem("Reports",           "📊", "reports.fxml",           UserRole.MANAGER));
         navItems.put("users",            new NavItem("Users",             "👥", "user-management.fxml",  UserRole.ADMIN));

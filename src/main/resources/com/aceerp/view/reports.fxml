@@ -62,7 +62,7 @@
 
                     <Separator GridPane.rowIndex="6" GridPane.columnIndex="0" GridPane.columnSpan="2"/>
 
-                    <Label text="Purchase Expenses:" GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+                    <Label text="Operating Expenses:" GridPane.rowIndex="7" GridPane.columnIndex="0"/>
                     <Label fx:id="lblPurchases" text="0.00" style="-fx-font-weight: bold;"
                            GridPane.rowIndex="7" GridPane.columnIndex="1"/>
 
@@ -71,6 +71,62 @@
                     <Label fx:id="lblNetProfit" text="0.00"
                            style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2980b9;"
                            GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+                </GridPane>
+            </VBox>
+        </Tab>
+
+        <!-- Balance Sheet -->
+        <Tab text="Balance Sheet">
+            <VBox spacing="10">
+                <padding>
+                    <Insets top="15" right="15" bottom="15" left="15"/>
+                </padding>
+                <HBox spacing="15" alignment="CENTER_LEFT">
+                    <Label text="Balance Sheet (Assets = Liabilities + Equity)" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Label fx:id="lblBsStatus" text="● BALANCED" style="-fx-text-fill: #27ae60; -fx-font-weight: bold;"/>
+                </HBox>
+                <TableView fx:id="bsTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colBsCode" text="Code" prefWidth="100"/>
+                        <TableColumn fx:id="colBsName" text="Account Name" prefWidth="260"/>
+                        <TableColumn fx:id="colBsType" text="Class" prefWidth="130"/>
+                        <TableColumn fx:id="colBsAmount" text="Balance" prefWidth="150"/>
+                    </columns>
+                </TableView>
+                <HBox spacing="25" alignment="CENTER_RIGHT" style="-fx-padding: 10; -fx-background-color: #f8f9fa;">
+                    <Label text="Total Assets:" style="-fx-font-weight: bold;"/>
+                    <Label fx:id="lblBsTotalAssets" text="0.00" style="-fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
+                    <Label text="Total Liabilities &amp; Equity:" style="-fx-font-weight: bold;"/>
+                    <Label fx:id="lblBsTotalLiabEquity" text="0.00" style="-fx-font-weight: bold; -fx-text-fill: #2980b9;"/>
+                </HBox>
+            </VBox>
+        </Tab>
+
+        <!-- Cash Flow -->
+        <Tab text="Statement of Cash Flows">
+            <VBox spacing="15">
+                <padding>
+                    <Insets top="20" right="20" bottom="20" left="20"/>
+                </padding>
+                <GridPane hgap="25" vgap="12"
+                          style="-fx-background-color: #f8f9fa; -fx-padding: 20; -fx-background-radius: 8;">
+                    <Label text="Net Operating Income:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblCfNetIncome" text="0.00" style="-fx-font-weight: bold;" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                    <Label text="Accounts Receivable Change:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblCfArChange" text="0.00" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                    <Label text="Accounts Payable Change:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblCfApChange" text="0.00" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                    <Label text="Inventory Asset Change:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblCfInvChange" text="0.00" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                    <Separator GridPane.rowIndex="4" GridPane.columnIndex="0" GridPane.columnSpan="2"/>
+
+                    <Label text="Net Cash from Operating Activities:" style="-fx-font-weight: bold; -fx-font-size: 14px;" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+                    <Label fx:id="lblCfNetOperating" text="0.00" style="-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #27ae60;" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
                 </GridPane>
             </VBox>
         </Tab>

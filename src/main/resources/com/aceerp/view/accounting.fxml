@@ -96,5 +96,97 @@
                 </TableView>
             </VBox>
         </Tab>
+
+        <!-- ===================== Bank Reconciliation ===================== -->
+        <Tab text="Bank Reconciliation">
+            <VBox spacing="12">
+                <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+
+                <!-- Top Parameters -->
+                <HBox spacing="15" alignment="CENTER_LEFT" style="-fx-background-color: #f8f9fa; -fx-padding: 10; -fx-border-color: #e2e8f0; -fx-border-radius: 4;">
+                    <Label text="Account:" style="-fx-font-weight: bold;"/>
+                    <ComboBox fx:id="cmbReconAccount" prefWidth="240"/>
+                    <Label text="Statement Date:" style="-fx-font-weight: bold;"/>
+                    <DatePicker fx:id="dpReconStatementDate" prefWidth="130"/>
+                    <Label text="Statement Ending Balance:" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="txtReconEndingBalance" promptText="0.00" prefWidth="120"/>
+                    <Button text="📁 Import Statement (CSV)" onAction="#handleImportCsvStatement" styleClass="btn-secondary"/>
+                </HBox>
+
+                <!-- Summary Cards -->
+                <HBox spacing="15" alignment="CENTER">
+                    <VBox alignment="CENTER" prefWidth="160" style="-fx-background-color: #ffffff; -fx-padding: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 4;">
+                        <Label text="Beginning Balance" style="-fx-font-size: 11px; -fx-text-fill: #64748b;"/>
+                        <Label fx:id="lblReconBeginningBalance" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                    </VBox>
+                    <VBox alignment="CENTER" prefWidth="180" style="-fx-background-color: #ffffff; -fx-padding: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 4;">
+                        <Label text="Cleared Deposits (+)" style="-fx-font-size: 11px; -fx-text-fill: #64748b;"/>
+                        <Label fx:id="lblReconClearedDeposits" text="0.00 (0)" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
+                    </VBox>
+                    <VBox alignment="CENTER" prefWidth="180" style="-fx-background-color: #ffffff; -fx-padding: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 4;">
+                        <Label text="Cleared Checks (-)" style="-fx-font-size: 11px; -fx-text-fill: #64748b;"/>
+                        <Label fx:id="lblReconClearedChecks" text="0.00 (0)" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #c0392b;"/>
+                    </VBox>
+                    <VBox alignment="CENTER" prefWidth="160" style="-fx-background-color: #ffffff; -fx-padding: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 4;">
+                        <Label text="Cleared Balance" style="-fx-font-size: 11px; -fx-text-fill: #64748b;"/>
+                        <Label fx:id="lblReconClearedBalance" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                    </VBox>
+                    <VBox alignment="CENTER" prefWidth="160" style="-fx-background-color: #ffffff; -fx-padding: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 4;">
+                        <Label text="Target Ending Balance" style="-fx-font-size: 11px; -fx-text-fill: #64748b;"/>
+                        <Label fx:id="lblReconTargetBalance" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                    </VBox>
+                    <VBox alignment="CENTER" prefWidth="160" style="-fx-background-color: #ffffff; -fx-padding: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 4;">
+                        <Label text="Difference (Target $0.00)" style="-fx-font-size: 11px; -fx-text-fill: #64748b;"/>
+                        <Label fx:id="lblReconDifference" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e74c3c;"/>
+                    </VBox>
+                </HBox>
+
+                <!-- Tables Split -->
+                <SplitPane dividerPositions="0.5" VBox.vgrow="ALWAYS">
+                    <!-- Deposits Table -->
+                    <VBox spacing="6">
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label text="Deposits &amp; Other Credits" style="-fx-font-weight: bold;"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button text="Select All" onAction="#handleSelectAllDeposits" style="-fx-font-size: 11px;"/>
+                            <Button text="Unselect All" onAction="#handleUnselectAllDeposits" style="-fx-font-size: 11px;"/>
+                        </HBox>
+                        <TableView fx:id="tblDeposits" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="colDepCleared" text="✓" prefWidth="40"/>
+                                <TableColumn fx:id="colDepDate" text="Date" prefWidth="90"/>
+                                <TableColumn fx:id="colDepRef" text="Ref #" prefWidth="100"/>
+                                <TableColumn fx:id="colDepMemo" text="Memo" prefWidth="160"/>
+                                <TableColumn fx:id="colDepAmount" text="Amount" prefWidth="100"/>
+                            </columns>
+                        </TableView>
+                    </VBox>
+
+                    <!-- Checks Table -->
+                    <VBox spacing="6">
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label text="Checks &amp; Payments" style="-fx-font-weight: bold;"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button text="Select All" onAction="#handleSelectAllChecks" style="-fx-font-size: 11px;"/>
+                            <Button text="Unselect All" onAction="#handleUnselectAllChecks" style="-fx-font-size: 11px;"/>
+                        </HBox>
+                        <TableView fx:id="tblChecks" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="colChkCleared" text="✓" prefWidth="40"/>
+                                <TableColumn fx:id="colChkDate" text="Date" prefWidth="90"/>
+                                <TableColumn fx:id="colChkRef" text="Ref #" prefWidth="100"/>
+                                <TableColumn fx:id="colChkMemo" text="Memo" prefWidth="160"/>
+                                <TableColumn fx:id="colChkAmount" text="Amount" prefWidth="100"/>
+                            </columns>
+                        </TableView>
+                    </VBox>
+                </SplitPane>
+
+                <!-- Action Footer -->
+                <HBox alignment="CENTER_RIGHT" spacing="10">
+                    <Button fx:id="btnReconcileNow" text="Reconcile Now" onAction="#handleReconcileNow" styleClass="btn-primary" disable="true" style="-fx-font-size: 14px; -fx-padding: 8 20;"/>
+                </HBox>
+            </VBox>
+        </Tab>
     </TabPane>
 </VBox>

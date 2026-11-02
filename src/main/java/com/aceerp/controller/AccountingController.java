@@ -1,10 +1,13 @@
 package com.aceerp.controller;
 
 import com.aceerp.model.Account;
+import com.aceerp.model.BankReconciliation;
 import com.aceerp.model.JournalEntry;
 import com.aceerp.model.JournalEntryLine;
+import com.aceerp.model.ReconciliationItemDTO;
 import com.aceerp.service.AccountingService;
 import com.aceerp.service.AccountingService.TrialBalanceRow;
+import com.aceerp.service.BankReconciliationService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
 import javafx.beans.property.SimpleStringProperty;
@@ -13,16 +16,19 @@ import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -69,11 +75,44 @@ public class AccountingController {
     @FXML private Label lblTbCredit;
     @FXML private Label lblTbStatus;
 
+    // Bank Reconciliation
+    @FXML private ComboBox<Account> cmbReconAccount;
+    @FXML private DatePicker dpReconStatementDate;
+    @FXML private TextField txtReconEndingBalance;
+    @FXML private TableView<ReconciliationItemDTO> tblDeposits;
+    @FXML private TableColumn<ReconciliationItemDTO, Boolean> colDepCleared;
+    @FXML private TableColumn<ReconciliationItemDTO, LocalDate> colDepDate;
+    @FXML private TableColumn<ReconciliationItemDTO, String> colDepRef;
+    @FXML private TableColumn<ReconciliationItemDTO, String> colDepMemo;
+    @FXML private TableColumn<ReconciliationItemDTO, BigDecimal> colDepAmount;
+
+    @FXML private TableView<ReconciliationItemDTO> tblChecks;
+    @FXML private TableColumn<ReconciliationItemDTO, Boolean> colChkCleared;
+    @FXML private TableColumn<ReconciliationItemDTO, LocalDate> colChkDate;
+    @FXML private TableColumn<ReconciliationItemDTO, String> colChkRef;
+    @FXML private TableColumn<ReconciliationItemDTO, String> colChkMemo;
+    @FXML private TableColumn<ReconciliationItemDTO, BigDecimal> colChkAmount;
+
+    @FXML private Label lblReconBeginningBalance;
+    @FXML private Label lblReconClearedDeposits;
+    @FXML private Label lblReconClearedChecks;
+    @FXML private Label lblReconClearedBalance;
+    @FXML private Label lblReconTargetBalance;
+    @FXML private Label lblReconDifference;
+    @FXML private Button btnReconcileNow;
+
     private final AccountingService accountingService = new AccountingService();
+    private final BankReconciliationService reconService = new BankReconciliationService();
+
     private final ObservableList<Account> accountList = FXCollections.observableArrayList();
     private final ObservableList<JournalEntry> entryList = FXCollections.observableArrayList();
     private final ObservableList<JournalEntryLine> lineList = FXCollections.observableArrayList();
     private final ObservableList<TrialBalanceRow> tbList = FXCollections.observableArrayList();
+
+    private final ObservableList<ReconciliationItemDTO> depositList = FXCollections.observableArrayList();
+    private final ObservableList<ReconciliationItemDTO> checkList = FXCollections.observableArrayList();
+
+    private BigDecimal beginningBalance = BigDecimal.ZERO;
 
     @FXML
     public void initialize() {
@@ -81,10 +120,9 @@ public class AccountingController {
         setupJournalEntriesTable();
         setupJournalLinesTable();
         setupTrialBalanceTable();
+        setupBankReconciliation();
         handleRefresh();
     }
-
-    // ---------- Table Setup ----------
 
     private void setupAccountsTable() {
         if (tblAccounts == null) return;
@@ -140,32 +178,182 @@ public class AccountingController {
         tblTrialBalance.setItems(tbList);
     }
 
-    private <S> TableCell<S, BigDecimal> moneyCell() {
-        return new TableCell<>() {
-            @Override protected void updateItem(BigDecimal item, boolean empty) {
-                super.updateItem(item, empty);
-                setText(empty || item == null ? null : CurrencyFormatter.format(item));
-            }
-        };
-    }
+    private void setupBankReconciliation() {
+        if (cmbReconAccount == null) return;
 
-    private <S> TableCell<S, BigDecimal> moneyCellBlankZero() {
-        return new TableCell<>() {
-            @Override protected void updateItem(BigDecimal item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null || item.compareTo(BigDecimal.ZERO) == 0) setText("");
-                else setText(CurrencyFormatter.format(item));
-            }
-        };
-    }
+        cmbReconAccount.setConverter(new StringConverter<>() {
+            @Override public String toString(Account a) { return a == null ? "" : a.getAccountCode() + " - " + a.getAccountName(); }
+            @Override public Account fromString(String s) { return null; }
+        });
 
-    // ---------- Loaders ----------
+        dpReconStatementDate.setValue(LocalDate.now());
+
+        colDepCleared.setCellValueFactory(cdf -> cdf.getValue().clearedProperty());
+        colDepCleared.setCellFactory(CheckBoxTableCell.forTableColumn(colDepCleared));
+        colDepDate.setCellValueFactory(new PropertyValueFactory<>("entryDate"));
+        colDepRef.setCellValueFactory(new PropertyValueFactory<>("reference"));
+        colDepMemo.setCellValueFactory(new PropertyValueFactory<>("memo"));
+        colDepAmount.setCellValueFactory(new PropertyValueFactory<>("amount"));
+        colDepAmount.setCellFactory(tc -> moneyCell());
+        tblDeposits.setItems(depositList);
+        tblDeposits.setEditable(true);
+
+        colChkCleared.setCellValueFactory(cdf -> cdf.getValue().clearedProperty());
+        colChkCleared.setCellFactory(CheckBoxTableCell.forTableColumn(colChkCleared));
+        colChkDate.setCellValueFactory(new PropertyValueFactory<>("entryDate"));
+        colChkRef.setCellValueFactory(new PropertyValueFactory<>("reference"));
+        colChkMemo.setCellValueFactory(new PropertyValueFactory<>("memo"));
+        colChkAmount.setCellValueFactory(new PropertyValueFactory<>("amount"));
+        colChkAmount.setCellFactory(tc -> moneyCell());
+        tblChecks.setItems(checkList);
+        tblChecks.setEditable(true);
+
+        cmbReconAccount.setOnAction(e -> loadReconciliationItems());
+        dpReconStatementDate.setOnAction(e -> loadReconciliationItems());
+        txtReconEndingBalance.textProperty().addListener((o, oldV, newV) -> calculateReconciliationSummary());
+    }
 
     @FXML
     public void handleRefresh() {
         loadAccounts();
         loadJournalEntries();
         loadTrialBalance();
+        loadBankAccountsForRecon();
+    }
+
+    private void loadBankAccountsForRecon() {
+        if (cmbReconAccount == null) return;
+        List<Account> bankAccs = reconService.getBankAccounts();
+        cmbReconAccount.setItems(FXCollections.observableArrayList(bankAccs));
+        if (!bankAccs.isEmpty() && cmbReconAccount.getValue() == null) {
+            cmbReconAccount.setValue(bankAccs.get(0));
+            loadReconciliationItems();
+        }
+    }
+
+    private void loadReconciliationItems() {
+        Account acc = cmbReconAccount.getValue();
+        LocalDate cutoff = dpReconStatementDate.getValue();
+        if (acc == null || cutoff == null) return;
+
+        beginningBalance = reconService.getLastReconciledBalance(acc.getId());
+        List<ReconciliationItemDTO> allItems = reconService.getUnclearedGLLines(acc.getId(), cutoff);
+
+        depositList.clear();
+        checkList.clear();
+
+        for (ReconciliationItemDTO item : allItems) {
+            item.clearedProperty().addListener((obs, wasC, isC) -> calculateReconciliationSummary());
+            if (item.isDeposit()) {
+                depositList.add(item);
+            } else {
+                checkList.add(item);
+            }
+        }
+
+        calculateReconciliationSummary();
+    }
+
+    private void calculateReconciliationSummary() {
+        if (lblReconBeginningBalance == null) return;
+
+        BigDecimal clearedDeposits = BigDecimal.ZERO;
+        int clearedDepCount = 0;
+        for (ReconciliationItemDTO item : depositList) {
+            if (item.isCleared()) {
+                clearedDeposits = clearedDeposits.add(item.getAmount());
+                clearedDepCount++;
+            }
+        }
+
+        BigDecimal clearedChecks = BigDecimal.ZERO;
+        int clearedChkCount = 0;
+        for (ReconciliationItemDTO item : checkList) {
+            if (item.isCleared()) {
+                clearedChecks = clearedChecks.add(item.getAmount());
+                clearedChkCount++;
+            }
+        }
+
+        BigDecimal endingTarget = parseDecimal(txtReconEndingBalance.getText());
+        BigDecimal clearedBalance = beginningBalance.add(clearedDeposits).subtract(clearedChecks);
+        BigDecimal diff = clearedBalance.subtract(endingTarget);
+
+        lblReconBeginningBalance.setText(CurrencyFormatter.format(beginningBalance));
+        lblReconClearedDeposits.setText(CurrencyFormatter.format(clearedDeposits) + " (" + clearedDepCount + ")");
+        lblReconClearedChecks.setText(CurrencyFormatter.format(clearedChecks) + " (" + clearedChkCount + ")");
+        lblReconClearedBalance.setText(CurrencyFormatter.format(clearedBalance));
+        lblReconTargetBalance.setText(CurrencyFormatter.format(endingTarget));
+        lblReconDifference.setText(CurrencyFormatter.format(diff));
+
+        if (diff.compareTo(BigDecimal.ZERO) == 0) {
+            lblReconDifference.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+            btnReconcileNow.setDisable(false);
+        } else {
+            lblReconDifference.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+            btnReconcileNow.setDisable(true);
+        }
+    }
+
+    @FXML
+    public void handleImportCsvStatement() {
+        Account acc = cmbReconAccount.getValue();
+        if (acc == null) {
+            AlertHelper.warning("No Account Selected", "Please select a bank account first.");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Import Bank Statement (CSV)");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files (*.csv)", "*.csv"));
+        File file = fileChooser.showOpenDialog(cmbReconAccount.getScene().getWindow());
+
+        if (file != null) {
+            List<ReconciliationItemDTO> combined = new ArrayList<>();
+            combined.addAll(depositList);
+            combined.addAll(checkList);
+
+            int matched = reconService.parseAndAutoMatchCsv(acc.getId(), file, combined);
+            calculateReconciliationSummary();
+            AlertHelper.info("Statement Import", "Imported statement and auto-matched " + matched + " transactions.");
+        }
+    }
+
+    @FXML public void handleSelectAllDeposits() { depositList.forEach(i -> i.setCleared(true)); }
+    @FXML public void handleUnselectAllDeposits() { depositList.forEach(i -> i.setCleared(false)); }
+    @FXML public void handleSelectAllChecks() { checkList.forEach(i -> i.setCleared(true)); }
+    @FXML public void handleUnselectAllChecks() { checkList.forEach(i -> i.setCleared(false)); }
+
+    @FXML
+    public void handleReconcileNow() {
+        Account acc = cmbReconAccount.getValue();
+        LocalDate date = dpReconStatementDate.getValue();
+        BigDecimal endingTarget = parseDecimal(txtReconEndingBalance.getText());
+
+        if (acc == null || date == null) return;
+
+        if (!AlertHelper.confirm("Confirm Reconciliation", "Finalize bank reconciliation for " + acc.getAccountName() + " on " + date + "?")) {
+            return;
+        }
+
+        try {
+            BankReconciliation recon = new BankReconciliation();
+            recon.setAccountId(acc.getId());
+            recon.setStatementDate(date);
+            recon.setBeginningBalance(beginningBalance);
+            recon.setStatementEndingBalance(endingTarget);
+
+            List<ReconciliationItemDTO> clearedItems = new ArrayList<>();
+            for (ReconciliationItemDTO i : depositList) if (i.isCleared()) clearedItems.add(i);
+            for (ReconciliationItemDTO i : checkList) if (i.isCleared()) clearedItems.add(i);
+
+            reconService.finalizeReconciliation(recon, clearedItems);
+            AlertHelper.info("Reconciliation Complete", "Bank Account reconciled successfully!");
+            handleRefresh();
+        } catch (Exception e) {
+            logger.error("Reconciliation failed: {}", e.getMessage(), e);
+            AlertHelper.error("Reconciliation Error", e.getMessage());
+        }
     }
 
     private void loadAccounts() {
@@ -229,8 +417,6 @@ public class AccountingController {
         }
     }
 
-    // ---------- New Journal Entry Dialog ----------
-
     @FXML
     @SuppressWarnings("unchecked")
     public void handleNewJournalEntry() {
@@ -244,7 +430,6 @@ public class AccountingController {
         TextField txtMemo = new TextField();
         txtMemo.setPromptText("Memo / description");
 
-        // Summary Labels declared BEFORE column handlers reference them
         Label lblDraftDr = new Label("0.00");
         Label lblDraftCr = new Label("0.00");
         Label lblBalanced = new Label("");
@@ -429,9 +614,28 @@ public class AccountingController {
     private BigDecimal parseDecimal(String s) {
         if (s == null || s.isBlank()) return BigDecimal.ZERO;
         try {
-            return new BigDecimal(s.trim().replace(",", "")).setScale(2, RoundingMode.HALF_UP);
+            return new BigDecimal(s.trim().replace(",", "").replace("$", "")).setScale(2, RoundingMode.HALF_UP);
         } catch (NumberFormatException e) {
             return BigDecimal.ZERO;
         }
+    }
+
+    private <S> TableCell<S, BigDecimal> moneyCell() {
+        return new TableCell<>() {
+            @Override protected void updateItem(BigDecimal item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : CurrencyFormatter.format(item));
+            }
+        };
+    }
+
+    private <S> TableCell<S, BigDecimal> moneyCellBlankZero() {
+        return new TableCell<>() {
+            @Override protected void updateItem(BigDecimal item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.compareTo(BigDecimal.ZERO) == 0) setText("");
+                else setText(CurrencyFormatter.format(item));
+            }
+        };
     }
 }
