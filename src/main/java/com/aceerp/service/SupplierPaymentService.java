@@ -2,6 +2,8 @@ package com.aceerp.service;
 
 import com.aceerp.config.DatabaseConfig;
 import com.aceerp.model.SupplierPayment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.LocalDate;
@@ -9,6 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SupplierPaymentService {
+
+    private static final Logger log = LoggerFactory.getLogger(SupplierPaymentService.class);
+    private final AccountingService accountingService = new AccountingService();
 
     private static Boolean hasBillIdCol;
     private static Boolean hasSupplierBillIdCol;
@@ -82,7 +87,7 @@ public class SupplierPaymentService {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Failed to list supplier payments: {}", e.getMessage(), e);
         }
         return list;
     }
@@ -134,6 +139,18 @@ public class SupplierPaymentService {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Database error: " + e.getMessage(), e);
+        }
+
+        // Auto-post supplier payment to General Ledger
+        try {
+            accountingService.postSupplierPayment(
+                payment.getId(),
+                payment.getPaymentNumber(),
+                payment.getPaymentDate() != null ? payment.getPaymentDate() : LocalDate.now(),
+                payment.getAmount()
+            );
+        } catch (Exception e) {
+            log.error("Failed to auto-post supplier payment #{} to GL: {}", payment.getPaymentNumber(), e.getMessage());
         }
     }
 

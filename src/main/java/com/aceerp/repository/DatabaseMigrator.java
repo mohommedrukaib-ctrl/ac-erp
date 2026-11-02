@@ -61,7 +61,9 @@ public class DatabaseMigrator {
         "V033__fix_stock_movements_movement_type.sql",
         "V034__fix_purchase_return_lines_description.sql",
         "V035__fix_purchase_return_lines_columns.sql",
-        "V036__line_discount_notes.sql"
+        "V036__line_discount_notes.sql",
+        "V037__po_bill_service_line_option_b.sql",
+        "V038__double_entry_gl_core.sql"
         
     };
 

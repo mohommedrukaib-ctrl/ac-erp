@@ -15,6 +15,7 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.util.StringConverter;
+import javafx.util.converter.BigDecimalStringConverter;
 import javafx.util.converter.IntegerStringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +49,8 @@ public class ServiceJobController {
     @FXML private TableColumn<ServiceJobLine, String> colPartName;
     @FXML private TableColumn<ServiceJobLine, Integer> colQty;
     @FXML private TableColumn<ServiceJobLine, String> colUnitPrice;
+    @FXML private TableColumn<ServiceJobLine, BigDecimal> colDisc;
+    @FXML private TableColumn<ServiceJobLine, String> colNotes;
     @FXML private TableColumn<ServiceJobLine, String> colLineTotal;
     @FXML private TableColumn<ServiceJobLine, Void> colAction;
 
@@ -128,6 +131,7 @@ public class ServiceJobController {
         colQty.setCellValueFactory(new PropertyValueFactory<>("quantity"));
         colQty.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
         colQty.setOnEditCommit(event -> {
+            if (!editMode) { linesTable.refresh(); return; }
             ServiceJobLine line = event.getRowValue();
             line.setQuantity(event.getNewValue() != null ? event.getNewValue() : 1);
             linesTable.refresh();
@@ -135,6 +139,30 @@ public class ServiceJobController {
         });
 
         colUnitPrice.setCellValueFactory(cell -> new SimpleStringProperty(CurrencyFormatter.format(cell.getValue().getUnitPrice())));
+
+        if (colDisc != null) {
+            colDisc.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            colDisc.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
+            colDisc.setOnEditCommit(event -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                ServiceJobLine line = event.getRowValue();
+                line.setDiscountPercent(event.getNewValue() != null ? event.getNewValue() : BigDecimal.ZERO);
+                linesTable.refresh();
+                recalculateTotals();
+            });
+        }
+
+        if (colNotes != null) {
+            colNotes.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getNotes() != null ? d.getValue().getNotes() : ""));
+            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            colNotes.setOnEditCommit(event -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                ServiceJobLine line = event.getRowValue();
+                line.setNotes(event.getNewValue());
+                linesTable.refresh();
+            });
+        }
+
         colLineTotal.setCellValueFactory(cell -> new SimpleStringProperty(CurrencyFormatter.format(cell.getValue().getLineTotal())));
 
         colAction.setCellFactory(param -> new TableCell<>() {
@@ -142,6 +170,7 @@ public class ServiceJobController {
             {
                 btnDelete.getStyleClass().add("btn-danger");
                 btnDelete.setOnAction(e -> {
+                    if (!editMode) return;
                     ServiceJobLine line = getTableView().getItems().get(getIndex());
                     lineList.remove(line);
                     recalculateTotals();
@@ -155,6 +184,34 @@ public class ServiceJobController {
         });
 
         linesTable.setItems(lineList);
+    }
+
+    @FXML
+    private void handleMoveUp() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the service job.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx > 0) {
+            ServiceJobLine line = lineList.remove(idx);
+            lineList.add(idx - 1, line);
+            linesTable.getSelectionModel().select(idx - 1);
+        }
+    }
+
+    @FXML
+    private void handleMoveDown() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the service job.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx >= 0 && idx < lineList.size() - 1) {
+            ServiceJobLine line = lineList.remove(idx);
+            lineList.add(idx + 1, line);
+            linesTable.getSelectionModel().select(idx + 1);
+        }
     }
 
     private void loadInitialData() {
@@ -335,6 +392,8 @@ public class ServiceJobController {
             line.setProductName(prod.getName());
             line.setQuantity(1);
             line.setUnitPrice(prod.getSellingPrice());
+            line.setDiscountPercent(BigDecimal.ZERO);
+            line.setNotes("");
             lineList.add(line);
             recalculateTotals();
         });

@@ -67,16 +67,20 @@
                 <HBox alignment="CENTER_LEFT" spacing="10">
                     <Label text="Spare Parts &amp; Materials Used" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
                     <Region HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="btnMoveUp" text="↑" onAction="#handleMoveUp" styleClass="btn-secondary" prefWidth="36"/>
+                    <Button fx:id="btnMoveDown" text="↓" onAction="#handleMoveDown" styleClass="btn-secondary" prefWidth="36"/>
                     <Button fx:id="btnAddPart" text="+ Add Part" onAction="#handleAddPart" styleClass="btn-secondary"/>
                 </HBox>
 
-                <TableView fx:id="linesTable" prefHeight="180">
+                <TableView fx:id="linesTable" prefHeight="200">
                     <columns>
-                        <TableColumn fx:id="colPartCode" text="Part Code" prefWidth="110"/>
-                        <TableColumn fx:id="colPartName" text="Part Name" prefWidth="220"/>
-                        <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
-                        <TableColumn fx:id="colUnitPrice" text="Unit Price" prefWidth="110"/>
-                        <TableColumn fx:id="colLineTotal" text="Total" prefWidth="110"/>
+                        <TableColumn fx:id="colPartCode" text="Part Code" prefWidth="100"/>
+                        <TableColumn fx:id="colPartName" text="Part Name" prefWidth="180"/>
+                        <TableColumn fx:id="colQty" text="Qty" prefWidth="60"/>
+                        <TableColumn fx:id="colUnitPrice" text="Unit Price" prefWidth="95"/>
+                        <TableColumn fx:id="colDisc" text="Disc %" prefWidth="70"/>
+                        <TableColumn fx:id="colNotes" text="Notes" prefWidth="140"/>
+                        <TableColumn fx:id="colLineTotal" text="Total" prefWidth="95"/>
                         <TableColumn fx:id="colAction" text="" prefWidth="50"/>
                     </columns>
                 </TableView>

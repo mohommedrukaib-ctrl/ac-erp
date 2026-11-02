@@ -48,7 +48,9 @@ public class QuotationController {
     @FXML private TableColumn<QuotationLine, String> colProduct;
     @FXML private TableColumn<QuotationLine, BigDecimal> colQty;
     @FXML private TableColumn<QuotationLine, BigDecimal> colPrice;
+    @FXML private TableColumn<QuotationLine, BigDecimal> colDiscount;
     @FXML private TableColumn<QuotationLine, Boolean> colTaxable;
+    @FXML private TableColumn<QuotationLine, String> colNotes;
     @FXML private TableColumn<QuotationLine, BigDecimal> colTotal;
     @FXML private Label totalLabel;
     @FXML private Label lblSubtotal;
@@ -56,8 +58,6 @@ public class QuotationController {
     @FXML private Label lblTaxTitle;
     @FXML private CheckBox globalTaxCheck;
     @FXML private VBox detailsPane;
-        @FXML private TableColumn<QuotationLine, BigDecimal> colDiscount;
-    @FXML private TableColumn<QuotationLine, String> colNotes;
 
     private final QuotationService quotationService = new QuotationService();
     private final CustomerService customerService = new CustomerService();
@@ -294,7 +294,7 @@ public class QuotationController {
         colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colPrice.setOnEditCommit(e -> { e.getRowValue().setUnitPrice(e.getNewValue()); updateTotal(); });
 
-                if (colDiscount != null) {
+        if (colDiscount != null) {
             colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
             colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDiscount.setOnEditCommit(e -> {
@@ -304,17 +304,6 @@ public class QuotationController {
             });
         }
 
-        if (colNotes != null) {
-            colNotes.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
-                d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
-            ));
-            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
-            colNotes.setOnEditCommit(e -> {
-                if (!editMode) { linesTable.refresh(); return; }
-                e.getRowValue().setNotes(e.getNewValue());
-                linesTable.refresh();
-            });
-        }
         if (colTaxable != null) {
             colTaxable.setCellValueFactory(cellData -> {
                 QuotationLine line = cellData.getValue();
@@ -334,6 +323,18 @@ public class QuotationController {
             colTaxable.setEditable(true);
         }
 
+        if (colNotes != null) {
+            colNotes.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+                d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
+            ));
+            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            colNotes.setOnEditCommit(e -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                e.getRowValue().setNotes(e.getNewValue());
+                linesTable.refresh();
+            });
+        }
+
         colTotal.setCellValueFactory(new PropertyValueFactory<>("totalPrice"));
         linesTable.setItems(lines);
     }
@@ -350,6 +351,34 @@ public class QuotationController {
         }
         updateTotal();
         linesTable.refresh();
+    }
+
+    @FXML
+    private void handleMoveUp() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx > 0) {
+            QuotationLine line = lines.remove(idx);
+            lines.add(idx - 1, line);
+            linesTable.getSelectionModel().select(idx - 1);
+        }
+    }
+
+    @FXML
+    private void handleMoveDown() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx >= 0 && idx < lines.size() - 1) {
+            QuotationLine line = lines.remove(idx);
+            lines.add(idx + 1, line);
+            linesTable.getSelectionModel().select(idx + 1);
+        }
     }
 
     @FXML
@@ -401,14 +430,14 @@ public class QuotationController {
             line.setDescription(product.getName());
             line.setQuantity(BigDecimal.ONE);
             line.setUnitPrice(product.getSellingPrice() != null ? product.getSellingPrice() : BigDecimal.ZERO);
+            line.setDiscountPercent(BigDecimal.ZERO);
+            line.setNotes("");
             
             boolean applyTax = globalTaxCheck == null || globalTaxCheck.isSelected();
             line.setTaxable(applyTax);
             line.recalculateTotal();
             
             lines.add(line);
-                        line.setDiscountPercent(BigDecimal.ZERO);
-            line.setNotes("");
             updateTotal();
         });
     }
@@ -423,6 +452,8 @@ public class QuotationController {
         line.setDescription("Custom Item / Service");
         line.setQuantity(BigDecimal.ONE);
         line.setUnitPrice(BigDecimal.ZERO);
+        line.setDiscountPercent(BigDecimal.ZERO);
+        line.setNotes("");
         
         boolean applyTax = globalTaxCheck == null || globalTaxCheck.isSelected();
         line.setTaxable(applyTax);
@@ -552,6 +583,11 @@ public class QuotationController {
     }
 
     @FXML
+    private void handleRefresh() {
+        loadQuotations();
+    }
+
+    @FXML
     private void handleNewQuotation() {
         currentQuotation = new Quotation();
         currentQuotation.setQuoteNumber(quotationService.generateNextQuoteNumber());
@@ -637,8 +673,9 @@ public class QuotationController {
 
                     String copyLines =
                             "INSERT INTO sales_order_lines (" +
-                            "so_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, line_total, total_price" +
+                            "so_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, total_price" +
                             ") SELECT ?, product_id, description, quantity, unit_price, " +
+                            "COALESCE(discount_percent, 0), notes, " +
                             "COALESCE(tax_rate, 0), COALESCE(tax_amount, 0), " +
                             "COALESCE(line_total, total_price, quantity * unit_price, 0), " +
                             "COALESCE(total_price, line_total, quantity * unit_price, 0) " +
@@ -713,8 +750,8 @@ public class QuotationController {
                     boolean hasTotalPrice = columnExists(conn, "invoice_lines", "total_price");
                     boolean hasLineTotal = columnExists(conn, "invoice_lines", "line_total");
                     
-                    String cols = "invoice_id, product_id, description, quantity, unit_price, tax_rate, tax_amount";
-                    String vals = "?, product_id, description, quantity, unit_price, COALESCE(tax_rate, 0), COALESCE(tax_amount, 0)";
+                    String cols = "invoice_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount";
+                    String vals = "?, product_id, description, quantity, unit_price, COALESCE(discount_percent, 0), notes, COALESCE(tax_rate, 0), COALESCE(tax_amount, 0)";
                     
                     if (hasLineTotal && hasTotalPrice) {
                         cols += ", line_total, total_price";
@@ -817,38 +854,5 @@ public class QuotationController {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
-    }
-
-    @FXML
-    private void handleMoveUp() {
-        if (!editMode) {
-            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
-            return;
-        }
-        int idx = linesTable.getSelectionModel().getSelectedIndex();
-        if (idx > 0) {
-            QuotationLine line = lines.remove(idx);
-            lines.add(idx - 1, line);
-            linesTable.getSelectionModel().select(idx - 1);
-        }
-    }
-
-    @FXML
-    private void handleMoveDown() {
-        if (!editMode) {
-            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify the document.");
-            return;
-        }
-        int idx = linesTable.getSelectionModel().getSelectedIndex();
-        if (idx >= 0 && idx < lines.size() - 1) {
-            QuotationLine line = lines.remove(idx);
-            lines.add(idx + 1, line);
-            linesTable.getSelectionModel().select(idx + 1);
-        }
-    }
-
-    @FXML
-    private void handleRefresh() {
-        loadQuotations();
     }
 }

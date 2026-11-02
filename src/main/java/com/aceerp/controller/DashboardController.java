@@ -4,10 +4,16 @@ import com.aceerp.config.DatabaseConfig;
 import com.aceerp.model.DashboardStats;
 import com.aceerp.service.DashboardService;
 import com.aceerp.util.AlertHelper;
+import com.aceerp.util.CurrencyFormatter;
 import com.aceerp.util.GlobalQuickAdd;
 
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.scene.chart.BarChart;
+import javafx.scene.chart.PieChart;
+import javafx.scene.chart.XYChart;
 import javafx.scene.control.Label;
 
 import org.slf4j.Logger;
@@ -15,17 +21,27 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Controller for the Dashboard view.
- * Displays real-time business metrics and quick action shortcuts.
+ * Displays real-time business metrics, interactive sales charts, and quick actions.
  */
 public class DashboardController {
 
     private static final Logger logger = LoggerFactory.getLogger(DashboardController.class);
 
+    // Metric Labels
     @FXML private Label customerCountLabel;
     @FXML private Label productCountLabel;
     @FXML private Label invoiceCountLabel;
     @FXML private Label revenueLabel;
     @FXML private Label dbStatusLabel;
+
+    @FXML private Label lblOutstandingBalance;
+    @FXML private Label lblOpenInvoicesCount;
+    @FXML private Label lblActiveJobs;
+    @FXML private Label lblLowStock;
+
+    // Visual Charts
+    @FXML private BarChart<String, Number> salesChart;
+    @FXML private PieChart jobStatusChart;
 
     private final DashboardService dashboardService = new DashboardService();
 
@@ -38,12 +54,13 @@ public class DashboardController {
     /**
      * Refresh the dashboard metrics.
      */
+    @FXML
     public void refresh() {
         loadDashboardStats();
     }
 
     /**
-     * Asynchronously loads summary statistics from DashboardService.
+     * Asynchronously loads summary statistics and renders visual charts.
      */
     private void loadDashboardStats() {
         new Thread(() -> {
@@ -51,17 +68,52 @@ public class DashboardController {
             boolean isHealthy = DatabaseConfig.getInstance().isHealthy();
 
             Platform.runLater(() -> {
+                // Populate Core Counts & Currency Metrics
                 customerCountLabel.setText(String.valueOf(stats.totalCustomers()));
                 productCountLabel.setText(String.valueOf(stats.totalProducts()));
                 invoiceCountLabel.setText(String.valueOf(stats.totalInvoices()));
-                revenueLabel.setText(String.format("%.2f", stats.monthlyRevenue()));
+                revenueLabel.setText(CurrencyFormatter.format(stats.monthlyRevenue()));
 
+                if (lblOutstandingBalance != null) {
+                    lblOutstandingBalance.setText(CurrencyFormatter.format(stats.outstandingBalance()));
+                }
+                if (lblOpenInvoicesCount != null) {
+                    lblOpenInvoicesCount.setText(stats.openInvoices() + " Unpaid");
+                }
+                if (lblActiveJobs != null) {
+                    lblActiveJobs.setText(String.valueOf(stats.pendingServiceJobs()));
+                }
+                if (lblLowStock != null) {
+                    lblLowStock.setText(String.valueOf(stats.lowStockProducts()));
+                }
+
+                // Database Status Badge
                 if (isHealthy) {
-                    dbStatusLabel.setText("Connected");
-                    dbStatusLabel.setStyle("-fx-text-fill: #27ae60;");
+                    dbStatusLabel.setText("● System Online");
+                    dbStatusLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
                 } else {
-                    dbStatusLabel.setText("Disconnected");
-                    dbStatusLabel.setStyle("-fx-text-fill: #e74c3c;");
+                    dbStatusLabel.setText("● System Offline");
+                    dbStatusLabel.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
+                }
+
+                // Render Sales BarChart
+                if (salesChart != null) {
+                    salesChart.getData().clear();
+                    XYChart.Series<String, Number> series = new XYChart.Series<>();
+                    series.setName("Revenue");
+                    for (DashboardStats.MonthlySales ms : stats.monthlySales()) {
+                        series.getData().add(new XYChart.Data<>(ms.monthLabel(), ms.revenue()));
+                    }
+                    salesChart.getData().add(series);
+                }
+
+                // Render Job Status PieChart
+                if (jobStatusChart != null) {
+                    ObservableList<PieChart.Data> pieData = FXCollections.observableArrayList();
+                    for (DashboardStats.JobStatusCount jsc : stats.jobStatusCounts()) {
+                        pieData.add(new PieChart.Data(jsc.status() + " (" + jsc.count() + ")", jsc.count()));
+                    }
+                    jobStatusChart.setData(pieData);
                 }
             });
         }).start();

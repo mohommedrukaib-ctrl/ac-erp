@@ -1,24 +1,54 @@
-Here are the updated source files that add full **drag-and-move visual layout editing** to the Report Designer and **fix the `SAXParseException` schema validation bug** by using DOM-based JRXML manipulation.
+The error occurred because line 23 of `quotations.fxml` referenced `onAction="#handleRefresh"` (or had an `fx:id` mismatch), but `handleRefresh()` was not present with the `@FXML` annotation in `QuotationController.java`.
+
+Here are the complete, fully updated source files for the Quotations module with **Option B** (line reordering ↑↓, inline Discount %, and Line Notes) fully implemented.
 
 ---
 
-### Key Improvements Made
+### Database Migration: `V036__line_discount_notes.sql`
+Place this in `src/main/resources/db/migration/`:
 
-1. **SAX Schema Validation Bug Fix**:
-   - Replaced fragile regex replacements in `ReportTemplateService.java` with W3C XML DOM manipulation.
-   - `<printWhenExpression>` tags are now inserted in the exact schema-compliant location (after `<reportElement>` and `<box>`, before `<textElement>`/`<imageExpression>`).
+```sql
+-- Option B: Line Discount % and Line Notes
+ALTER TABLE quotation_lines
+    ADD COLUMN IF NOT EXISTS discount_percent NUMERIC(8,2) NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS notes TEXT;
 
-2. **Interactive Drag-and-Move Canvas**:
-   - Embedded a transparent interactive `overlayCanvas` directly on top of the report preview image (`imgReportPreview`).
-   - Draggable & resizable bounding boxes render for report elements (Logo, Company Name, Tagline, Address, Headers, Detail Line, Totals, Footer).
-   - **Click & Drag** to reposition elements; drag the bottom-right handle to resize width/height.
-   - Positions update live in the JRXML editor and re-render the PNG preview on mouse release.
-
-3. **Pixel-Perfect Inspector & Nudge Controls**:
-   - Selected element inspector added to the UI with `X`, `Y`, `W`, `H` fields.
-   - Nudge buttons (`⬆`, `⬇`, `⬅`, `➔`) allow 1-pixel fine adjustments.
+ALTER TABLE sales_order_lines
+    ADD COLUMN IF NOT EXISTS discount_percent NUMERIC(8,2) NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS notes TEXT;
+```
 
 ---
+
+### 1. `QuotationLine.java`
 ```java
 
 ```
+
+---
+
+### 2. `quotations.fxml`
+```xml
+
+```
+
+---
+
+### 3. `QuotationController.java`
+```java
+
+```
+
+---
+
+### 4. `QuotationRepository.java`
+```java
+
+```
+
+---
+
+### Next Steps
+1. Run `mvn clean compile` to test the Quotations updates.
+2. Please provide your **`SalesOrderRepository.java`** so we can finish Option B on Sales Orders.
+3. Please also provide your **`DeliveryNoteController.java`**, **`DeliveryNote.java`**, and **`DeliveryNoteLine.java`** files so we can add line reordering and notes to Delivery Notes next.

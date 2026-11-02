@@ -3,6 +3,8 @@ package com.aceerp.service;
 import com.aceerp.config.DatabaseConfig;
 import com.aceerp.model.SupplierBill;
 import com.aceerp.model.SupplierBillLine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.LocalDate;
@@ -11,6 +13,9 @@ import java.util.List;
 import java.util.Optional;
 
 public class SupplierBillService {
+
+    private static final Logger log = LoggerFactory.getLogger(SupplierBillService.class);
+    private final AccountingService accountingService = new AccountingService();
 
     public SupplierBillService() {}
 
@@ -33,7 +38,7 @@ public class SupplierBillService {
                 bills.add(bill);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Failed to list supplier bills: {}", e.getMessage(), e);
         }
         return bills;
     }
@@ -54,7 +59,7 @@ public class SupplierBillService {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Failed to get bill by ID {}: {}", id, e.getMessage(), e);
         }
         return Optional.empty();
     }
@@ -153,6 +158,22 @@ public class SupplierBillService {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Database error while saving supplier bill: " + e.getMessage(), e);
+        }
+
+        // Auto-post to General Ledger
+        try {
+            boolean isInventory = bill.getGrnId() != null && bill.getGrnId() > 0;
+            accountingService.postSupplierBill(
+                bill.getId(),
+                bill.getBillNumber(),
+                bill.getBillDate() != null ? bill.getBillDate() : LocalDate.now(),
+                bill.getSubtotal(),
+                bill.getTaxAmount(),
+                bill.getTotalAmount(),
+                isInventory
+            );
+        } catch (Exception e) {
+            log.error("Failed to auto-post bill #{} to GL: {}", bill.getBillNumber(), e.getMessage());
         }
 
         return bill;

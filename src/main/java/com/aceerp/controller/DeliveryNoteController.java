@@ -42,6 +42,7 @@ public class DeliveryNoteController {
     @FXML private TableColumn<DeliveryNoteLine, String> colProduct;
     @FXML private TableColumn<DeliveryNoteLine, Number> colOrderedQty;
     @FXML private TableColumn<DeliveryNoteLine, Number> colShippedQty;
+    @FXML private TableColumn<DeliveryNoteLine, String> colNotes;
 
     @FXML private Button btnAddProduct;
     @FXML private Button btnRemoveLine;
@@ -151,6 +152,21 @@ public class DeliveryNoteController {
             linesTable.refresh();
         });
 
+        if (colNotes != null) {
+            colNotes.setCellValueFactory(cell -> cell.getValue().notesProperty());
+            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            colNotes.setOnEditCommit(e -> {
+                if (!editMode) {
+                    linesTable.refresh();
+                    return;
+                }
+                if (e.getNewValue() != null) {
+                    e.getRowValue().setNotes(e.getNewValue());
+                }
+                linesTable.refresh();
+            });
+        }
+
         linesTable.setItems(linesObservableList);
     }
 
@@ -172,6 +188,34 @@ public class DeliveryNoteController {
         if (btnAddProduct != null) btnAddProduct.setDisable(!editable);
         if (btnRemoveLine != null) btnRemoveLine.setDisable(!editable);
         if (btnSaveDN != null) btnSaveDN.setDisable(!editable);
+    }
+
+    @FXML
+    private void handleMoveUp() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Delivery Note.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx > 0) {
+            DeliveryNoteLine line = linesObservableList.remove(idx);
+            linesObservableList.add(idx - 1, line);
+            linesTable.getSelectionModel().select(idx - 1);
+        }
+    }
+
+    @FXML
+    private void handleMoveDown() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Delivery Note.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx >= 0 && idx < linesObservableList.size() - 1) {
+            DeliveryNoteLine line = linesObservableList.remove(idx);
+            linesObservableList.add(idx + 1, line);
+            linesTable.getSelectionModel().select(idx + 1);
+        }
     }
 
     @FXML
@@ -285,6 +329,7 @@ public class DeliveryNoteController {
 
         dialog.showAndWait().ifPresent(p -> {
             DeliveryNoteLine line = new DeliveryNoteLine(p.getId(), p.getName(), p.getProductCode(), 1.0, 1.0);
+            line.setNotes("");
             linesObservableList.add(line);
         });
     }

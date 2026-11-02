@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +16,7 @@ public class InvoiceService {
 
     private static final Logger log = LoggerFactory.getLogger(InvoiceService.class);
     private final InvoiceRepository invoiceRepository = new InvoiceRepository();
+    private final AccountingService accountingService = new AccountingService();
 
     public List<Invoice> listAll() {
         return invoiceRepository.findAll();
@@ -31,6 +33,20 @@ public class InvoiceService {
         }
         recalculateTotals(invoice);
         Invoice saved = invoiceRepository.save(invoice);
+
+        // Auto-post to Double-Entry General Ledger
+        try {
+            accountingService.postCustomerInvoice(
+                saved.getId(),
+                saved.getInvoiceNumber(),
+                saved.getInvoiceDate() != null ? saved.getInvoiceDate() : LocalDate.now(),
+                saved.getSubtotal(),
+                saved.getTaxAmount(),
+                saved.getTotalAmount()
+            );
+        } catch (Exception e) {
+            log.error("Failed to auto-post invoice #{} to GL: {}", saved.getInvoiceNumber(), e.getMessage());
+        }
 
         AuditLogService.log(
                 isNew ? "CREATE" : "UPDATE",
@@ -80,6 +96,19 @@ public class InvoiceService {
 
         updatePaymentStatus(invoice);
         saveInvoice(invoice);
+
+        // Auto-post customer payment to General Ledger
+        try {
+            accountingService.postCustomerPayment(
+                invoice.getId(),
+                "INV-PAY-" + invoice.getInvoiceNumber(),
+                LocalDate.now(),
+                paymentAmount,
+                true // to Bank
+            );
+        } catch (Exception e) {
+            log.error("Failed to auto-post payment for Invoice #{}: {}", invoice.getInvoiceNumber(), e.getMessage());
+        }
 
         AuditLogService.log(
                 "PAYMENT",

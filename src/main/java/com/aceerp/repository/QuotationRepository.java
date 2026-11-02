@@ -129,17 +129,16 @@ public class QuotationRepository {
         }
     }
 
-        private void saveLines(Connection conn, Quotation q) throws SQLException {
+    private void saveLines(Connection conn, Quotation q) throws SQLException {
         String deleteSql = "DELETE FROM quotation_lines WHERE quotation_id = ?";
         try (PreparedStatement ps = conn.prepareStatement(deleteSql)) {
             ps.setInt(1, q.getId());
             ps.executeUpdate();
         }
 
-                String insertSql =
+        String insertSql =
                 "INSERT INTO quotation_lines " +
-                "(quotation_id, product_id, description, quantity, unit_price, " +
-                " discount_percent, notes, tax_rate, tax_amount, total_price, line_total) " +
+                "(quotation_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, total_price, line_total) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (QuotationLine line : q.getLines()) {
@@ -188,17 +187,15 @@ public class QuotationRepository {
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
 
-                                        try {
+                    try {
                         BigDecimal disc = rs.getBigDecimal("discount_percent");
                         line.setDiscountPercent(disc != null ? disc : BigDecimal.ZERO);
-                    } catch (SQLException ignored) {
-                        line.setDiscountPercent(BigDecimal.ZERO);
-                    }
+                    } catch (SQLException ignored) {}
+
                     try {
                         line.setNotes(rs.getString("notes"));
-                    } catch (SQLException ignored) {
-                        line.setNotes(null);
-                    }
+                    } catch (SQLException ignored) {}
+
                     BigDecimal tRate = BigDecimal.ZERO;
                     try {
                         BigDecimal r = rs.getBigDecimal("tax_rate");
@@ -227,8 +224,6 @@ public class QuotationRepository {
         return lines;
     }
 
-
-    
     private Quotation mapRow(ResultSet rs) throws SQLException {
         Quotation q = new Quotation();
         q.setId(rs.getInt("id"));

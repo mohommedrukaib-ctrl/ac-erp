@@ -14,10 +14,9 @@ public class QuotationLine {
     private String description;
     private BigDecimal quantity = BigDecimal.ONE;
     private BigDecimal unitPrice = BigDecimal.ZERO;
-
-    /** Option B: inline discount % (0–100) */
+    
+    // Option B Enhancements
     private BigDecimal discountPercent = BigDecimal.ZERO;
-    /** Option B: free-text line note */
     private String notes;
 
     private boolean taxable = TaxUtil.isTaxEnabled();

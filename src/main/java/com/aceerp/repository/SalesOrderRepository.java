@@ -143,17 +143,15 @@ public class SalesOrderRepository {
             ps.executeUpdate();
         }
 
-        String insertSql = "INSERT INTO sales_order_lines (so_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, line_total, total_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String insertSql = "INSERT INTO sales_order_lines (so_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, total_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (SalesOrderLine line : so.getLines()) {
+                line.recalculateTotal();
                 BigDecimal qty = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ONE;
                 BigDecimal price = line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO;
+                BigDecimal disc = line.getDiscountPercent() != null ? line.getDiscountPercent() : BigDecimal.ZERO;
                 BigDecimal taxAmt = line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO;
-                
-                BigDecimal lineTot = line.getTotalPrice(); // Get bound line total
-                if (lineTot == null) {
-                    lineTot = qty.multiply(price).add(taxAmt);
-                }
+                BigDecimal lineTot = line.getTotalPrice() != null ? line.getTotalPrice() : BigDecimal.ZERO;
 
                 ps.setInt(1, so.getId());
                 Integer pId = line.getProductId();
@@ -161,10 +159,12 @@ public class SalesOrderRepository {
                 ps.setString(3, line.getDescription());
                 ps.setBigDecimal(4, qty);
                 ps.setBigDecimal(5, price);
-                ps.setBigDecimal(6, line.getTaxRate() != null ? line.getTaxRate() : BigDecimal.ZERO);
-                ps.setBigDecimal(7, taxAmt);
-                ps.setBigDecimal(8, lineTot); // line_total (fallback)
-                ps.setBigDecimal(9, lineTot); // total_price (canonical)
+                ps.setBigDecimal(6, disc);
+                ps.setString(7, line.getNotes());
+                ps.setBigDecimal(8, line.getTaxRate() != null ? line.getTaxRate() : BigDecimal.ZERO);
+                ps.setBigDecimal(9, taxAmt);
+                ps.setBigDecimal(10, lineTot);
+                ps.setBigDecimal(11, lineTot);
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -187,6 +187,15 @@ public class SalesOrderRepository {
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
                     
+                    try {
+                        BigDecimal disc = rs.getBigDecimal("discount_percent");
+                        line.setDiscountPercent(disc != null ? disc : BigDecimal.ZERO);
+                    } catch (SQLException ignored) {}
+
+                    try {
+                        line.setNotes(rs.getString("notes"));
+                    } catch (SQLException ignored) {}
+
                     try { line.setTaxRate(rs.getBigDecimal("tax_rate")); } catch (SQLException ignored) {}
                     try { line.setTaxAmount(rs.getBigDecimal("tax_amount")); } catch (SQLException ignored) {}
                     

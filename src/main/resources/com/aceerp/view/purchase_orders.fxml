@@ -17,7 +17,6 @@
 
     <!-- RIGHT MAIN CONTENT -->
     <VBox fx:id="detailsPane" spacing="15" HBox.hgrow="ALWAYS" style="-fx-background-color: #ffffff; -fx-padding: 20;">
-        <!-- HEADER GRID -->
         <GridPane hgap="15" vgap="15">
             <columnConstraints>
                 <ColumnConstraints minWidth="100" />
@@ -47,11 +46,17 @@
 
         <Separator/>
 
-        <!-- LINE ITEMS CONTROLS -->
+        <!-- LINE ITEMS CONTROLS + Option B reorder -->
         <HBox alignment="CENTER_LEFT" spacing="10">
             <Label text="Order Items" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
             <CheckBox fx:id="globalTaxCheck" text="Apply Tax to All Items" onAction="#handleGlobalTaxToggle" selected="true" style="-fx-text-fill: #007bff; -fx-padding: 0 0 0 20;"/>
             <Region HBox.hgrow="ALWAYS"/>
+            <Button text="↑" onAction="#handleMoveUp" style="-fx-background-color: #f8f9fa; -fx-border-color: #ced4da;">
+                <tooltip><Tooltip text="Move line up"/></tooltip>
+            </Button>
+            <Button text="↓" onAction="#handleMoveDown" style="-fx-background-color: #f8f9fa; -fx-border-color: #ced4da;">
+                <tooltip><Tooltip text="Move line down"/></tooltip>
+            </Button>
             <Button text="+ Add Product" onAction="#handleAddLine" style="-fx-background-color: #f8f9fa; -fx-border-color: #ced4da;"/>
             <Button text="+ Add Blank Item" onAction="#handleAddEmptyLine" style="-fx-background-color: #f8f9fa; -fx-border-color: #ced4da;"/>
             <Button text="- Remove Item" onAction="#handleRemoveLine" style="-fx-background-color: #e74c3c; -fx-text-fill: white;"/>
@@ -59,17 +64,18 @@
         
         <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" editable="true">
             <columns>
-                <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="250"/>
-                <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
-                <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="90"/>
+                <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="200"/>
+                <TableColumn fx:id="colQty" text="Qty" prefWidth="60"/>
+                <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="85"/>
+                <TableColumn fx:id="colDiscount" text="Disc %" prefWidth="65"/>
                 <TableColumn fx:id="colTaxable" text="Has VAT?" prefWidth="70"/>
-                <TableColumn fx:id="colTaxRate" text="Tax %" prefWidth="70"/>
-                <TableColumn fx:id="colTaxAmt" text="Tax Amount" prefWidth="90" editable="false"/>
-                <TableColumn fx:id="colTotal" text="Total" prefWidth="120" editable="false"/>
+                <TableColumn fx:id="colTaxRate" text="Tax %" prefWidth="60"/>
+                <TableColumn fx:id="colTaxAmt" text="Tax Amt" prefWidth="80" editable="false"/>
+                <TableColumn fx:id="colNotes" text="Notes" prefWidth="120"/>
+                <TableColumn fx:id="colTotal" text="Total" prefWidth="100" editable="false"/>
             </columns>
         </TableView>
 
-        <!-- TOTALS & ACTION BUTTONS -->
         <HBox alignment="CENTER_RIGHT" spacing="20">
             <VBox alignment="CENTER_RIGHT" spacing="5">
                 <Label fx:id="subtotalLabel" text="Subtotal: 0.00" style="-fx-font-size: 14px; -fx-text-fill: #6c757d;"/>

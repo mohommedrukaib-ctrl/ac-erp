@@ -5,56 +5,96 @@
 <?import javafx.geometry.Insets?>
 
 <VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.aceerp.controller.AccountingController" spacing="15">
+      fx:controller="com.aceerp.controller.AccountingController"
+      spacing="12" styleClass="content-pane">
     <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
 
     <HBox spacing="10" alignment="CENTER_LEFT">
-        <Label text="Financial Accounting &amp; Ledger" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+        <Label text="Financial Accounting &amp; General Ledger"
+               style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
         <Region HBox.hgrow="ALWAYS"/>
+        <Button text="＋ New Journal Entry" onAction="#handleNewJournalEntry" styleClass="btn-primary"/>
         <Button text="Refresh" onAction="#handleRefresh" styleClass="btn-secondary"/>
     </HBox>
 
-    <TabPane tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+    <TabPane fx:id="tabPane" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+
+        <!-- ===================== Chart of Accounts ===================== -->
         <Tab text="Chart of Accounts">
             <VBox spacing="10">
                 <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
-                <TableView fx:id="accountsTable" VBox.vgrow="ALWAYS">
+                <TableView fx:id="tblAccounts" VBox.vgrow="ALWAYS">
                     <columns>
-                        <TableColumn fx:id="colAccCode" text="Account Code" prefWidth="120"/>
-                        <TableColumn fx:id="colAccName" text="Account Name" prefWidth="240"/>
-                        <TableColumn fx:id="colAccType" text="Type" prefWidth="150"/>
-                        <TableColumn fx:id="colAccBalance" text="Current Balance" prefWidth="160"/>
+                        <TableColumn fx:id="colAccountCode" text="Code" prefWidth="100"/>
+                        <TableColumn fx:id="colAccountName" text="Account Name" prefWidth="260"/>
+                        <TableColumn fx:id="colAccountType" text="Type" prefWidth="120"/>
+                        <TableColumn fx:id="colAccountBalance" text="Balance" prefWidth="150"/>
                     </columns>
                 </TableView>
             </VBox>
         </Tab>
+
+        <!-- ===================== Journal Entries ===================== -->
         <Tab text="Journal Entries">
-            <SplitPane dividerPositions="0.5" VBox.vgrow="ALWAYS">
-                <VBox spacing="10">
+            <SplitPane dividerPositions="0.42" VBox.vgrow="ALWAYS">
+                <VBox spacing="8">
                     <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
                     <Label text="Journal Vouchers" style="-fx-font-weight: bold;"/>
-                    <TableView fx:id="journalTable" VBox.vgrow="ALWAYS">
+                    <TableView fx:id="tblJournalEntries" VBox.vgrow="ALWAYS">
                         <columns>
-                            <TableColumn fx:id="colJvNumber" text="Voucher #" prefWidth="120"/>
-                            <TableColumn fx:id="colJvDate" text="Date" prefWidth="100"/>
-                            <TableColumn fx:id="colJvMemo" text="Memo" prefWidth="200"/>
-                            <TableColumn fx:id="colJvStatus" text="Status" prefWidth="90"/>
+                            <TableColumn fx:id="colEntryNumber" text="Voucher #" prefWidth="110"/>
+                            <TableColumn fx:id="colEntryDate" text="Date" prefWidth="95"/>
+                            <TableColumn fx:id="colEntryRef" text="Reference" prefWidth="130"/>
+                            <TableColumn fx:id="colEntryDesc" text="Memo" prefWidth="180"/>
+                            <TableColumn fx:id="colEntryTotal" text="Amount" prefWidth="110"/>
                         </columns>
                     </TableView>
                 </VBox>
-                <VBox spacing="10">
+                <VBox spacing="8">
                     <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
                     <Label text="Voucher Lines (Debit / Credit)" style="-fx-font-weight: bold;"/>
-                    <TableView fx:id="journalLinesTable" VBox.vgrow="ALWAYS">
+                    <TableView fx:id="tblJournalLines" VBox.vgrow="ALWAYS">
                         <columns>
-                            <TableColumn fx:id="colLineAccount" text="Account" prefWidth="200"/>
+                            <TableColumn fx:id="colLineAccountCode" text="Code" prefWidth="80"/>
+                            <TableColumn fx:id="colLineAccountName" text="Account" prefWidth="180"/>
                             <TableColumn fx:id="colLineDebit" text="Debit" prefWidth="110"/>
                             <TableColumn fx:id="colLineCredit" text="Credit" prefWidth="110"/>
-                            <TableColumn fx:id="colLineDesc" text="Description" prefWidth="180"/>
+                            <TableColumn fx:id="colLineDesc" text="Description" prefWidth="200"/>
                         </columns>
                     </TableView>
+                    <HBox spacing="20" alignment="CENTER_RIGHT">
+                        <Label text="Total Debit:" style="-fx-font-weight: bold;"/>
+                        <Label fx:id="lblTotalDebit" text="0.00"/>
+                        <Label text="Total Credit:" style="-fx-font-weight: bold;"/>
+                        <Label fx:id="lblTotalCredit" text="0.00"/>
+                    </HBox>
                 </VBox>
             </SplitPane>
+        </Tab>
+
+        <!-- ===================== Trial Balance ===================== -->
+        <Tab text="Trial Balance">
+            <VBox spacing="10">
+                <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Trial Balance (Posted balances)" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Label text="Total DR:" style="-fx-font-weight: bold;"/>
+                    <Label fx:id="lblTbDebit" text="0.00" style="-fx-text-fill: #27ae60; -fx-font-weight: bold;"/>
+                    <Label text="Total CR:" style="-fx-font-weight: bold;"/>
+                    <Label fx:id="lblTbCredit" text="0.00" style="-fx-text-fill: #2980b9; -fx-font-weight: bold;"/>
+                    <Label fx:id="lblTbStatus" text="" style="-fx-font-weight: bold;"/>
+                </HBox>
+                <TableView fx:id="tblTrialBalance" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colTbCode" text="Code" prefWidth="100"/>
+                        <TableColumn fx:id="colTbName" text="Account" prefWidth="280"/>
+                        <TableColumn fx:id="colTbType" text="Type" prefWidth="120"/>
+                        <TableColumn fx:id="colTbDebit" text="Debit" prefWidth="140"/>
+                        <TableColumn fx:id="colTbCredit" text="Credit" prefWidth="140"/>
+                    </columns>
+                </TableView>
+            </VBox>
         </Tab>
     </TabPane>
 </VBox>

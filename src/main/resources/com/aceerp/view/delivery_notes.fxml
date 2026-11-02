@@ -52,16 +52,27 @@
 
         <HBox spacing="10" alignment="CENTER_LEFT">
             <Label text="Items to Ship:" style="-fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="↑" onAction="#handleMoveUp" styleClass="button-secondary">
+                <tooltip><Tooltip text="Move line up"/></tooltip>
+            </Button>
+            <Button text="↓" onAction="#handleMoveDown" styleClass="button-secondary">
+                <tooltip><Tooltip text="Move line down"/></tooltip>
+            </Button>
             <Button fx:id="btnAddProduct" text="+ Add Product" onAction="#handleAddProduct"/>
             <Button fx:id="btnRemoveLine" text="- Remove Item" onAction="#handleRemoveLine"/>
         </HBox>
 
         <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" editable="true">
             <columns>
-                <TableColumn fx:id="colProduct" text="Product Name" prefWidth="250"/>
-                <TableColumn fx:id="colOrderedQty" text="Ordered Qty" prefWidth="120"/>
-                <TableColumn fx:id="colShippedQty" text="Shipped Qty (Deducted)" prefWidth="150"/>
+                <TableColumn fx:id="colProduct" text="Product Name" prefWidth="220"/>
+                <TableColumn fx:id="colOrderedQty" text="Ordered Qty" prefWidth="100"/>
+                <TableColumn fx:id="colShippedQty" text="Shipped Qty (Deducted)" prefWidth="140"/>
+                <TableColumn fx:id="colNotes" text="Line Notes / Serial #" prefWidth="180"/>
             </columns>
+            <columnResizePolicy>
+                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+            </columnResizePolicy>
         </TableView>
 
         <Label text="Dispatch Notes:"/>

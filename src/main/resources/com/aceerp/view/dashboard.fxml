@@ -4,77 +4,142 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.chart.BarChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.chart.PieChart?>
 <?import javafx.geometry.Insets?>
 
-<VBox xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.aceerp.controller.DashboardController"
-      spacing="25"
-      styleClass="dashboard-container">
-    <padding>
-        <Insets top="30" right="30" bottom="30" left="30"/>
-    </padding>
+<ScrollPane fitToWidth="true" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.aceerp.controller.DashboardController"
+            style="-fx-background-color: transparent;">
+    <VBox spacing="20" styleClass="dashboard-container">
+        <padding>
+            <Insets top="20" right="25" bottom="25" left="25"/>
+        </padding>
 
-    <!-- Page Title -->
-    <HBox alignment="CENTER_LEFT" spacing="10">
-        <Label text="🏠" style="-fx-font-size: 24px;"/>
-        <Label text="Dashboard" styleClass="page-title"/>
-    </HBox>
-
-    <!-- Subtitle with database status -->
-    <HBox alignment="CENTER_LEFT" spacing="10">
-        <Label text="Database:" styleClass="dashboard-label"/>
-        <Label fx:id="dbStatusLabel" text="Checking..." styleClass="dashboard-label"/>
-    </HBox>
-
-    <!-- Summary Cards Row -->
-    <HBox spacing="20" alignment="CENTER_LEFT">
-
-        <!-- Customers Card -->
-        <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER"
-              prefWidth="200" prefHeight="120">
-            <Label text="👤" style="-fx-font-size: 28px;"/>
-            <Label fx:id="customerCountLabel" text="0" styleClass="dashboard-card-value"/>
-            <Label text="Customers" styleClass="dashboard-card-label"/>
-        </VBox>
-
-        <!-- Products Card -->
-        <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER"
-              prefWidth="200" prefHeight="120">
-            <Label text="📦" style="-fx-font-size: 28px;"/>
-            <Label fx:id="productCountLabel" text="0" styleClass="dashboard-card-value"/>
-            <Label text="Products" styleClass="dashboard-card-label"/>
-        </VBox>
-
-        <!-- Invoices Card -->
-        <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER"
-              prefWidth="200" prefHeight="120">
-            <Label text="📄" style="-fx-font-size: 28px;"/>
-            <Label fx:id="invoiceCountLabel" text="0" styleClass="dashboard-card-value"/>
-            <Label text="Invoices" styleClass="dashboard-card-label"/>
-        </VBox>
-
-        <!-- Revenue Card -->
-        <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER"
-              prefWidth="200" prefHeight="120">
-            <Label text="💰" style="-fx-font-size: 28px;"/>
-            <Label fx:id="revenueLabel" text="0.00" styleClass="dashboard-card-value"/>
-            <Label text="Monthly Revenue" styleClass="dashboard-card-label"/>
-        </VBox>
-
-    </HBox>
-
-    <!-- Quick Actions Section -->
-    <VBox spacing="10">
-        <Label text="Quick Actions" styleClass="section-title"/>
-        <HBox spacing="12">
-            <Label text="📄 New Invoice" onMouseClicked="#handleQuickNewInvoice" styleClass="quick-action-btn" style="-fx-cursor: hand;"/>
-            <Label text="👤 New Customer" onMouseClicked="#handleQuickNewCustomer" styleClass="quick-action-btn" style="-fx-cursor: hand;"/>
-            <Label text="📦 New Product" onMouseClicked="#handleQuickNewProduct" styleClass="quick-action-btn" style="-fx-cursor: hand;"/>
-            <Label text="🔧 New Service Job" onMouseClicked="#handleQuickNewServiceJob" styleClass="quick-action-btn" style="-fx-cursor: hand;"/>
+        <!-- Top Header & Refresh -->
+        <HBox alignment="CENTER_LEFT" spacing="15">
+            <Label text="🏠" style="-fx-font-size: 24px;"/>
+            <VBox spacing="2">
+                <Label text="Executive Dashboard" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+                <HBox spacing="8" alignment="CENTER_LEFT">
+                    <Label text="Database:" style="-fx-text-fill: #7f8c8d; -fx-font-size: 12px;"/>
+                    <Label fx:id="dbStatusLabel" text="Checking..." style="-fx-font-size: 12px;"/>
+                </HBox>
+            </VBox>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="🔄 Refresh Metrics" onAction="#refresh" styleClass="btn-secondary"/>
         </HBox>
+
+        <!-- Primary KPI Summary Cards Row -->
+        <HBox spacing="15" alignment="CENTER">
+
+            <!-- Monthly Revenue Card -->
+            <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
+                  prefHeight="110" style="-fx-background-color: #ffffff; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 5, 0, 0, 2);">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="💰" style="-fx-font-size: 24px;"/>
+                    <Label text="Monthly Revenue" style="-fx-font-size: 12px; -fx-text-fill: #7f8c8d; -fx-font-weight: bold;"/>
+                </HBox>
+                <Label fx:id="revenueLabel" text="0.00" style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
+                <Label text="Paid &amp; partial invoices this month" style="-fx-font-size: 11px; -fx-text-fill: #95a5a6;"/>
+            </VBox>
+
+            <!-- Outstanding Accounts Receivable -->
+            <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
+                  prefHeight="110" style="-fx-background-color: #ffffff; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 5, 0, 0, 2);">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="📄" style="-fx-font-size: 24px;"/>
+                    <Label text="Outstanding AR" style="-fx-font-size: 12px; -fx-text-fill: #7f8c8d; -fx-font-weight: bold;"/>
+                </HBox>
+                <Label fx:id="lblOutstandingBalance" text="0.00" style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #e67e22;"/>
+                <Label fx:id="lblOpenInvoicesCount" text="0 Unpaid Invoices" style="-fx-font-size: 11px; -fx-text-fill: #95a5a6;"/>
+            </VBox>
+
+            <!-- Active Service Jobs -->
+            <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
+                  prefHeight="110" style="-fx-background-color: #ffffff; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 5, 0, 0, 2);">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="🔧" style="-fx-font-size: 24px;"/>
+                    <Label text="Active Service Jobs" style="-fx-font-size: 12px; -fx-text-fill: #7f8c8d; -fx-font-weight: bold;"/>
+                </HBox>
+                <Label fx:id="lblActiveJobs" text="0" style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #2980b9;"/>
+                <Label text="Pending or In-Progress" style="-fx-font-size: 11px; -fx-text-fill: #95a5a6;"/>
+            </VBox>
+
+            <!-- Low Stock Alert -->
+            <VBox styleClass="dashboard-card" spacing="5" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
+                  prefHeight="110" style="-fx-background-color: #ffffff; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 5, 0, 0, 2);">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="⚠️" style="-fx-font-size: 24px;"/>
+                    <Label text="Low Stock Items" style="-fx-font-size: 12px; -fx-text-fill: #7f8c8d; -fx-font-weight: bold;"/>
+                </HBox>
+                <Label fx:id="lblLowStock" text="0" style="-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #c0392b;"/>
+                <Label text="Items requiring reorder" style="-fx-font-size: 11px; -fx-text-fill: #95a5a6;"/>
+            </VBox>
+
+        </HBox>
+
+        <!-- Secondary Overview Row -->
+        <HBox spacing="15" alignment="CENTER">
+
+            <VBox styleClass="dashboard-card" spacing="3" alignment="CENTER" HBox.hgrow="ALWAYS" prefHeight="75"
+                  style="-fx-background-color: #f8f9fa; -fx-padding: 10; -fx-background-radius: 6; -fx-border-color: #e9ecef; -fx-border-radius: 6;">
+                <Label fx:id="customerCountLabel" text="0" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                <Label text="Active Customers" style="-fx-font-size: 11px; -fx-text-fill: #6c757d;"/>
+            </VBox>
+
+            <VBox styleClass="dashboard-card" spacing="3" alignment="CENTER" HBox.hgrow="ALWAYS" prefHeight="75"
+                  style="-fx-background-color: #f8f9fa; -fx-padding: 10; -fx-background-radius: 6; -fx-border-color: #e9ecef; -fx-border-radius: 6;">
+                <Label fx:id="productCountLabel" text="0" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                <Label text="Inventory Products" style="-fx-font-size: 11px; -fx-text-fill: #6c757d;"/>
+            </VBox>
+
+            <VBox styleClass="dashboard-card" spacing="3" alignment="CENTER" HBox.hgrow="ALWAYS" prefHeight="75"
+                  style="-fx-background-color: #f8f9fa; -fx-padding: 10; -fx-background-radius: 6; -fx-border-color: #e9ecef; -fx-border-radius: 6;">
+                <Label fx:id="invoiceCountLabel" text="0" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                <Label text="Total Invoices" style="-fx-font-size: 11px; -fx-text-fill: #6c757d;"/>
+            </VBox>
+
+        </HBox>
+
+        <!-- Business Charts Row -->
+        <HBox spacing="20">
+            <!-- 6-Month Sales Trend Chart -->
+            <VBox spacing="10" HBox.hgrow="ALWAYS"
+                  style="-fx-background-color: #ffffff; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 5, 0, 0, 2);">
+                <Label text="Revenue Trend (Last 6 Months)" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                <BarChart fx:id="salesChart" prefHeight="260" legendVisible="false" animated="true">
+                    <xAxis>
+                        <CategoryAxis label="Month"/>
+                    </xAxis>
+                    <yAxis>
+                        <NumberAxis label="Revenue"/>
+                    </yAxis>
+                </BarChart>
+            </VBox>
+
+            <!-- Service Job Status Chart -->
+            <VBox spacing="10" prefWidth="380"
+                  style="-fx-background-color: #ffffff; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 5, 0, 0, 2);">
+                <Label text="Service Jobs Status Breakdown" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+                <PieChart fx:id="jobStatusChart" prefHeight="260" legendSide="BOTTOM" animated="true"/>
+            </VBox>
+        </HBox>
+
+        <!-- Quick Actions Panel -->
+        <VBox spacing="10" style="-fx-background-color: #ffffff; -fx-padding: 15; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 5, 0, 0, 2);">
+            <Label text="Quick Business Shortcuts" style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
+            <HBox spacing="12">
+                <Button text="📄 New Invoice" onAction="#handleQuickNewInvoice" styleClass="btn-secondary"/>
+                <Button text="👤 New Customer" onAction="#handleQuickNewCustomer" styleClass="btn-secondary"/>
+                <Button text="📦 New Product" onAction="#handleQuickNewProduct" styleClass="btn-secondary"/>
+                <Button text="🔧 New Service Job" onAction="#handleQuickNewServiceJob" styleClass="btn-secondary"/>
+            </HBox>
+        </VBox>
+
     </VBox>
-
-    <!-- Spacer to push content up -->
-    <Region VBox.vgrow="ALWAYS"/>
-
-</VBox>
+</ScrollPane>

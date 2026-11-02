@@ -6,6 +6,7 @@ import com.aceerp.model.GrnLine;
 import com.aceerp.model.Product;
 import com.aceerp.model.SupplierBill;
 import com.aceerp.model.SupplierBillLine;
+import com.aceerp.service.AuditLogService;
 import com.aceerp.service.GoodsReceivedNoteService;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.SupplierBillService;
@@ -15,6 +16,7 @@ import com.aceerp.util.GlobalQuickAdd;
 import com.aceerp.util.SmartSearchHelper;
 import com.aceerp.util.TaxUtil;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -40,9 +42,9 @@ import java.util.stream.Collectors;
 public class SupplierBillController {
 
     public static class SimpleSupplier {
-        private int id;
-        private String name;
-        private String phone;
+        private final int id;
+        private final String name;
+        private final String phone;
 
         public SimpleSupplier(int id, String name, String phone) {
             this.id = id;
@@ -73,7 +75,9 @@ public class SupplierBillController {
     @FXML private TableColumn<SupplierBillLine, String> colProduct;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colQty;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colPrice;
+    @FXML private TableColumn<SupplierBillLine, BigDecimal> colDiscount;
     @FXML private TableColumn<SupplierBillLine, Boolean> colTaxable;
+    @FXML private TableColumn<SupplierBillLine, String> colNotes;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colTotal;
 
     @FXML private Label totalLabel;
@@ -188,7 +192,7 @@ public class SupplierBillController {
     private void setupTable() {
         linesTable.setEditable(true);
 
-        colProduct.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+        colProduct.setCellValueFactory(d -> new SimpleStringProperty(
                 d.getValue().getDescription() != null ? d.getValue().getDescription() : "Custom Item"
         ));
         colProduct.setCellFactory(TextFieldTableCell.forTableColumn());
@@ -214,6 +218,16 @@ public class SupplierBillController {
             updateTotal();
         });
 
+        if (colDiscount != null) {
+            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
+            colDiscount.setOnEditCommit(e -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                e.getRowValue().setDiscountPercent(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
+                updateTotal();
+            });
+        }
+
         if (colTaxable != null) {
             colTaxable.setCellValueFactory(cellData -> {
                 SupplierBillLine line = cellData.getValue();
@@ -231,6 +245,18 @@ public class SupplierBillController {
             });
             colTaxable.setCellFactory(CheckBoxTableCell.forTableColumn(colTaxable));
             colTaxable.setEditable(true);
+        }
+
+        if (colNotes != null) {
+            colNotes.setCellValueFactory(d -> new SimpleStringProperty(
+                    d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
+            ));
+            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            colNotes.setOnEditCommit(e -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                e.getRowValue().setNotes(e.getNewValue());
+                linesTable.refresh();
+            });
         }
 
         colTotal.setCellValueFactory(new PropertyValueFactory<>("totalPrice"));
@@ -360,6 +386,34 @@ public class SupplierBillController {
     }
 
     @FXML
+    private void handleMoveUp() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Bill.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx > 0) {
+            SupplierBillLine line = lines.remove(idx);
+            lines.add(idx - 1, line);
+            linesTable.getSelectionModel().select(idx - 1);
+        }
+    }
+
+    @FXML
+    private void handleMoveDown() {
+        if (!editMode) {
+            showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Bill.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx >= 0 && idx < lines.size() - 1) {
+            SupplierBillLine line = lines.remove(idx);
+            lines.add(idx + 1, line);
+            linesTable.getSelectionModel().select(idx + 1);
+        }
+    }
+
+    @FXML
     private void handleImportGrn() {
         if (!editMode) {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit or + New Bill first.");
@@ -427,6 +481,8 @@ public class SupplierBillController {
                     bLine.setDescription(gLine.getDescription());
                     bLine.setQuantity(gLine.getQuantityReceived() != null ? gLine.getQuantityReceived() : BigDecimal.ONE);
                     bLine.setUnitPrice(gLine.getUnitCost() != null ? gLine.getUnitCost() : BigDecimal.ZERO);
+                    bLine.setDiscountPercent(BigDecimal.ZERO);
+                    bLine.setNotes("");
 
                     boolean applyTax = globalTaxCheck == null || globalTaxCheck.isSelected();
                     bLine.setTaxable(applyTax);
@@ -444,10 +500,8 @@ public class SupplierBillController {
             showAlert(Alert.AlertType.WARNING, "View Mode", "Click Edit first to modify this Bill.");
             return;
         }
-
-        GlobalQuickAdd.showSupplierDialog(supplierSearchField.getText(), s -> {
-            selectSupplier(new SimpleSupplier(s.getId(), s.getName(), s.getPhone()));
-        });
+        GlobalQuickAdd.showSupplierDialog(supplierSearchField.getText(),
+                s -> selectSupplier(new SimpleSupplier(s.getId(), s.getName(), s.getPhone())));
     }
 
     @FXML
@@ -513,6 +567,8 @@ public class SupplierBillController {
             line.setDescription(product.getName());
             line.setQuantity(BigDecimal.ONE);
             line.setUnitPrice(product.getSellingPrice() != null ? product.getSellingPrice() : BigDecimal.ZERO);
+            line.setDiscountPercent(BigDecimal.ZERO);
+            line.setNotes("");
 
             boolean applyTax = globalTaxCheck == null || globalTaxCheck.isSelected();
             line.setTaxable(applyTax);
@@ -533,6 +589,8 @@ public class SupplierBillController {
         line.setDescription("Custom Service / Vendor Expense");
         line.setQuantity(BigDecimal.ONE);
         line.setUnitPrice(BigDecimal.ZERO);
+        line.setDiscountPercent(BigDecimal.ZERO);
+        line.setNotes("");
 
         boolean applyTax = globalTaxCheck == null || globalTaxCheck.isSelected();
         line.setTaxable(applyTax);
@@ -564,12 +622,8 @@ public class SupplierBillController {
 
         for (SupplierBillLine line : lines) {
             line.recalculateTotal();
-            if (line.getTotalPrice() != null) {
-                subtotal = subtotal.add(line.getTotalPrice());
-            }
-            if (line.getTaxAmount() != null) {
-                taxTotal = taxTotal.add(line.getTaxAmount());
-            }
+            if (line.getTotalPrice() != null) subtotal = subtotal.add(line.getTotalPrice());
+            if (line.getTaxAmount() != null) taxTotal = taxTotal.add(line.getTaxAmount());
         }
 
         BigDecimal grand = subtotal.add(taxTotal);
@@ -598,6 +652,7 @@ public class SupplierBillController {
             return;
         }
 
+        // Resolve typed name to an existing supplier if not picked from the dropdown
         if (selectedSupplier == null && supplierSearchField.getText() != null && !supplierSearchField.getText().isBlank()) {
             String typed = supplierSearchField.getText().trim();
             selectedSupplier = listSuppliers().stream()
@@ -605,33 +660,39 @@ public class SupplierBillController {
                     .findFirst().orElse(null);
         }
 
-        if (selectedSupplier == null && (supplierSearchField.getText() == null || supplierSearchField.getText().isBlank())) {
-            showAlert(Alert.AlertType.WARNING, "Validation", "Please select a supplier.");
+        if (selectedSupplier == null || selectedSupplier.getId() <= 0) {
+            showAlert(Alert.AlertType.WARNING, "Validation", "Please select a valid supplier from the list or use Quick Add (+).");
+            return;
+        }
+        if (lines.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "Validation", "Please add at least one line item.");
             return;
         }
 
         if (currentBill == null) {
             currentBill = new SupplierBill();
         }
+        boolean isNew = currentBill.getId() <= 0;
 
-        if (selectedSupplier != null) {
-            currentBill.setSupplierId(selectedSupplier.getId());
-            currentBill.setSupplierName(selectedSupplier.getName());
-        } else {
-            currentBill.setSupplierName(supplierSearchField.getText().trim());
-        }
-
+        currentBill.setSupplierId(selectedSupplier.getId());
+        currentBill.setSupplierName(selectedSupplier.getName());
         currentBill.setBillDate(billDatePicker.getValue());
         currentBill.setDueDate(dueDatePicker.getValue());
         currentBill.setSupplierInvoiceRef(supplierInvoiceRefField.getText() != null ? supplierInvoiceRefField.getText().trim() : "");
         currentBill.setStatus(statusCombo.getValue() != null ? statusCombo.getValue() : "UNPAID");
         currentBill.setNotes(notesField.getText() != null ? notesField.getText().trim() : "");
-        currentBill.setLines(lines);
+        currentBill.setLines(new ArrayList<>(lines));
 
-        billService.saveBill(currentBill);
-        loadBills();
-        setFormEditable(false);
-        showAlert(Alert.AlertType.INFORMATION, "Success", "Supplier Bill saved successfully!");
+        try {
+            billService.saveBill(currentBill);
+            AuditLogService.log(isNew ? "CREATE" : "UPDATE", "SUPPLIER_BILL", currentBill.getId(),
+                    (isNew ? "Created" : "Updated") + " Supplier Bill #" + currentBill.getBillNumber() + " for " + selectedSupplier.getName());
+            loadBills();
+            setFormEditable(false);
+            showAlert(Alert.AlertType.INFORMATION, "Success", "Supplier Bill saved successfully!");
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Save Failed", e.getMessage());
+        }
     }
 
     @FXML
@@ -640,7 +701,6 @@ public class SupplierBillController {
             showAlert(Alert.AlertType.WARNING, "Notice", "Please select an existing bill to delete.");
             return;
         }
-
         if (isBillPaid(currentBill)) {
             showAlert(Alert.AlertType.WARNING, "Bill Locked", "Paid supplier bills cannot be deleted.");
             return;
@@ -650,25 +710,28 @@ public class SupplierBillController {
                 "Are you sure you want to delete Supplier Bill #" + currentBill.getBillNumber() + "?");
         if (!confirmed) return;
 
+        int deletedId = currentBill.getId();
+        String deletedNum = currentBill.getBillNumber();
+
         try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
             conn.setAutoCommit(false);
             try (PreparedStatement stmtLines = conn.prepareStatement("DELETE FROM supplier_bill_lines WHERE bill_id = ?");
                  PreparedStatement stmtBill = conn.prepareStatement("DELETE FROM supplier_bills WHERE id = ?")) {
 
-                stmtLines.setInt(1, currentBill.getId());
+                stmtLines.setInt(1, deletedId);
                 stmtLines.executeUpdate();
-
-                stmtBill.setInt(1, currentBill.getId());
+                stmtBill.setInt(1, deletedId);
                 stmtBill.executeUpdate();
 
                 conn.commit();
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Supplier Bill deleted successfully.");
-                handleNewBill();
-                loadBills();
             } catch (Exception ex) {
                 conn.rollback();
                 throw ex;
             }
+            AuditLogService.log("DELETE", "SUPPLIER_BILL", deletedId, "Deleted Supplier Bill #" + deletedNum);
+            showAlert(Alert.AlertType.INFORMATION, "Success", "Supplier Bill deleted successfully.");
+            handleNewBill();
+            loadBills();
         } catch (SQLException e) {
             showAlert(Alert.AlertType.ERROR, "Error", "Could not delete bill: " + e.getMessage());
         }
@@ -705,21 +768,20 @@ public class SupplierBillController {
                 BigDecimal newTotalPaid = paid.add(amountPaid);
                 String newStatus = newTotalPaid.compareTo(total) >= 0 ? "PAID" : "PARTIALLY_PAID";
 
-                try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
-                    conn.setAutoCommit(false);
-
-                    String updateSql = "UPDATE supplier_bills SET paid_amount = ?, status = ? WHERE id = ?";
-                    try (PreparedStatement stmt = conn.prepareStatement(updateSql)) {
-                        stmt.setBigDecimal(1, newTotalPaid);
-                        stmt.setString(2, newStatus);
-                        stmt.setInt(3, currentBill.getId());
-                        stmt.executeUpdate();
-                    }
-
-                    conn.commit();
-                    showAlert(Alert.AlertType.INFORMATION, "Payment Recorded", "Successfully recorded vendor payment of " + CurrencyFormatter.format(amountPaid));
-                    loadBills();
+                try (Connection conn = DatabaseConfig.getInstance().getConnection();
+                     PreparedStatement stmt = conn.prepareStatement(
+                             "UPDATE supplier_bills SET paid_amount = ?, status = ? WHERE id = ?")) {
+                    stmt.setBigDecimal(1, newTotalPaid);
+                    stmt.setString(2, newStatus);
+                    stmt.setInt(3, currentBill.getId());
+                    stmt.executeUpdate();
                 }
+
+                AuditLogService.log("PAYMENT", "SUPPLIER_BILL", currentBill.getId(),
+                        "Recorded payment of " + CurrencyFormatter.format(amountPaid) + " on Bill #" + currentBill.getBillNumber());
+                showAlert(Alert.AlertType.INFORMATION, "Payment Recorded",
+                        "Successfully recorded vendor payment of " + CurrencyFormatter.format(amountPaid));
+                loadBills();
             } catch (NumberFormatException e) {
                 showAlert(Alert.AlertType.ERROR, "Invalid Input", "Please enter a valid numeric amount.");
             } catch (Exception e) {
@@ -745,4 +807,3 @@ public class SupplierBillController {
         alert.showAndWait();
     }
 }
-

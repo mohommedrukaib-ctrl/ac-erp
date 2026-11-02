@@ -9,6 +9,7 @@ import com.aceerp.model.UserSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ public class ServiceJobService {
         String sql = """
             SELECT sj.*, c.name AS customer_name, u.full_name AS technician_name
             FROM service_jobs sj
-            JOIN customers c ON sj.customer_id = c.id
+            LEFT JOIN customers c ON sj.customer_id = c.id
             LEFT JOIN users u ON sj.technician_id = u.id
             ORDER BY sj.id DESC
         """;
@@ -44,7 +45,7 @@ public class ServiceJobService {
         String sql = """
             SELECT sj.*, c.name AS customer_name, u.full_name AS technician_name
             FROM service_jobs sj
-            JOIN customers c ON sj.customer_id = c.id
+            LEFT JOIN customers c ON sj.customer_id = c.id
             LEFT JOIN users u ON sj.technician_id = u.id
             WHERE sj.id = ?
         """;
@@ -69,8 +70,9 @@ public class ServiceJobService {
         String sql = """
             SELECT sjl.*, p.code AS product_code, p.name AS product_name
             FROM service_job_lines sjl
-            JOIN products p ON sjl.product_id = p.id
+            LEFT JOIN products p ON sjl.product_id = p.id
             WHERE sjl.service_job_id = ?
+            ORDER BY sjl.id ASC
         """;
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, jobId);
@@ -79,12 +81,27 @@ public class ServiceJobService {
                     ServiceJobLine line = new ServiceJobLine();
                     line.setId(rs.getInt("id"));
                     line.setServiceJobId(rs.getInt("service_job_id"));
-                    line.setProductId(rs.getInt("product_id"));
+
+                    int productId = rs.getInt("product_id");
+                    if (rs.wasNull()) {
+                        line.setProductId(0);
+                    } else {
+                        line.setProductId(productId);
+                    }
+
                     line.setProductCode(rs.getString("product_code"));
                     line.setProductName(rs.getString("product_name"));
                     line.setQuantity(rs.getInt("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
-                    line.setLineTotal(rs.getBigDecimal("line_total"));
+
+                    BigDecimal disc = rs.getBigDecimal("discount_percent");
+                    line.setDiscountPercent(disc != null ? disc : BigDecimal.ZERO);
+                    line.setNotes(rs.getString("notes"));
+
+                    BigDecimal total = rs.getBigDecimal("line_total");
+                    line.setLineTotal(total != null ? total : BigDecimal.ZERO);
+                    // Ensure total reflects discount if DB value is stale
+                    line.recalculateTotal();
                     lines.add(line);
                 }
             }
@@ -97,24 +114,34 @@ public class ServiceJobService {
         boolean isNew = job.getId() <= 0;
 
         String insertHeader = """
-            INSERT INTO service_jobs (job_number, customer_id, technician_id, job_type, status, scheduled_date, completion_date, ac_model_info, reported_issue, resolution_notes, labor_cost, parts_total, grand_total, created_by)
+            INSERT INTO service_jobs (job_number, customer_id, technician_id, job_type, status,
+                scheduled_date, completion_date, ac_model_info, reported_issue, resolution_notes,
+                labor_cost, parts_total, grand_total, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
         """;
 
         String updateHeader = """
-            UPDATE service_jobs SET customer_id=?, technician_id=?, job_type=?, status=?, scheduled_date=?, completion_date=?, ac_model_info=?, reported_issue=?, resolution_notes=?, labor_cost=?, parts_total=?, grand_total=?
+            UPDATE service_jobs SET customer_id=?, technician_id=?, job_type=?, status=?,
+                scheduled_date=?, completion_date=?, ac_model_info=?, reported_issue=?,
+                resolution_notes=?, labor_cost=?, parts_total=?, grand_total=?
             WHERE id=?
         """;
 
         String deleteLines = "DELETE FROM service_job_lines WHERE service_job_id = ?";
-        String insertLine = "INSERT INTO service_job_lines (service_job_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)";
+        String insertLine = """
+            INSERT INTO service_job_lines
+                (service_job_id, product_id, quantity, unit_price, discount_percent, notes, line_total)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """;
         String deductStock = "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?";
-        String logStockMovement = "INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes) VALUES (?, 'SERVICE_USE', ?, 'SERVICE_JOB', ?, ?)";
+        String logStockMovement = """
+            INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes)
+            VALUES (?, 'SERVICE_USE', ?, 'SERVICE_JOB', ?, ?)
+        """;
 
         try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
             conn.setAutoCommit(false);
             try {
-                // Check previous status if updating
                 String previousStatus = "";
                 if (!isNew) {
                     try (PreparedStatement pCheck = conn.prepareStatement("SELECT status FROM service_jobs WHERE id = ?")) {
@@ -134,8 +161,11 @@ public class ServiceJobService {
                         setNullableInt(stmt, 3, job.getTechnicianId());
                         stmt.setString(4, job.getJobType());
                         stmt.setString(5, job.getStatus());
-                        stmt.setDate(6, job.getScheduledDate() != null ? Date.valueOf(job.getScheduledDate()) : Date.valueOf(LocalDate.now()));
-                        stmt.setDate(7, job.getCompletionDate() != null ? Date.valueOf(job.getCompletionDate()) : null);
+                        stmt.setDate(6, job.getScheduledDate() != null
+                                ? Date.valueOf(job.getScheduledDate())
+                                : Date.valueOf(LocalDate.now()));
+                        stmt.setDate(7, job.getCompletionDate() != null
+                                ? Date.valueOf(job.getCompletionDate()) : null);
                         stmt.setString(8, job.getAcModelInfo());
                         stmt.setString(9, job.getReportedIssue());
                         stmt.setString(10, job.getResolutionNotes());
@@ -158,8 +188,11 @@ public class ServiceJobService {
                         setNullableInt(stmt, 2, job.getTechnicianId());
                         stmt.setString(3, job.getJobType());
                         stmt.setString(4, job.getStatus());
-                        stmt.setDate(5, job.getScheduledDate() != null ? Date.valueOf(job.getScheduledDate()) : Date.valueOf(LocalDate.now()));
-                        stmt.setDate(6, job.getCompletionDate() != null ? Date.valueOf(job.getCompletionDate()) : null);
+                        stmt.setDate(5, job.getScheduledDate() != null
+                                ? Date.valueOf(job.getScheduledDate())
+                                : Date.valueOf(LocalDate.now()));
+                        stmt.setDate(6, job.getCompletionDate() != null
+                                ? Date.valueOf(job.getCompletionDate()) : null);
                         stmt.setString(7, job.getAcModelInfo());
                         stmt.setString(8, job.getReportedIssue());
                         stmt.setString(9, job.getResolutionNotes());
@@ -176,21 +209,30 @@ public class ServiceJobService {
                     }
                 }
 
-                // Insert Lines
+                // Insert lines in current list order (supports ↑↓ reordering)
                 for (ServiceJobLine line : job.getLines()) {
+                    line.recalculateTotal();
                     try (PreparedStatement stmt = conn.prepareStatement(insertLine)) {
                         stmt.setInt(1, job.getId());
-                        stmt.setInt(2, line.getProductId());
+                        if (line.getProductId() > 0) {
+                            stmt.setInt(2, line.getProductId());
+                        } else {
+                            stmt.setNull(2, Types.INTEGER);
+                        }
                         stmt.setInt(3, line.getQuantity());
-                        stmt.setBigDecimal(4, line.getUnitPrice());
-                        stmt.setBigDecimal(5, line.getLineTotal());
+                        stmt.setBigDecimal(4, line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO);
+                        stmt.setBigDecimal(5, line.getDiscountPercent() != null ? line.getDiscountPercent() : BigDecimal.ZERO);
+                        stmt.setString(6, line.getNotes());
+                        stmt.setBigDecimal(7, line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
                         stmt.executeUpdate();
                     }
                 }
 
-                // Auto-Deduct Inventory if transitioning to COMPLETED
+                // Auto-deduct inventory only when transitioning to COMPLETED
                 if ("COMPLETED".equals(job.getStatus()) && !"COMPLETED".equals(previousStatus)) {
                     for (ServiceJobLine line : job.getLines()) {
+                        if (line.getProductId() <= 0 || line.getQuantity() <= 0) continue;
+
                         try (PreparedStatement stmt = conn.prepareStatement(deductStock)) {
                             stmt.setInt(1, line.getQuantity());
                             stmt.setInt(2, line.getProductId());

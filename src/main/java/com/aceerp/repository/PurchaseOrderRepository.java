@@ -109,24 +109,18 @@ public class PurchaseOrderRepository {
             ps.executeUpdate();
         }
 
-        // Always write BOTH line_total and total_price — live DB has total_price NOT NULL (V005)
-        // and app historically only filled line_total (V015/V018 dual-column era).
         String insertSql =
                 "INSERT INTO purchase_order_lines " +
-                "(po_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, line_total, total_price) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "(po_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, total_price) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (PurchaseOrderLine line : po.getLines()) {
+                line.recalculateTotal();
                 BigDecimal qty = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ONE;
                 BigDecimal price = line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO;
-                BigDecimal lineTot = line.getLineTotal();
-                if (lineTot == null) {
-                    lineTot = qty.multiply(price);
-                    if (line.getTaxAmount() != null) {
-                        lineTot = lineTot.add(line.getTaxAmount());
-                    }
-                }
+                BigDecimal disc = line.getDiscountPercent() != null ? line.getDiscountPercent() : BigDecimal.ZERO;
+                BigDecimal lineTot = line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO;
 
                 ps.setInt(1, po.getId());
                 if (line.getProductId() != null && line.getProductId() > 0) ps.setInt(2, line.getProductId());
@@ -134,10 +128,12 @@ public class PurchaseOrderRepository {
                 ps.setString(3, line.getDescription());
                 ps.setBigDecimal(4, qty);
                 ps.setBigDecimal(5, price);
-                ps.setBigDecimal(6, line.getTaxRate() != null ? line.getTaxRate() : BigDecimal.ZERO);
-                ps.setBigDecimal(7, line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
-                ps.setBigDecimal(8, lineTot); // line_total
-                ps.setBigDecimal(9, lineTot); // total_price (same value)
+                ps.setBigDecimal(6, disc);
+                ps.setString(7, line.getNotes());
+                ps.setBigDecimal(8, line.getTaxRate() != null ? line.getTaxRate() : BigDecimal.ZERO);
+                ps.setBigDecimal(9, line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
+                ps.setBigDecimal(10, lineTot);
+                ps.setBigDecimal(11, lineTot);
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -194,6 +190,16 @@ public class PurchaseOrderRepository {
                     line.setDescription(rs.getString("description"));
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
+                    
+                    try {
+                        BigDecimal disc = rs.getBigDecimal("discount_percent");
+                        line.setDiscountPercent(disc != null ? disc : BigDecimal.ZERO);
+                    } catch (SQLException ignored) {}
+
+                    try {
+                        line.setNotes(rs.getString("notes"));
+                    } catch (SQLException ignored) {}
+
                     try { line.setTaxRate(rs.getBigDecimal("tax_rate")); } catch (SQLException ignored) {}
                     try { line.setTaxAmount(rs.getBigDecimal("tax_amount")); } catch (SQLException ignored) {}
 

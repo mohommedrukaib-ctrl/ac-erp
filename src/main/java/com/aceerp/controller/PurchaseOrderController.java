@@ -44,9 +44,11 @@ public class PurchaseOrderController {
     @FXML private TableColumn<PurchaseOrderLine, String> colProduct;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colQty;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colPrice;
+    @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colDiscount;
     @FXML private TableColumn<PurchaseOrderLine, Boolean> colTaxable;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colTaxRate;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colTaxAmt;
+    @FXML private TableColumn<PurchaseOrderLine, String> colNotes;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colTotal;
     
     @FXML private Label subtotalLabel;
@@ -86,7 +88,7 @@ public class PurchaseOrderController {
             try {
                 defaultTaxRate = new BigDecimal(rateStr.trim());
             } catch (Exception e) {
-                defaultTaxRate = new BigDecimal("15.00"); // Fallback to 15%
+                defaultTaxRate = new BigDecimal("15.00");
             }
         } else {
             defaultTaxRate = new BigDecimal("15.00");
@@ -178,15 +180,37 @@ public class PurchaseOrderController {
     private void setupTable() {
         colProduct.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getDescription()));
         colProduct.setCellFactory(TextFieldTableCell.forTableColumn());
-        colProduct.setOnEditCommit(e -> { e.getRowValue().setDescription(e.getNewValue()); linesTable.refresh(); });
+        colProduct.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setDescription(e.getNewValue());
+            linesTable.refresh();
+        });
 
         colQty.setCellValueFactory(new PropertyValueFactory<>("quantity"));
         colQty.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colQty.setOnEditCommit(e -> { e.getRowValue().setQuantity(e.getNewValue()); updateTotals(); });
+        colQty.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setQuantity(e.getNewValue());
+            updateTotals();
+        });
 
         colPrice.setCellValueFactory(new PropertyValueFactory<>("unitPrice"));
         colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colPrice.setOnEditCommit(e -> { e.getRowValue().setUnitPrice(e.getNewValue()); updateTotals(); });
+        colPrice.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setUnitPrice(e.getNewValue());
+            updateTotals();
+        });
+
+        if (colDiscount != null) {
+            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
+            colDiscount.setOnEditCommit(e -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                e.getRowValue().setDiscountPercent(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
+                updateTotals();
+            });
+        }
 
         colTaxable.setCellValueFactory(cellData -> cellData.getValue().taxableProperty());
         colTaxable.setCellFactory(CheckBoxTableCell.forTableColumn(colTaxable));
@@ -194,9 +218,26 @@ public class PurchaseOrderController {
 
         colTaxRate.setCellValueFactory(new PropertyValueFactory<>("taxRate"));
         colTaxRate.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colTaxRate.setOnEditCommit(e -> { e.getRowValue().setTaxRate(e.getNewValue()); updateTotals(); });
+        colTaxRate.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setTaxRate(e.getNewValue());
+            updateTotals();
+        });
 
         colTaxAmt.setCellValueFactory(new PropertyValueFactory<>("taxAmount"));
+
+        if (colNotes != null) {
+            colNotes.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+                d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
+            ));
+            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            colNotes.setOnEditCommit(e -> {
+                if (!editMode) { linesTable.refresh(); return; }
+                e.getRowValue().setNotes(e.getNewValue());
+                linesTable.refresh();
+            });
+        }
+
         colTotal.setCellValueFactory(new PropertyValueFactory<>("lineTotal"));
         
         linesTable.setItems(lines);
@@ -218,6 +259,34 @@ public class PurchaseOrderController {
         }
         linesTable.refresh();
         updateTotals();
+    }
+
+    @FXML
+    private void handleMoveUp() {
+        if (!editMode) {
+            showAlert("Locked", "Click Edit first.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx > 0) {
+            PurchaseOrderLine line = lines.remove(idx);
+            lines.add(idx - 1, line);
+            linesTable.getSelectionModel().select(idx - 1);
+        }
+    }
+
+    @FXML
+    private void handleMoveDown() {
+        if (!editMode) {
+            showAlert("Locked", "Click Edit first.");
+            return;
+        }
+        int idx = linesTable.getSelectionModel().getSelectedIndex();
+        if (idx >= 0 && idx < lines.size() - 1) {
+            PurchaseOrderLine line = lines.remove(idx);
+            lines.add(idx + 1, line);
+            linesTable.getSelectionModel().select(idx + 1);
+        }
     }
 
     private void setFormEditable(boolean editable) {
@@ -302,6 +371,8 @@ public class PurchaseOrderController {
             line.setDescription(p.getName());
             line.setQuantity(BigDecimal.ONE);
             line.setUnitPrice(p.getCostPrice() != null ? p.getCostPrice() : BigDecimal.ZERO);
+            line.setDiscountPercent(BigDecimal.ZERO);
+            line.setNotes("");
             
             boolean applyTax = globalTaxCheck.isSelected();
             line.setTaxable(applyTax);
@@ -320,6 +391,8 @@ public class PurchaseOrderController {
         line.setDescription("Custom Item");
         line.setQuantity(BigDecimal.ONE);
         line.setUnitPrice(BigDecimal.ZERO);
+        line.setDiscountPercent(BigDecimal.ZERO);
+        line.setNotes("");
         
         boolean applyTax = globalTaxCheck.isSelected();
         line.setTaxable(applyTax);
@@ -347,9 +420,15 @@ public class PurchaseOrderController {
 
         for (PurchaseOrderLine line : lines) {
             line.recalculateTotal();
-            subtotal = subtotal.add(line.getQuantity().multiply(line.getUnitPrice()));
-            tax = tax.add(line.getTaxAmount());
-            total = total.add(line.getLineTotal());
+            // Net of discount, before tax
+            BigDecimal qty = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ZERO;
+            BigDecimal price = line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO;
+            BigDecimal disc = line.getDiscountPercent() != null ? line.getDiscountPercent() : BigDecimal.ZERO;
+            BigDecimal gross = qty.multiply(price);
+            BigDecimal net = gross.subtract(gross.multiply(disc).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP));
+            subtotal = subtotal.add(net);
+            tax = tax.add(line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
+            total = total.add(line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
         }
 
         subtotalLabel.setText("Subtotal: " + CurrencyFormatter.format(subtotal));
