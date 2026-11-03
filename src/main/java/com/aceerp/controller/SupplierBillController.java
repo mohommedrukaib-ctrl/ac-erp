@@ -165,15 +165,22 @@ public class SupplierBillController {
                         .collect(Collectors.toList()),
                 SimpleSupplier::getName,
                 this::selectSupplier,
-                typedText -> GlobalQuickAdd.showSupplierDialog(typedText, s -> selectSupplier(new SimpleSupplier(s.getId(), s.getName(), s.getPhone())))
+                typedText -> GlobalQuickAdd.showSupplierDialog(typedText,
+                        s -> selectSupplier(new SimpleSupplier(s.getId(), s.getName(), s.getPhone()))),
+                typed -> {
+                    if (selectedSupplier != null && !selectedSupplier.getName().equalsIgnoreCase(typed.trim())) {
+                        selectedSupplier = null;
+                        supplierPhoneField.clear();
+                    }
+                }
         );
     }
 
     private void selectSupplier(SimpleSupplier s) {
         if (s == null) return;
-        selectedSupplier = s;
         supplierSearchField.setText(s.getName());
         supplierPhoneField.setText(s.getPhone() != null && !s.getPhone().isBlank() ? s.getPhone() : "N/A");
+        selectedSupplier = s;
     }
 
     private List<SimpleSupplier> listSuppliers() {
@@ -281,21 +288,21 @@ public class SupplierBillController {
             lblStatus.setText(bill.getStatus() != null ? bill.getStatus() : "UNPAID");
         }
 
-        if (bill.getSupplierId() > 0) {
-            selectedSupplier = listSuppliers().stream().filter(s -> s.getId() == bill.getSupplierId()).findFirst().orElse(null);
-        } else {
-            selectedSupplier = null;
-        }
-
-        if (selectedSupplier != null) {
-            supplierSearchField.setText(selectedSupplier.getName());
-            supplierPhoneField.setText(selectedSupplier.getPhone() != null ? selectedSupplier.getPhone() : "N/A");
+        SimpleSupplier loadedSupplier = bill.getSupplierId() > 0
+                ? listSuppliers().stream().filter(s -> s.getId() == bill.getSupplierId()).findFirst().orElse(null)
+                : null;
+        if (loadedSupplier != null) {
+            supplierSearchField.setText(loadedSupplier.getName());
+            supplierPhoneField.setText(loadedSupplier.getPhone() != null ? loadedSupplier.getPhone() : "N/A");
+            selectedSupplier = loadedSupplier;
         } else if (bill.getSupplierName() != null) {
             supplierSearchField.setText(bill.getSupplierName());
             supplierPhoneField.setText("N/A");
+            selectedSupplier = null;
         } else {
             supplierSearchField.clear();
             supplierPhoneField.clear();
+            selectedSupplier = null;
         }
 
         lines.clear();
@@ -805,5 +812,114 @@ public class SupplierBillController {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    @FXML
+    private void handleApplyVendorCredit() {
+        if (currentBill == null || currentBill.getId() <= 0) {
+            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an open bill to apply credit.");
+            return;
+        }
+
+        BigDecimal total = currentBill.getTotalAmount() != null ? currentBill.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal paid = currentBill.getPaidAmount() != null ? currentBill.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal outstanding = total.subtract(paid);
+
+        if (outstanding.compareTo(BigDecimal.ZERO) <= 0 || "PAID".equalsIgnoreCase(currentBill.getStatus())) {
+            showAlert(Alert.AlertType.INFORMATION, "Fully Paid", "This bill is already fully paid.");
+            return;
+        }
+
+        // Query available vendor credits for this supplier
+        List<com.aceerp.model.VendorCredit> availableCredits = new ArrayList<>();
+        String sql = "SELECT id, vendor_credit_number, remaining_amount FROM vendor_credits WHERE supplier_id = ? AND remaining_amount > 0 AND status != 'VOID'";
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, currentBill.getSupplierId());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    com.aceerp.model.VendorCredit vc = new com.aceerp.model.VendorCredit();
+                    vc.setId(rs.getInt("id"));
+                    vc.setVendorCreditNumber(rs.getString("vendor_credit_number"));
+                    vc.setRemainingAmount(rs.getBigDecimal("remaining_amount"));
+                    availableCredits.add(vc);
+                }
+            }
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Database Error", e.getMessage());
+            return;
+        }
+
+        if (availableCredits.isEmpty()) {
+            showAlert(Alert.AlertType.INFORMATION, "No Credits", "No active vendor credits found for " + currentBill.getSupplierName());
+            return;
+        }
+
+        ChoiceDialog<com.aceerp.model.VendorCredit> dialog = new ChoiceDialog<>(availableCredits.get(0), availableCredits);
+        dialog.setTitle("Apply Vendor Credit");
+        dialog.setHeaderText("Select Vendor Credit to apply to Bill #" + currentBill.getBillNumber());
+        dialog.setContentText("Available Credits:");
+
+        dialog.showAndWait().ifPresent(vc -> {
+            BigDecimal maxApply = vc.getRemainingAmount().min(outstanding);
+            TextInputDialog amtDialog = new TextInputDialog(maxApply.setScale(2, RoundingMode.HALF_UP).toString());
+            amtDialog.setTitle("Credit Amount");
+            amtDialog.setHeaderText("Credit: " + vc.getVendorCreditNumber() + " (Max: " + CurrencyFormatter.format(maxApply) + ")");
+            amtDialog.setContentText("Enter amount to apply:");
+
+            amtDialog.showAndWait().ifPresent(amtStr -> {
+                try {
+                    BigDecimal applyAmt = new BigDecimal(amtStr.trim());
+                    if (applyAmt.compareTo(BigDecimal.ZERO) <= 0 || applyAmt.compareTo(maxApply) > 0) {
+                        showAlert(Alert.AlertType.WARNING, "Invalid Amount", "Amount must be between $0.01 and " + CurrencyFormatter.format(maxApply));
+                        return;
+                    }
+
+                    // Perform application
+                    try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
+                        conn.setAutoCommit(false);
+                        try {
+                            // Insert credit application
+                            try (PreparedStatement ps = conn.prepareStatement(
+                                    "INSERT INTO credit_applications (credit_type, vendor_credit_id, supplier_bill_id, applied_amount, applied_date) VALUES ('VENDOR', ?, ?, ?, CURRENT_DATE)")) {
+                                ps.setInt(1, vc.getId());
+                                ps.setInt(2, currentBill.getId());
+                                ps.setBigDecimal(3, applyAmt);
+                                ps.executeUpdate();
+                            }
+
+                            // Deduct vendor credit remaining
+                            BigDecimal newVcRem = vc.getRemainingAmount().subtract(applyAmt);
+                            String vcStatus = newVcRem.compareTo(BigDecimal.ZERO) == 0 ? "FULLY_APPLIED" : "PARTIALLY_APPLIED";
+                            try (PreparedStatement ps = conn.prepareStatement("UPDATE vendor_credits SET remaining_amount = ?, status = ? WHERE id = ?")) {
+                                ps.setBigDecimal(1, newVcRem);
+                                ps.setString(2, vcStatus);
+                                ps.setInt(3, vc.getId());
+                                ps.executeUpdate();
+                            }
+
+                            // Increase bill paid_amount
+                            BigDecimal newBillPaid = paid.add(applyAmt);
+                            String billStatus = newBillPaid.compareTo(total) >= 0 ? "PAID" : "PARTIALLY_PAID";
+                            try (PreparedStatement ps = conn.prepareStatement("UPDATE supplier_bills SET paid_amount = ?, status = ? WHERE id = ?")) {
+                                ps.setBigDecimal(1, newBillPaid);
+                                ps.setString(2, billStatus);
+                                ps.setInt(3, currentBill.getId());
+                                ps.executeUpdate();
+                            }
+
+                            conn.commit();
+                            showAlert(Alert.AlertType.INFORMATION, "Applied", "Applied " + CurrencyFormatter.format(applyAmt) + " credit to Bill #" + currentBill.getBillNumber());
+                            loadBills();
+                        } catch (Exception ex) {
+                            conn.rollback();
+                            throw ex;
+                        }
+                    }
+                } catch (Exception ex) {
+                    showAlert(Alert.AlertType.ERROR, "Apply Error", ex.getMessage());
+                }
+            });
+        });
     }
 }

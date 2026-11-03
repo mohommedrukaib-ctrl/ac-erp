@@ -605,12 +605,12 @@ public class AccountingService {
 
     /** Simple DTO for Trial Balance grid. */
     public record TrialBalanceRow(
-            String accountCode,
-            String accountName,
-            String accountType,
-            BigDecimal debit,
-            BigDecimal credit
-    ) {}
+    String accountCode,
+    String accountName,
+    String accountType,
+    BigDecimal debit,
+    BigDecimal credit
+) {}
 
     // -------------------------------------------------------------------------
     // Helpers

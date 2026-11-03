@@ -9,6 +9,7 @@ public class ServiceJobLine {
     private int productId;
     private String productCode;
     private String productName;
+    private String serialNumber;
     private int quantity = 1;
     private BigDecimal unitPrice = BigDecimal.ZERO;
     private BigDecimal discountPercent = BigDecimal.ZERO;
@@ -31,6 +32,9 @@ public class ServiceJobLine {
 
     public String getProductName() { return productName; }
     public void setProductName(String productName) { this.productName = productName; }
+
+    public String getSerialNumber() { return serialNumber; }
+    public void setSerialNumber(String serialNumber) { this.serialNumber = serialNumber; }
 
     public int getQuantity() { return quantity; }
     public void setQuantity(int quantity) {

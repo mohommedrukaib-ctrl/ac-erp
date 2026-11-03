@@ -14,14 +14,12 @@ import com.aceerp.util.CurrencyFormatter;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
-import javafx.stage.Popup;
 import javafx.util.converter.BigDecimalStringConverter;
 
 import java.math.BigDecimal;
@@ -62,9 +60,6 @@ public class SalesOrderController {
     private SalesOrder currentSalesOrder;
     private List<SalesOrder> allSalesOrders = List.of();
     private boolean editMode = false;
-
-    private Popup customerPopup;
-    private ListView<Customer> customerListView;
 
     @FXML
     public void initialize() {
@@ -158,50 +153,31 @@ public class SalesOrderController {
     }
 
     private void setupSmartSearch() {
-        customerPopup = new Popup();
-        customerPopup.setAutoHide(true);
-        customerListView = new ListView<>();
-        customerListView.setPrefHeight(150);
-        customerPopup.getContent().add(customerListView);
-
-        customerSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (!editMode) return;
-            if (newVal == null || newVal.trim().isEmpty()) {
-                customerPopup.hide();
-                return;
-            }
-            String query = newVal.toLowerCase().trim();
-            List<Customer> results = customerService.listAll().stream()
-                .filter(c -> c.getName() != null && c.getName().toLowerCase().contains(query))
-                .collect(Collectors.toList());
-
-            if (results.isEmpty()) {
-                customerPopup.hide();
-            } else {
-                customerListView.setItems(FXCollections.observableArrayList(results));
-                if (!customerPopup.isShowing() && customerSearchField.getScene() != null) {
-                    Bounds bounds = customerSearchField.localToScreen(customerSearchField.getBoundsInLocal());
-                    if (bounds != null) {
-                        customerListView.setPrefWidth(bounds.getWidth());
-                        customerPopup.show(customerSearchField, bounds.getMinX(), bounds.getMaxY());
+        com.aceerp.util.SmartSearchHelper.setupEntitySearch(
+                customerSearchField,
+                query -> customerService.listAll().stream()
+                        .filter(c -> c.getName() != null
+                                && c.getName().toLowerCase().contains(query.toLowerCase().trim()))
+                        .collect(Collectors.toList()),
+                Customer::getName,
+                this::selectCustomer,
+                typed -> {
+                    customerSearchField.setText(typed);
+                    handleQuickAddCustomer();
+                },
+                typed -> {
+                    if (selectedCustomer != null && (selectedCustomer.getName() == null
+                            || !selectedCustomer.getName().equalsIgnoreCase(typed.trim()))) {
+                        selectedCustomer = null;
+                        customerPhoneField.clear();
                     }
-                }
-            }
-        });
-
-        customerListView.setOnMouseClicked(e -> {
-            Customer c = customerListView.getSelectionModel().getSelectedItem();
-            if (c != null) {
-                selectCustomer(c);
-            }
-        });
+                });
     }
 
     private void selectCustomer(Customer c) {
-        selectedCustomer = c;
         customerSearchField.setText(c.getName());
         customerPhoneField.setText(c.getPhone() != null && !c.getPhone().isEmpty() ? c.getPhone() : "N/A");
-        customerPopup.hide();
+        selectedCustomer = c;
     }
 
     @FXML
@@ -219,7 +195,7 @@ public class SalesOrderController {
 
         GridPane grid = new GridPane();
         grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(10));
-        TextField nameField = new TextField(); nameField.setPromptText("Company / Person Name *");
+        TextField nameField = new TextField(customerSearchField.getText()); nameField.setPromptText("Company / Person Name *");
         TextField phoneField = new TextField(); phoneField.setPromptText("Phone");
         TextField emailField = new TextField(); emailField.setPromptText("Email");
 

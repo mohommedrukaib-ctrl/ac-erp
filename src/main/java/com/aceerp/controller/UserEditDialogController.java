@@ -18,13 +18,14 @@ import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * Controller for the Add/Edit User dialog.
- * 
+ *
  * Reused for both creating new users and editing existing ones.
  * The 'editingUser' field is null when creating, non-null when editing.
  */
@@ -43,6 +44,8 @@ public class UserEditDialogController {
     @FXML private Label passwordHintLabel;
     @FXML private CheckBox activeCheckBox;
     @FXML private Label errorLabel;
+    @FXML private ChoiceBox<String> commissionTypeChoice;
+    @FXML private TextField commissionRateField;
 
     private final UserService userService = new UserService();
 
@@ -73,11 +76,21 @@ public class UserEditDialogController {
             public String toString(UserRole role) {
                 return role == null ? "" : role.getDisplayName();
             }
+
             @Override
             public UserRole fromString(String s) {
                 return null;
             }
         });
+
+        if (commissionTypeChoice != null) {
+            commissionTypeChoice.setItems(FXCollections.observableArrayList(
+                "NONE", "PERCENT_LABOR", "PERCENT_TOTAL", "FLAT_RATE"));
+            commissionTypeChoice.setValue("NONE");
+        }
+        if (commissionRateField != null) {
+            commissionRateField.setText("0.00");
+        }
 
         errorLabel.setText("");
     }
@@ -90,6 +103,12 @@ public class UserEditDialogController {
         titleLabel.setText("Add New User");
         activeCheckBox.setSelected(true);
         passwordHintLabel.setText("Minimum 8 characters, one letter + one digit.");
+        if (commissionTypeChoice != null) {
+            commissionTypeChoice.setValue("NONE");
+        }
+        if (commissionRateField != null) {
+            commissionRateField.setText("0.00");
+        }
     }
 
     /**
@@ -116,6 +135,15 @@ public class UserEditDialogController {
             roleChoice.setDisable(true);
             activeCheckBox.setDisable(true);
         }
+
+        if (commissionTypeChoice != null) {
+            commissionTypeChoice.setValue(
+                user.getCommissionType() != null ? user.getCommissionType() : "NONE");
+        }
+        if (commissionRateField != null) {
+            commissionRateField.setText(
+                user.getCommissionRate() != null ? user.getCommissionRate().toPlainString() : "0.00");
+        }
     }
 
     @FXML
@@ -127,7 +155,7 @@ public class UserEditDialogController {
                 // Creating new user
                 validateForCreate();
 
-                userService.createUser(
+                User created = userService.createUser(
                     usernameField.getText().trim(),
                     passwordField.getText(),
                     fullNameField.getText().trim(),
@@ -135,6 +163,11 @@ public class UserEditDialogController {
                     phoneField.getText().trim(),
                     roleChoice.getValue()
                 );
+
+                // Apply commission settings after create (createUser has no commission params)
+                applyCommissionFields(created);
+                userService.updateUser(created);
+
                 logger.info("User created: {}", usernameField.getText());
 
             } else {
@@ -146,6 +179,7 @@ public class UserEditDialogController {
                 editingUser.setPhone(emptyToNull(phoneField.getText()));
                 editingUser.setRole(roleChoice.getValue());
                 editingUser.setActive(activeCheckBox.isSelected());
+                applyCommissionFields(editingUser);
 
                 userService.updateUser(editingUser);
 
@@ -178,6 +212,24 @@ public class UserEditDialogController {
         return saved;
     }
 
+    private void applyCommissionFields(User user) {
+        String type = (commissionTypeChoice != null && commissionTypeChoice.getValue() != null)
+            ? commissionTypeChoice.getValue()
+            : "NONE";
+        user.setCommissionType(type);
+
+        try {
+            String rateText = commissionRateField != null ? commissionRateField.getText() : "0";
+            if (rateText == null || rateText.isBlank()) {
+                user.setCommissionRate(BigDecimal.ZERO);
+            } else {
+                user.setCommissionRate(new BigDecimal(rateText.trim()));
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Commission rate must be a valid number.");
+        }
+    }
+
     private void validateForCreate() {
         if (usernameField.getText() == null || usernameField.getText().trim().isEmpty()) {
             throw new IllegalArgumentException("Username is required.");
@@ -191,6 +243,7 @@ public class UserEditDialogController {
         if (!passwordField.getText().equals(passwordConfirmField.getText())) {
             throw new IllegalArgumentException("Passwords do not match.");
         }
+        validateCommissionRateFormat();
     }
 
     private void validateForEdit() {
@@ -202,6 +255,18 @@ public class UserEditDialogController {
             if (!newPass.equals(passwordConfirmField.getText())) {
                 throw new IllegalArgumentException("Passwords do not match.");
             }
+        }
+        validateCommissionRateFormat();
+    }
+
+    private void validateCommissionRateFormat() {
+        if (commissionRateField == null) return;
+        String rateText = commissionRateField.getText();
+        if (rateText == null || rateText.isBlank()) return;
+        try {
+            new BigDecimal(rateText.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Commission rate must be a valid number.");
         }
     }
 

@@ -1,4 +1,3 @@
-
 package com.aceerp.service;
 
 import com.aceerp.config.DatabaseConfig;
@@ -58,6 +57,7 @@ public class ReportService {
         }).start();
     }
 
+    // ===================== Standard Business Documents =====================
     public static void printInvoice(int invoiceId) { new ReportService().printDocument("invoice", "INVOICE_ID", invoiceId); }
     public static void printQuotation(int quotationId) { new ReportService().printDocument("quotation", "QUOTE_ID", quotationId); }
     public static void printSalesOrder(int orderId) { new ReportService().printDocument("sales_order", "ORDER_ID", orderId); }
@@ -66,11 +66,21 @@ public class ReportService {
     public static void printPurchaseOrder(int poId) { new ReportService().printDocument("purchase_order", "PO_ID", poId); }
     public static void printJobNote(int jobId) { new ReportService().printDocument("job_note_a5", "JOB_ID", jobId); }
 
+    // ===================== HVAC Enterprise Documents =====================
+    public static void printWarrantyCertificate(int serialId) {
+        new ReportService().printDocument("warranty_certificate", "SERIAL_ID", serialId);
+    }
+
+    public static void printAmcRenewalNotice(int contractId) {
+        new ReportService().printDocument("amc_renewal_notice", "CONTRACT_ID", contractId);
+    }
+
+    public static void printTechnicianPayslip(int technicianId) {
+        new ReportService().printDocument("technician_payslip", "TECH_ID", technicianId);
+    }
+
     // ===================== Double-Entry General Ledger Financials =====================
 
-    /**
-     * GL-based Profit & Loss Statement (Income Statement)
-     */
     public ProfitAndLossDTO getProfitAndLoss(LocalDate startDate, LocalDate endDate) {
         ProfitAndLossDTO dto = new ProfitAndLossDTO();
 
@@ -133,9 +143,6 @@ public class ReportService {
         return dto;
     }
 
-    /**
-     * GL-based Balance Sheet Statement (Assets = Liabilities + Equity)
-     */
     public BalanceSheetDTO getBalanceSheet(LocalDate asOfDate) {
         BalanceSheetDTO dto = new BalanceSheetDTO();
 
@@ -192,7 +199,6 @@ public class ReportService {
                 }
             }
 
-            // Calculate Current Year Net Income up to asOfDate
             LocalDate startOfYear = asOfDate.withDayOfYear(1);
             ProfitAndLossDTO pnl = getProfitAndLoss(startOfYear, asOfDate);
             BigDecimal netIncome = pnl.getNetProfit();
@@ -210,15 +216,11 @@ public class ReportService {
         return dto;
     }
 
-    /**
-     * GL-based Statement of Cash Flows
-     */
     public CashFlowDTO getCashFlowStatement(LocalDate startDate, LocalDate endDate) {
         CashFlowDTO dto = new CashFlowDTO();
         ProfitAndLossDTO pnl = getProfitAndLoss(startDate, endDate);
         dto.setNetIncome(pnl.getNetProfit());
 
-        // Cash flow changes from working capital
         String sql = """
             SELECT a.code,
                    COALESCE(SUM(jel.debit - jel.credit), 0) AS net_dr_change
@@ -244,9 +246,9 @@ public class ReportService {
                     String code = rs.getString("code");
                     BigDecimal change = rs.getBigDecimal("net_dr_change");
 
-                    if ("1200".equals(code)) arChange = change.negate();      // Increase in AR reduces cash
-                    if ("1300".equals(code)) invChange = change.negate();     // Increase in Inventory reduces cash
-                    if ("2100".equals(code)) apChange = change;               // Increase in AP increases cash
+                    if ("1200".equals(code)) arChange = change.negate();
+                    if ("1300".equals(code)) invChange = change.negate();
+                    if ("2100".equals(code)) apChange = change;
                 }
             }
 

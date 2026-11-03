@@ -167,16 +167,23 @@ public class AccountingController {
     }
 
     private void setupTrialBalanceTable() {
-        if (tblTrialBalance == null) return;
-        colTbCode.setCellValueFactory(new PropertyValueFactory<>("accountCode"));
-        colTbName.setCellValueFactory(new PropertyValueFactory<>("accountName"));
-        colTbType.setCellValueFactory(new PropertyValueFactory<>("accountType"));
-        colTbDebit.setCellValueFactory(new PropertyValueFactory<>("debit"));
-        colTbDebit.setCellFactory(tc -> moneyCellBlankZero());
-        colTbCredit.setCellValueFactory(new PropertyValueFactory<>("credit"));
-        colTbCredit.setCellFactory(tc -> moneyCellBlankZero());
-        tblTrialBalance.setItems(tbList);
-    }
+    if (tblTrialBalance == null) return;
+    // Records use accountCode()/debit() accessors — not getAccountCode().
+    // PropertyValueFactory cannot bind to records.
+    colTbCode.setCellValueFactory(cdf ->
+            new SimpleStringProperty(cdf.getValue().accountCode()));
+    colTbName.setCellValueFactory(cdf ->
+            new SimpleStringProperty(cdf.getValue().accountName()));
+    colTbType.setCellValueFactory(cdf ->
+            new SimpleStringProperty(cdf.getValue().accountType()));
+    colTbDebit.setCellValueFactory(cdf ->
+            new javafx.beans.property.SimpleObjectProperty<>(cdf.getValue().debit()));
+    colTbDebit.setCellFactory(tc -> moneyCellBlankZero());
+    colTbCredit.setCellValueFactory(cdf ->
+            new javafx.beans.property.SimpleObjectProperty<>(cdf.getValue().credit()));
+    colTbCredit.setCellFactory(tc -> moneyCellBlankZero());
+    tblTrialBalance.setItems(tbList);
+}
 
     private void setupBankReconciliation() {
         if (cmbReconAccount == null) return;

@@ -1,11 +1,13 @@
 package com.aceerp.controller;
 
-import com.aceerp.config.DatabaseConfig;
 import com.aceerp.model.SupplierBill;
 import com.aceerp.model.SupplierPayment;
 import com.aceerp.service.SupplierBillService;
 import com.aceerp.service.SupplierPaymentService;
+import com.aceerp.service.SupplierService;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.GlobalQuickAdd;
+import com.aceerp.util.SmartSearchHelper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -13,12 +15,7 @@ import javafx.scene.control.*;
 import javafx.util.StringConverter;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,7 +35,7 @@ public class SupplierPaymentController {
 
     @FXML private TextField paymentNumberField;
     @FXML private DatePicker paymentDatePicker;
-    @FXML private ComboBox<SimpleSupplier> supplierCombo;
+    @FXML private TextField supplierSearchField;
     @FXML private ComboBox<SupplierBill> billCombo;
     @FXML private TextField amountField;
     @FXML private ComboBox<String> methodCombo;
@@ -47,14 +44,16 @@ public class SupplierPaymentController {
 
     private final SupplierPaymentService paymentService = new SupplierPaymentService();
     private final SupplierBillService billService = new SupplierBillService();
+    private final SupplierService supplierService = new SupplierService();
 
     private final ObservableList<SupplierPayment> allPayments = FXCollections.observableArrayList();
     private SupplierPayment currentPayment;
+    private SimpleSupplier selectedSupplier;
 
     @FXML
     public void initialize() {
         setupListView();
-        loadSuppliers();
+        setupSupplierSearch();
 
         methodCombo.setItems(FXCollections.observableArrayList("BANK_TRANSFER", "CASH", "CHEQUE", "CREDIT_CARD"));
         methodCombo.setValue("BANK_TRANSFER");
@@ -74,16 +73,35 @@ public class SupplierPaymentController {
             }
         });
 
-        supplierCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                loadUnpaidBillsForSupplier(newVal.getId());
-            } else {
-                billCombo.getItems().clear();
-            }
-        });
-
         loadPayments();
         handleNewPayment();
+    }
+
+    private void setupSupplierSearch() {
+        SmartSearchHelper.setupEntitySearch(
+                supplierSearchField,
+                query -> supplierService.listAll().stream()
+                        .filter(s -> s.getName() != null
+                                && s.getName().toLowerCase().contains(query.toLowerCase().trim()))
+                        .map(s -> new SimpleSupplier(s.getId(), s.getName()))
+                        .collect(Collectors.toList()),
+                SimpleSupplier::getName,
+                this::selectSupplier,
+                typed -> GlobalQuickAdd.showSupplierDialog(typed,
+                        supplier -> selectSupplier(new SimpleSupplier(supplier.getId(), supplier.getName()))),
+                typed -> {
+                    if (selectedSupplier != null && !selectedSupplier.getName().equalsIgnoreCase(typed.trim())) {
+                        selectedSupplier = null;
+                        billCombo.getItems().clear();
+                    }
+                });
+    }
+
+    private void selectSupplier(SimpleSupplier supplier) {
+        if (supplier == null) return;
+        supplierSearchField.setText(supplier.getName());
+        selectedSupplier = supplier;
+        loadUnpaidBillsForSupplier(supplier.getId());
     }
 
     private void setupListView() {
@@ -126,19 +144,6 @@ public class SupplierPaymentController {
         ));
     }
 
-    private void loadSuppliers() {
-        List<SimpleSupplier> suppliers = new ArrayList<>();
-        String sql = "SELECT id, name FROM suppliers ORDER BY name ASC";
-        try (Connection conn = DatabaseConfig.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                suppliers.add(new SimpleSupplier(rs.getInt("id"), rs.getString("name")));
-            }
-        } catch (SQLException ignored) {}
-        supplierCombo.setItems(FXCollections.observableArrayList(suppliers));
-    }
-
     private void loadUnpaidBillsForSupplier(int supplierId) {
         List<SupplierBill> unpaid = billService.getAllBills().stream()
                 .filter(b -> b.getSupplierId() == supplierId && !"PAID".equalsIgnoreCase(b.getStatus()))
@@ -160,7 +165,10 @@ public class SupplierPaymentController {
         referenceNumberField.setText(p.getReferenceNumber() != null ? p.getReferenceNumber() : "");
         notesField.setText(p.getNotes() != null ? p.getNotes() : "");
 
-        supplierCombo.setDisable(true);
+        supplierSearchField.setText(p.getSupplierName() != null ? p.getSupplierName() : "");
+        selectedSupplier = new SimpleSupplier(p.getSupplierId(), p.getSupplierName());
+        loadUnpaidBillsForSupplier(selectedSupplier.getId());
+        supplierSearchField.setDisable(true);
         billCombo.setDisable(true);
         amountField.setEditable(false);
     }
@@ -174,10 +182,11 @@ public class SupplierPaymentController {
         amountField.clear();
         referenceNumberField.clear();
         notesField.clear();
-        supplierCombo.setValue(null);
+        supplierSearchField.clear();
+        selectedSupplier = null;
         billCombo.getItems().clear();
 
-        supplierCombo.setDisable(false);
+        supplierSearchField.setDisable(false);
         billCombo.setDisable(false);
         amountField.setEditable(true);
 
@@ -186,7 +195,7 @@ public class SupplierPaymentController {
 
     @FXML
     private void handleSave() {
-        if (supplierCombo.getValue() == null) {
+        if (selectedSupplier == null || selectedSupplier.getId() <= 0) {
             showAlert(Alert.AlertType.WARNING, "Validation", "Please select a Supplier.");
             return;
         }
@@ -203,8 +212,8 @@ public class SupplierPaymentController {
             return;
         }
 
-        currentPayment.setSupplierId(supplierCombo.getValue().getId());
-        currentPayment.setSupplierName(supplierCombo.getValue().getName());
+        currentPayment.setSupplierId(selectedSupplier.getId());
+        currentPayment.setSupplierName(selectedSupplier.getName());
 
         if (billCombo.getValue() != null) {
             currentPayment.setBillId(billCombo.getValue().getId());

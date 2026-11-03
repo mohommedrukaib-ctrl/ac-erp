@@ -63,7 +63,7 @@
 
                         <Label text="Customer:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
                         <HBox spacing="6" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                            <TextField fx:id="customerSearchField" promptText="Search customer..." HBox.hgrow="ALWAYS"/>
+                            <TextField fx:id="customerSearchField" promptText="Search or type customer name..." HBox.hgrow="ALWAYS"/>
                             <Button text="+" onAction="#handleQuickAddCustomer" styleClass="btn-secondary"/>
                         </HBox>
 

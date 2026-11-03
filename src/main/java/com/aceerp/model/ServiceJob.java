@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class ServiceJob {
     private int id;
     private String jobNumber;
@@ -14,8 +13,10 @@ public class ServiceJob {
     private String customerName;
     private Integer technicianId;
     private String technicianName;
-    private String jobType = "REPAIR"; // INSTALLATION, REPAIR, MAINTENANCE, GAS_REFILL
-    private String status = "PENDING"; // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+    private Integer amcContractId;       // Linked AMC Contract ID
+    private String amcContractNumber;   // AMC Contract Number for UI display
+    private String jobType = "REPAIR";  // INSTALLATION, REPAIR, MAINTENANCE, GAS_REFILL
+    private String status = "PENDING";  // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
     private LocalDate scheduledDate = LocalDate.now();
     private LocalDate completionDate;
     private String acModelInfo;
@@ -47,6 +48,12 @@ public class ServiceJob {
 
     public String getTechnicianName() { return technicianName; }
     public void setTechnicianName(String technicianName) { this.technicianName = technicianName; }
+
+    public Integer getAmcContractId() { return amcContractId; }
+    public void setAmcContractId(Integer amcContractId) { this.amcContractId = amcContractId; }
+
+    public String getAmcContractNumber() { return amcContractNumber; }
+    public void setAmcContractNumber(String amcContractNumber) { this.amcContractNumber = amcContractNumber; }
 
     public String getJobType() { return jobType; }
     public void setJobType(String jobType) { this.jobType = jobType; }

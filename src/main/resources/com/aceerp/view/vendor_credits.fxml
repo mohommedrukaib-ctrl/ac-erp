@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.aceerp.controller.VendorCreditController"
+      spacing="12" styleClass="content-pane">
+    <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Vendor Credit Memos" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <TextField fx:id="searchField" promptText="Search vendor credits..." prefWidth="220"/>
+        <Button text="＋ New Vendor Credit" onAction="#handleNewCredit" styleClass="btn-primary"/>
+    </HBox>
+
+    <SplitPane dividerPositions="0.32" VBox.vgrow="ALWAYS">
+        <VBox spacing="8">
+            <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+            <ListView fx:id="vendorCreditListView" VBox.vgrow="ALWAYS"/>
+        </VBox>
+
+        <VBox spacing="12">
+            <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+            <GridPane hgap="10" vgap="8">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="15"/>
+                    <ColumnConstraints percentWidth="35"/>
+                    <ColumnConstraints percentWidth="15"/>
+                    <ColumnConstraints percentWidth="35"/>
+                </columnConstraints>
+
+                <Label text="Credit #:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                <TextField fx:id="creditNumberField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                <Label text="Issue Date:" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                <DatePicker fx:id="issueDatePicker" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+
+                <Label text="Supplier:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                <TextField fx:id="supplierSearchField" promptText="Search or type supplier name..." GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                <Label text="Status:" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                <Label fx:id="lblStatus" text="OPEN" style="-fx-font-weight: bold;" GridPane.columnIndex="3" GridPane.rowIndex="1"/>
+
+                <Label text="Notes:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                <TextField fx:id="memoNotesField" promptText="Vendor credit reason..." GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3"/>
+            </GridPane>
+
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <Label text="Credit Lines" style="-fx-font-weight: bold;"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button text="+ Add Line" onAction="#handleAddLine" styleClass="btn-secondary"/>
+                <Button text="− Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>
+            </HBox>
+
+            <TableView fx:id="linesTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="colProduct" text="Description" prefWidth="250"/>
+                    <TableColumn fx:id="colQty" text="Qty" prefWidth="80"/>
+                    <TableColumn fx:id="colCost" text="Unit Cost" prefWidth="110"/>
+                    <TableColumn fx:id="colTaxRate" text="Tax %" prefWidth="80"/>
+                    <TableColumn fx:id="colTotal" text="Line Total" prefWidth="120"/>
+                </columns>
+            </TableView>
+
+            <HBox spacing="20" alignment="CENTER_RIGHT">
+                <Label text="Subtotal:"/>
+                <Label fx:id="lblSubtotal" text="0.00" style="-fx-font-weight: bold;"/>
+                <Label text="Tax:"/>
+                <Label fx:id="lblTax" text="0.00" style="-fx-font-weight: bold;"/>
+                <Label text="Total Credit:"/>
+                <Label fx:id="lblTotal" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
+                <Label text="Remaining Credit:"/>
+                <Label fx:id="lblRemaining" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2980b9;"/>
+                <Button text="Issue Vendor Credit" onAction="#handleSave" styleClass="btn-primary"/>
+            </HBox>
+        </VBox>
+    </SplitPane>
+</VBox>

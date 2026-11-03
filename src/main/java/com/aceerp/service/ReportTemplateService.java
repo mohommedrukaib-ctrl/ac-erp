@@ -91,6 +91,7 @@ public class ReportTemplateService {
         public int width;
         public int height;
         public int bandOffsetY;
+        public int bandHeight; // <--- NEW FIELD added for clamping
 
         @Override
         public String toString() {
@@ -353,6 +354,7 @@ public class ReportTemplateService {
                                 item.width = parseInt(reportElem.getAttribute("width"), 100);
                                 item.height = parseInt(reportElem.getAttribute("height"), 20);
                                 item.bandOffsetY = cumulativeBandY;
+                                item.bandHeight = bandHeight; // <--- SETTING THE VALUE
 
                                 String text = elem.getTextContent();
                                 if (text.contains("$P{COMPANY_LOGO}")) { item.key = "COMPANY_LOGO"; item.label = "Company Logo"; }
@@ -377,6 +379,7 @@ public class ReportTemplateService {
         }
         return items;
     }
+
 
     public String updateElementBounds(String jrxml, String elementKey, int x, int y, int width, int height) throws Exception {
         Document doc = parseDom(jrxml);
@@ -431,34 +434,45 @@ public class ReportTemplateService {
         return domToString(doc);
     }
 
-    private void toggleParamVisibilityDom(Document doc, String paramToken, boolean show) {
+        private void toggleParamVisibilityDom(Document doc, String paramToken, boolean show) {
         NodeList elements = doc.getElementsByTagName("*");
         for (int i = 0; i < elements.getLength(); i++) {
             Element elem = (Element) elements.item(i);
             String name = elem.getNodeName();
             if ("image".equals(name) || "textField".equals(name)) {
                 if (elem.getTextContent().contains(paramToken)) {
-                    Element printWhen = getSingleChild(elem, "printWhenExpression");
-                    String exprText = show ? "Boolean.TRUE" : "Boolean.FALSE";
+                    Element reportElem = getSingleChild(elem, "reportElement");
+                    if (reportElem != null) {
+                        Element printWhen = getSingleChild(reportElem, "printWhenExpression");
+                        String exprText = show ? "Boolean.TRUE" : "Boolean.FALSE";
 
-                    if (printWhen != null) {
-                        printWhen.setTextContent(exprText);
-                    } else {
-                        // Create printWhenExpression and insert AFTER reportElement & box to maintain XSD validity
-                        Element newPrintWhen = doc.createElement("printWhenExpression");
-                        newPrintWhen.setTextContent(exprText);
+                        if (printWhen != null) {
+                            // Jasper requires CDATA inside printWhenExpression
+                            while (printWhen.hasChildNodes()) {
+                                printWhen.removeChild(printWhen.getFirstChild());
+                            }
+                            printWhen.appendChild(doc.createCDATASection(exprText));
+                        } else {
+                            Element newPrintWhen = doc.createElement("printWhenExpression");
+                            newPrintWhen.appendChild(doc.createCDATASection(exprText));
 
-                        Element reportElem = getSingleChild(elem, "reportElement");
-                        Element boxElem = getSingleChild(elem, "box");
-
-                        Node refNode = boxElem != null ? boxElem.getNextSibling() : (reportElem != null ? reportElem.getNextSibling() : elem.getFirstChild());
-                        elem.insertBefore(newPrintWhen, refNode);
+                            // Strict XSD Ordering: MUST go after <property> tags, inside <reportElement>
+                            Node insertRef = reportElem.getFirstChild();
+                            while (insertRef != null && (insertRef.getNodeName().equals("property") || insertRef.getNodeName().equals("propertyExpression"))) {
+                                insertRef = insertRef.getNextSibling();
+                            }
+                            
+                            if (insertRef != null) {
+                                reportElem.insertBefore(newPrintWhen, insertRef);
+                            } else {
+                                reportElem.appendChild(newPrintWhen);
+                            }
+                        }
                     }
                 }
             }
         }
     }
-
     private Document parseDom(String jrxml) throws Exception {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(false);

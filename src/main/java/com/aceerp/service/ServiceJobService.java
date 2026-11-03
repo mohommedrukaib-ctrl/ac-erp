@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -21,10 +22,11 @@ public class ServiceJobService {
     public List<ServiceJob> getAllJobs() {
         List<ServiceJob> list = new ArrayList<>();
         String sql = """
-            SELECT sj.*, c.name AS customer_name, u.full_name AS technician_name
+            SELECT sj.*, c.name AS customer_name, u.full_name AS technician_name, amc.contract_number AS amc_contract_number
             FROM service_jobs sj
             LEFT JOIN customers c ON sj.customer_id = c.id
             LEFT JOIN users u ON sj.technician_id = u.id
+            LEFT JOIN amc_contracts amc ON sj.amc_contract_id = amc.id
             ORDER BY sj.id DESC
         """;
         try (Connection conn = DatabaseConfig.getInstance().getConnection();
@@ -43,10 +45,11 @@ public class ServiceJobService {
 
     public ServiceJob getById(int id) {
         String sql = """
-            SELECT sj.*, c.name AS customer_name, u.full_name AS technician_name
+            SELECT sj.*, c.name AS customer_name, u.full_name AS technician_name, amc.contract_number AS amc_contract_number
             FROM service_jobs sj
             LEFT JOIN customers c ON sj.customer_id = c.id
             LEFT JOIN users u ON sj.technician_id = u.id
+            LEFT JOIN amc_contracts amc ON sj.amc_contract_id = amc.id
             WHERE sj.id = ?
         """;
         try (Connection conn = DatabaseConfig.getInstance().getConnection();
@@ -67,13 +70,13 @@ public class ServiceJobService {
 
     private List<ServiceJobLine> getLinesForJob(Connection conn, int jobId) throws SQLException {
         List<ServiceJobLine> lines = new ArrayList<>();
-        String sql = """
-            SELECT sjl.*, p.code AS product_code, p.name AS product_name
-            FROM service_job_lines sjl
-            LEFT JOIN products p ON sjl.product_id = p.id
-            WHERE sjl.service_job_id = ?
-            ORDER BY sjl.id ASC
-        """;
+       String sql = """
+    SELECT sjl.*, p.product_code AS product_code, p.name AS product_name
+    FROM service_job_lines sjl
+    LEFT JOIN products p ON sjl.product_id = p.id
+    WHERE sjl.service_job_id = ?
+    ORDER BY sjl.id ASC
+""";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, jobId);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -83,14 +86,25 @@ public class ServiceJobService {
                     line.setServiceJobId(rs.getInt("service_job_id"));
 
                     int productId = rs.getInt("product_id");
-                    if (rs.wasNull()) {
+                    if (rs.wasNull() || productId <= 0) {
                         line.setProductId(0);
+                        String code = rs.getString("product_code");
+                        line.setProductCode(code != null && !code.isBlank() ? code : "MISC");
+                        
+                        String name = rs.getString("product_name");
+                        if (name != null && !name.isBlank()) {
+                            line.setProductName(name);
+                        } else {
+                            String notes = rs.getString("notes");
+                            line.setProductName(notes != null && !notes.isBlank() ? notes : "Custom Line");
+                        }
                     } else {
                         line.setProductId(productId);
+                        line.setProductCode(rs.getString("product_code"));
+                        line.setProductName(rs.getString("product_name"));
                     }
 
-                    line.setProductCode(rs.getString("product_code"));
-                    line.setProductName(rs.getString("product_name"));
+                    line.setSerialNumber(rs.getString("serial_number"));
                     line.setQuantity(rs.getInt("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
 
@@ -100,7 +114,6 @@ public class ServiceJobService {
 
                     BigDecimal total = rs.getBigDecimal("line_total");
                     line.setLineTotal(total != null ? total : BigDecimal.ZERO);
-                    // Ensure total reflects discount if DB value is stale
                     line.recalculateTotal();
                     lines.add(line);
                 }
@@ -116,22 +129,22 @@ public class ServiceJobService {
         String insertHeader = """
             INSERT INTO service_jobs (job_number, customer_id, technician_id, job_type, status,
                 scheduled_date, completion_date, ac_model_info, reported_issue, resolution_notes,
-                labor_cost, parts_total, grand_total, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                labor_cost, parts_total, grand_total, created_by, amc_contract_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
         """;
 
         String updateHeader = """
             UPDATE service_jobs SET customer_id=?, technician_id=?, job_type=?, status=?,
                 scheduled_date=?, completion_date=?, ac_model_info=?, reported_issue=?,
-                resolution_notes=?, labor_cost=?, parts_total=?, grand_total=?
+                resolution_notes=?, labor_cost=?, parts_total=?, grand_total=?, amc_contract_id=?
             WHERE id=?
         """;
 
         String deleteLines = "DELETE FROM service_job_lines WHERE service_job_id = ?";
         String insertLine = """
             INSERT INTO service_job_lines
-                (service_job_id, product_id, quantity, unit_price, discount_percent, notes, line_total)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                (service_job_id, product_id, quantity, unit_price, discount_percent, notes, line_total, serial_number)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """;
         String deductStock = "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?";
         String logStockMovement = """
@@ -177,6 +190,8 @@ public class ServiceJobService {
                         } else {
                             stmt.setNull(14, Types.INTEGER);
                         }
+                        setNullableInt(stmt, 15, job.getAmcContractId());
+                        
                         ResultSet rs = stmt.executeQuery();
                         if (rs.next()) {
                             job.setId(rs.getInt(1));
@@ -199,7 +214,8 @@ public class ServiceJobService {
                         stmt.setBigDecimal(10, job.getLaborCost());
                         stmt.setBigDecimal(11, job.getPartsTotal());
                         stmt.setBigDecimal(12, job.getGrandTotal());
-                        stmt.setInt(13, job.getId());
+                        setNullableInt(stmt, 13, job.getAmcContractId());
+                        stmt.setInt(14, job.getId());
                         stmt.executeUpdate();
                     }
 
@@ -224,11 +240,12 @@ public class ServiceJobService {
                         stmt.setBigDecimal(5, line.getDiscountPercent() != null ? line.getDiscountPercent() : BigDecimal.ZERO);
                         stmt.setString(6, line.getNotes());
                         stmt.setBigDecimal(7, line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
+                        stmt.setString(8, line.getSerialNumber());
                         stmt.executeUpdate();
                     }
                 }
 
-                // Auto-deduct inventory only when transitioning to COMPLETED
+                // Auto-deduct inventory & process technician commissions when transitioning to COMPLETED
                 if ("COMPLETED".equals(job.getStatus()) && !"COMPLETED".equals(previousStatus)) {
                     for (ServiceJobLine line : job.getLines()) {
                         if (line.getProductId() <= 0 || line.getQuantity() <= 0) continue;
@@ -246,6 +263,11 @@ public class ServiceJobService {
                             stmt.executeUpdate();
                         }
                     }
+
+                    // Calculate Commission for Technician
+                    if (job.getTechnicianId() != null && job.getTechnicianId() > 0) {
+                        calculateAndRecordCommission(conn, job);
+                    }
                 }
 
                 conn.commit();
@@ -258,6 +280,43 @@ public class ServiceJobService {
         } catch (SQLException e) {
             logger.error("DB connection error: {}", e.getMessage(), e);
             return false;
+        }
+    }
+
+    private void calculateAndRecordCommission(Connection conn, ServiceJob job) throws SQLException {
+        String queryUser = "SELECT commission_type, commission_rate FROM users WHERE id = ?";
+        String commType = "NONE";
+        BigDecimal commRate = BigDecimal.ZERO;
+
+        try (PreparedStatement ps = conn.prepareStatement(queryUser)) {
+            ps.setInt(1, job.getTechnicianId());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    commType = rs.getString("commission_type");
+                    commRate = rs.getBigDecimal("commission_rate");
+                }
+            }
+        }
+
+        if (commType == null || "NONE".equals(commType) || commRate == null || commRate.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
+        BigDecimal commAmount = BigDecimal.ZERO;
+        switch (commType) {
+            case "PERCENT_LABOR" -> commAmount = job.getLaborCost().multiply(commRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            case "PERCENT_TOTAL" -> commAmount = job.getGrandTotal().multiply(commRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            case "FLAT_RATE" -> commAmount = commRate;
+        }
+
+        if (commAmount.compareTo(BigDecimal.ZERO) > 0) {
+            String insertComm = "INSERT INTO technician_commissions (technician_id, service_job_id, commission_amount, status) VALUES (?, ?, ?, 'PENDING')";
+            try (PreparedStatement psComm = conn.prepareStatement(insertComm)) {
+                psComm.setInt(1, job.getTechnicianId());
+                psComm.setInt(2, job.getId());
+                psComm.setBigDecimal(3, commAmount);
+                psComm.executeUpdate();
+            }
         }
     }
 
@@ -290,6 +349,11 @@ public class ServiceJobService {
         int techId = rs.getInt("technician_id");
         if (!rs.wasNull()) job.setTechnicianId(techId);
         job.setTechnicianName(rs.getString("technician_name"));
+        
+        int amcId = rs.getInt("amc_contract_id");
+        if (!rs.wasNull()) job.setAmcContractId(amcId);
+        job.setAmcContractNumber(rs.getString("amc_contract_number"));
+
         job.setJobType(rs.getString("job_type"));
         job.setStatus(rs.getString("status"));
         Date sched = rs.getDate("scheduled_date");
@@ -311,11 +375,14 @@ public class ServiceJobService {
     }
 
     public String generateNextJobNumber(Connection conn) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM service_jobs";
+        String sql = "SELECT nextval(pg_get_serial_sequence('service_jobs', 'id'))";
         try (PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
-            long count = rs.next() ? rs.getLong(1) + 1 : 1;
-            return String.format("JOB-%06d", count);
+            if (rs.next()) {
+                long nextId = rs.getLong(1);
+                return String.format("JOB-%06d", nextId);
+            }
         }
+        throw new SQLException("Unable to generate the next service job number");
     }
 }

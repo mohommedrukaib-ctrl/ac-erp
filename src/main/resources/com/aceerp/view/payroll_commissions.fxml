@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.aceerp.controller.CommissionController"
+      spacing="12">
+    <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="Technician Commissions" styleClass="page-title"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <ComboBox fx:id="statusFilter" prefWidth="140"/>
+        <Button text="⟳ Refresh" onAction="#onRefresh" styleClass="btn-secondary"/>
+        <Button text="Mark Paid" onAction="#onMarkPaid" styleClass="btn-primary"/>
+    </HBox>
+
+    <Label fx:id="summaryLabel" styleClass="dashboard-label"/>
+
+    <TableView fx:id="commissionsTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colTech" text="Technician" prefWidth="180"/>
+            <TableColumn fx:id="colJob" text="Job #" prefWidth="120"/>
+            <TableColumn fx:id="colAmount" text="Amount" prefWidth="120"/>
+            <TableColumn fx:id="colStatus" text="Status" prefWidth="100"/>
+            <TableColumn fx:id="colCreated" text="Created" prefWidth="150"/>
+            <TableColumn fx:id="colPaid" text="Paid At" prefWidth="150"/>
+        </columns>
+    </TableView>
+</VBox>

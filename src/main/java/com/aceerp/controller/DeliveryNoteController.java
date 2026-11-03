@@ -119,15 +119,22 @@ public class DeliveryNoteController {
                         .collect(Collectors.toList()),
                 Customer::getName,
                 this::selectCustomer,
-                typedText -> GlobalQuickAdd.showCustomerDialog(typedText, this::selectCustomer)
+                typedText -> GlobalQuickAdd.showCustomerDialog(typedText, this::selectCustomer),
+                typed -> {
+                    if (selectedCustomer != null && (selectedCustomer.getName() == null
+                            || !selectedCustomer.getName().equalsIgnoreCase(typed.trim()))) {
+                        selectedCustomer = null;
+                        txtPhone.clear();
+                    }
+                }
         );
     }
 
     private void selectCustomer(Customer c) {
         if (c == null) return;
-        selectedCustomer = c;
         txtCustomerSearch.setText(c.getName());
         txtPhone.setText(c.getPhone() != null && !c.getPhone().isEmpty() ? c.getPhone() : "N/A");
+        selectedCustomer = c;
     }
 
     private void setupStatusCombo() {

@@ -423,7 +423,7 @@ public class SettingsController {
         }
     }
 
-    private Pane createDraggableBox(ReportTemplateService.ReportElementItem item, double scale) {
+        private Pane createDraggableBox(ReportTemplateService.ReportElementItem item, double scale) {
         Pane box = new Pane();
         double sx = item.x * scale;
         double sy = (item.bandOffsetY + item.y) * scale;
@@ -439,13 +439,11 @@ public class SettingsController {
         label.setStyle("-fx-font-size: 10px; -fx-text-fill: #1e3a8a; -fx-font-weight: bold; -fx-padding: 2;");
         box.getChildren().add(label);
 
-        // Resize handle at bottom-right
         Rectangle handle = new Rectangle(8, 8, Color.web("#2563eb"));
         handle.setX(sw - 8);
         handle.setY(sh - 8);
         box.getChildren().add(handle);
 
-        // Drag Handler
         box.setOnMousePressed(e -> {
             dragStartX = e.getSceneX();
             dragStartY = e.getSceneY();
@@ -453,9 +451,7 @@ public class SettingsController {
             elementStartY = item.y;
             elementStartW = item.width;
             elementStartH = item.height;
-            if (cmbSelectedElement != null) {
-                cmbSelectedElement.setValue(item);
-            }
+            if (cmbSelectedElement != null) cmbSelectedElement.setValue(item);
             highlightElementOnCanvas(item);
             e.consume();
         });
@@ -465,7 +461,10 @@ public class SettingsController {
             double dy = (e.getSceneY() - dragStartY) / scale;
 
             int newX = Math.max(0, elementStartX + (int) Math.round(dx));
-            int newY = Math.max(0, elementStartY + (int) Math.round(dy));
+            
+            // STRICT BAND CLAMPING: Lock element Y inside its parent band height
+            int maxY = Math.max(0, item.bandHeight - item.height);
+            int newY = Math.min(Math.max(0, elementStartY + (int) Math.round(dy)), maxY);
 
             item.x = newX;
             item.y = newY;
@@ -483,13 +482,15 @@ public class SettingsController {
             e.consume();
         });
 
-        // Resize Handler
         handle.setOnMouseDragged(e -> {
             double dw = (e.getSceneX() - dragStartX) / scale;
             double dh = (e.getSceneY() - dragStartY) / scale;
 
             int newW = Math.max(10, elementStartW + (int) Math.round(dw));
-            int newH = Math.max(10, elementStartH + (int) Math.round(dh));
+            
+            // STRICT HEIGHT CLAMPING: Lock element height inside parent band
+            int maxH = Math.max(10, item.bandHeight - item.y);
+            int newH = Math.min(Math.max(10, elementStartH + (int) Math.round(dh)), maxH);
 
             item.width = newW;
             item.height = newH;
@@ -822,5 +823,15 @@ public class SettingsController {
         a.setHeaderText(null);
         a.setContentText(content);
         a.showAndWait();
+    }
+
+        @FXML
+    private void handleOpenVisualEditor() {
+        try {
+            com.aceerp.util.VisualTemplateEditor.show();
+        } catch (Exception e) {
+            logger.error("Failed to open Full Visual Designer: {}", e.getMessage(), e);
+            showAlert(Alert.AlertType.ERROR, "Editor Error", "Could not launch the designer: " + e.getMessage());
+        }
     }
 }

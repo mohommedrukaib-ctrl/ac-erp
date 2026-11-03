@@ -83,7 +83,13 @@ public class GrnController {
                         .collect(Collectors.toList()),
                 Supplier::getName,
                 this::applySupplier,
-                typedText -> GlobalQuickAdd.showSupplierDialog(typedText, this::applySupplier)
+                typedText -> GlobalQuickAdd.showSupplierDialog(typedText, this::applySupplier),
+                typed -> {
+                    if (selectedSupplier != null && (selectedSupplier.getName() == null
+                            || !selectedSupplier.getName().equalsIgnoreCase(typed.trim()))) {
+                        selectedSupplier = null;
+                    }
+                }
         );
     }
 
@@ -173,12 +179,11 @@ public class GrnController {
     private void loadGrnToForm(GoodsReceivedNote grn) {
         currentGrn = grn;
         selectedPo = null;
-        selectedSupplier = grn.getSupplier();
-
         grnNumberField.setText(grn.getGrnNumber());
         receivedDatePicker.setValue(grn.getReceivedDate() != null ? grn.getReceivedDate() : LocalDate.now());
         poNumberField.setText(grn.getPoId() > 0 ? "PO #" + grn.getPoId() : "None (direct receipt)");
         supplierNameField.setText(grn.getSupplier() != null ? grn.getSupplier().getName() : "N/A");
+        selectedSupplier = grn.getSupplier();
         deliveryNoteRefField.setText(grn.getDeliveryNoteRef() != null ? grn.getDeliveryNoteRef() : "");
         notesField.setText(grn.getNotes() != null ? grn.getNotes() : "");
 
@@ -204,12 +209,12 @@ public class GrnController {
 
     private void applySupplier(Supplier supplier) {
         if (supplier == null) return;
+        supplierNameField.setText(supplier.getName());
         selectedSupplier = supplier;
         if (currentGrn != null) {
             currentGrn.setSupplierId(supplier.getId());
             currentGrn.setSupplier(supplier);
         }
-        supplierNameField.setText(supplier.getName());
     }
 
     @FXML
@@ -621,4 +626,3 @@ public class GrnController {
         alert.showAndWait();
     }
 }
-

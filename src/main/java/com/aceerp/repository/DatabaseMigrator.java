@@ -1,7 +1,6 @@
 package com.aceerp.repository;
 
 import com.aceerp.config.DatabaseConfig;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,48 +25,23 @@ public class DatabaseMigrator {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseMigrator.class);
 
     private static final String[] MIGRATION_FILES = {
-        "V001__initial_schema.sql",
-        "V002__add_audit_columns.sql",
-        "V003__add_stock_movements.sql",
-        "V004__add_sales_module.sql",
-        "V005__sales_order_delivery_workflow.sql",
-        "V006__fix_sales_columns.sql",
-        "V007__fix_line_columns.sql",
-        "V008__delivery_notes_and_payments.sql",
-        "V009__add_driver_fields.sql",
-        "V010__add_delivery_address.sql",
-        "V011__add_delivery_note_created_by.sql",
-        "V012__fix_delivery_note_trigger.sql",
-        "V013__recreate_delivery_notes_schema.sql",
-        "V014__add_stock_movement_reference_columns.sql",
-        "V015__purchase_orders_and_vat.sql",
-        "V016__vat_columns_all_docs.sql",
-        "V017__create_goods_received_notes.sql",
-        "V018__po_line_total.sql",
-        "V019__create_supplier_bills.sql",
-        "V020__supplier_payments_and_purchase_returns.sql",
-        "V021__accounting_schema.sql",
-        "V022__service_management.sql",
-        "V023__company_profile.sql",
-        "V024__audit_log_system.sql",
-        "V025__fix_schema_consistency.sql",
-        "V026__supplier_code_and_quote_date_fix.sql",
-        "V027__fix_report_and_service_job_columns.sql",
-        "V028__supplier_bills_column_fixes.sql",
-        "V029__fix_all_remaining_schema_mismatches.sql",
-        "V030__fix_status_grn_pr_dn_columns.sql",
-        "V031__fix_all_runtime_mismatches.sql",
-        "V032__fix_grn_stock_quantity_column.sql",
-        "V033__fix_stock_movements_movement_type.sql",
-        "V034__fix_purchase_return_lines_description.sql",
-        "V035__fix_purchase_return_lines_columns.sql",
-        "V036__line_discount_notes.sql",
-        "V037__po_bill_service_line_option_b.sql",
-        "V038__double_entry_gl_core.sql",
-        "V039__financial_statements_and_period_locks.sql",
-        "V040__bank_reconciliation.sql",
-        "V041__fixed_assets.sql"
-        
+        "V001__initial_schema.sql", "V002__add_audit_columns.sql", "V003__add_stock_movements.sql",
+        "V004__add_sales_module.sql", "V005__sales_order_delivery_workflow.sql", "V006__fix_sales_columns.sql",
+        "V007__fix_line_columns.sql", "V008__delivery_notes_and_payments.sql", "V009__add_driver_fields.sql",
+        "V010__add_delivery_address.sql", "V011__add_delivery_note_created_by.sql", "V012__fix_delivery_note_trigger.sql",
+        "V013__recreate_delivery_notes_schema.sql", "V014__add_stock_movement_reference_columns.sql", "V015__purchase_orders_and_vat.sql",
+        "V016__vat_columns_all_docs.sql", "V017__create_goods_received_notes.sql", "V018__po_line_total.sql",
+        "V019__create_supplier_bills.sql", "V020__supplier_payments_and_purchase_returns.sql", "V021__accounting_schema.sql",
+        "V022__service_management.sql", "V023__company_profile.sql", "V024__audit_log_system.sql",
+        "V025__fix_schema_consistency.sql", "V026__supplier_code_and_quote_date_fix.sql", "V027__fix_report_and_service_job_columns.sql",
+        "V028__supplier_bills_column_fixes.sql", "V029__fix_all_remaining_schema_mismatches.sql", "V030__fix_status_grn_pr_dn_columns.sql",
+        "V031__fix_all_runtime_mismatches.sql", "V032__fix_grn_stock_quantity_column.sql", "V033__fix_stock_movements_movement_type.sql",
+        "V034__fix_purchase_return_lines_description.sql", "V035__fix_purchase_return_lines_columns.sql", "V036__line_discount_notes.sql",
+        "V037__po_bill_service_line_option_b.sql", "V038__double_entry_gl_core.sql", "V039__financial_statements_and_period_locks.sql",
+        "V040__bank_reconciliation.sql", "V041__fixed_assets.sql", "V042__bill_of_materials_and_assemblies.sql",
+        "V043__credit_memos_and_vendor_credits.sql", "V044__multi_location_warehouses_and_stock_transfers.sql", "V045__hvac_job_costing_and_wip.sql",
+        "V046__allow_nullable_product_in_service_job_lines.sql",
+        "V047__hvac_enterprise_features.sql"
     };
 
     public void migrate() throws SQLException {
@@ -191,10 +165,6 @@ public class DatabaseMigrator {
         }
     }
 
-    /**
-     * Split a SQL string into individual statements.
-     * Splits on semicolons while respecting single quotes (') AND dollar quotes ($$).
-     */
     private List<String> splitSqlStatements(String sql) {
         List<String> statements = new ArrayList<>();
         StringBuilder current = new StringBuilder();
@@ -204,11 +174,10 @@ public class DatabaseMigrator {
         for (int i = 0; i < sql.length(); i++) {
             char c = sql.charAt(i);
 
-            // Handle $$ dollar quotes for PostgreSQL PL/pgSQL functions
             if (c == '$' && i + 1 < sql.length() && sql.charAt(i + 1) == '$' && !inSingleQuote) {
                 inDollarQuote = !inDollarQuote;
                 current.append("$$");
-                i++; // skip second dollar sign
+                i++;
                 continue;
             }
 

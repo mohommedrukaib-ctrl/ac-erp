@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.aceerp.controller.AmcContractController"
+      spacing="12">
+    <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Label text="AMC Contracts" styleClass="page-title"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <TextField fx:id="searchField" promptText="Search contract # or customer..." prefWidth="260"/>
+        <Button text="⟳ Refresh" onAction="#onRefresh" styleClass="btn-secondary"/>
+        <Button text="+ New Contract" onAction="#onAdd" styleClass="btn-primary"/>
+    </HBox>
+
+    <TableView fx:id="contractsTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colNumber" text="Contract #" prefWidth="130"/>
+            <TableColumn fx:id="colCustomer" text="Customer" prefWidth="200"/>
+            <TableColumn fx:id="colStart" text="Start" prefWidth="110"/>
+            <TableColumn fx:id="colEnd" text="End" prefWidth="110"/>
+            <TableColumn fx:id="colStatus" text="Status" prefWidth="100"/>
+            <TableColumn fx:id="colValue" text="Value" prefWidth="110"/>
+        </columns>
+    </TableView>
+
+    <HBox spacing="10">
+        <Button text="Edit" onAction="#onEdit" styleClass="btn-secondary"/>
+        <Button text="+ Add Visit Schedule" onAction="#onAddSchedule" styleClass="btn-secondary"/>
+        <Button text="Generate Quarterly Visits" onAction="#onGenerateQuarterly" styleClass="btn-secondary"/>
+    </HBox>
+
+    <Label text="Visit Schedule" style="-fx-font-weight: bold;"/>
+    <TableView fx:id="schedulesTable" prefHeight="180">
+        <columns>
+            <TableColumn fx:id="colSchedDate" text="Date" prefWidth="120"/>
+            <TableColumn fx:id="colSchedStatus" text="Status" prefWidth="100"/>
+            <TableColumn fx:id="colSchedJob" text="Job ID" prefWidth="80"/>
+            <TableColumn fx:id="colSchedNotes" text="Notes" prefWidth="280"/>
+        </columns>
+    </TableView>
+</VBox>

@@ -21,6 +21,8 @@ public class User {
     private String phone;
     private UserRole role;
     private boolean active;
+    private String commissionType = "NONE"; // NONE, PERCENT_LABOR, PERCENT_TOTAL, FLAT_RATE
+    private java.math.BigDecimal commissionRate = java.math.BigDecimal.ZERO;
     private LocalDateTime lastLogin;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -75,6 +77,27 @@ public class User {
     /**
      * Convenience method for displaying the role in TableView columns.
      */
+
+    public String getCommissionType() { return commissionType; }
+    public void setCommissionType(String commissionType) {
+        this.commissionType = commissionType != null ? commissionType : "NONE";
+    }
+
+    public java.math.BigDecimal getCommissionRate() { return commissionRate; }
+    public void setCommissionRate(java.math.BigDecimal commissionRate) {
+        this.commissionRate = commissionRate != null ? commissionRate : java.math.BigDecimal.ZERO;
+    }
+
+    public String getCommissionDisplay() {
+        if (commissionType == null || "NONE".equals(commissionType)) return "None";
+        String rate = commissionRate != null ? commissionRate.toPlainString() : "0";
+        return switch (commissionType) {
+            case "PERCENT_LABOR" -> rate + "% of Labor";
+            case "PERCENT_TOTAL" -> rate + "% of Total";
+            case "FLAT_RATE" -> rate + " flat";
+            default -> "None";
+        };
+    }
     public String getRoleDisplayName() {
         return role != null ? role.getDisplayName() : "";
     }

@@ -25,6 +25,7 @@ public class Product {
     private BigDecimal taxRate;    // e.g. 5.00 for 5%
     private int stockQuantity;
     private int minStockLevel;     // alert when stock drops below this
+    private int warrantyMonths;    // warranty duration in months (0 = no warranty)
     private boolean active;
     private Timestamp createdAt;
     private Timestamp updatedAt;
@@ -36,13 +37,13 @@ public class Product {
         this.active = true;
         this.stockQuantity = 0;
         this.minStockLevel = 0;
+        this.warrantyMonths = 0;
         this.sellingPrice = BigDecimal.ZERO;
         this.costPrice = BigDecimal.ZERO;
         this.taxRate = BigDecimal.ZERO;
     }
 
     // --- Getters and Setters ---
-    // Getter = read the value.  Setter = change the value.
 
     public int getId() {
         return id;
@@ -148,6 +149,14 @@ public class Product {
         this.minStockLevel = minStockLevel;
     }
 
+    public int getWarrantyMonths() {
+        return warrantyMonths;
+    }
+
+    public void setWarrantyMonths(int warrantyMonths) {
+        this.warrantyMonths = warrantyMonths;
+    }
+
     public boolean isActive() {
         return active;
     }
@@ -174,10 +183,6 @@ public class Product {
 
     // --- Helper methods (used by the controller for display) ---
 
-    /**
-     * Returns a human-readable product type.
-     * If productType is null or empty, shows "N/A".
-     */
     public String getTypeDisplay() {
         if (productType == null || productType.isBlank()) {
             return "N/A";
@@ -185,10 +190,6 @@ public class Product {
         return productType;
     }
 
-    /**
-     * Returns a status label for the table.
-     * Shows stock warning if quantity is at or below minimum.
-     */
     public String getStatusDisplay() {
         if (!active) {
             return "Inactive";

@@ -26,18 +26,20 @@
 
         <javafx.maven.plugin.version>0.0.8</javafx.maven.plugin.version>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
+        <maven.shade.plugin.version>3.5.1</maven.shade.plugin.version>
+        <exec.maven.plugin.version>3.1.1</exec.maven.plugin.version>
     </properties>
 
     <dependencies>
 
-        <!-- JavaFX Controls: Buttons, Tables, Text Fields, etc. -->
+        <!-- JavaFX Controls -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
             <version>${javafx.version}</version>
         </dependency>
 
-        <!-- JavaFX FXML: Load UI layouts from XML files -->
+        <!-- JavaFX FXML -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
@@ -51,54 +53,35 @@
             <version>${postgresql.version}</version>
         </dependency>
 
-                <!-- 
-            jBCrypt: Password hashing library
-            
-            BCrypt hashes passwords in a way that:
-            1. Cannot be reversed (one-way function)
-            2. Is intentionally slow (defeats brute-force attacks)
-            3. Includes a random salt (defeats rainbow table attacks)
-            4. Automatically includes the salt in the hash (easy to store)
-        -->
+        <!-- jBCrypt: Password hashing -->
         <dependency>
             <groupId>org.mindrot</groupId>
             <artifactId>jbcrypt</artifactId>
             <version>0.4</version>
         </dependency>
 
-                <!-- JasperReports for Printing -->
+        <!-- JasperReports for Printing -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
             <version>6.21.3</version>
         </dependency>
 
-        <!-- 
-            HikariCP: Database Connection Pool
-            
-            WHY DO WE NEED THIS?
-            Opening a database connection is slow (like starting a car engine).
-            A connection pool keeps several connections "running" and ready.
-            When your code needs the database, it borrows a connection from 
-            the pool, uses it, and returns it — much faster than opening 
-            a new connection every time.
-            
-            HikariCP is the fastest and most widely used Java connection pool.
-        -->
+        <!-- HikariCP: Connection pool -->
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
             <version>${hikaricp.version}</version>
         </dependency>
 
-        <!-- SLF4J API: Logging interface -->
+        <!-- SLF4J API -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
 
-        <!-- Logback: Logging implementation -->
+        <!-- Logback -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
@@ -109,6 +92,8 @@
 
     <build>
         <plugins>
+
+            <!-- Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -119,6 +104,7 @@
                 </configuration>
             </plugin>
 
+            <!-- JavaFX Run Plugin: mvn javafx:run -->
             <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
@@ -127,6 +113,88 @@
                     <mainClass>com.aceerp/com.aceerp.Launcher</mainClass>
                 </configuration>
             </plugin>
+
+            <!-- Shade Plugin: builds standalone fat JAR with all deps bundled -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven.shade.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>standalone</shadedClassifierName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.aceerp.Launcher</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Exec Plugin: runs jpackage to build Windows .exe installer -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec.maven.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>create-windows-installer</id>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>jpackage</executable>
+                            <arguments>
+                                <argument>--type</argument>
+                                <argument>exe</argument>
+                                <argument>--dest</argument>
+                                <argument>${project.build.directory}/installer</argument>
+                                <argument>--name</argument>
+                                <argument>ACE-ERP</argument>
+                                <argument>--app-version</argument>
+                                <argument>1.0.0</argument>
+                                <argument>--vendor</argument>
+                                <argument>ACE Air Conditioning</argument>
+                                <argument>--main-class</argument>
+                                <argument>com.aceerp.Launcher</argument>
+                                <argument>--main-jar</argument>
+                                <argument>${project.build.finalName}-standalone.jar</argument>
+                                <argument>--input</argument>
+                                <argument>${project.build.directory}</argument>
+                                <argument>--win-shortcut</argument>
+                                <argument>--win-menu</argument>
+                                <argument>--win-dir-chooser</argument>
+                                <argument>--win-menu-group</argument>
+                                <argument>ACE ERP</argument>
+                                <argument>--description</argument>
+                                <argument>ACE ERP Air Conditioning Management System</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 

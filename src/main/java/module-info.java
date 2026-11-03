@@ -2,7 +2,7 @@ module com.aceerp {
     requires javafx.controls;
     requires javafx.fxml;
     requires javafx.graphics;
-    requires java.sql;
+    requires transitive java.sql;
     requires java.desktop;
     requires com.zaxxer.hikari;
     requires org.slf4j;

@@ -16,6 +16,11 @@
     <HBox spacing="12" alignment="CENTER_LEFT">
         <Label text="Executive Business Reports" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
         <Region HBox.hgrow="ALWAYS"/>
+
+        <!-- NEW: Visual Template Editor Button -->
+        <Button text="🎨 Design Templates" onAction="#handleEditTemplates"
+                style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold;"/>
+
         <Label text="From:"/>
         <DatePicker fx:id="dpFrom" prefWidth="130"/>
         <Label text="To:"/>

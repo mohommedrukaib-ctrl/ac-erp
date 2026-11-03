@@ -72,7 +72,7 @@
 
                         <Label text="Supplier Name:" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
                         <HBox spacing="6" alignment="CENTER_LEFT" GridPane.columnIndex="3" GridPane.rowIndex="1">
-                            <TextField fx:id="supplierNameField" editable="false" promptText="Required" HBox.hgrow="ALWAYS"/>
+                            <TextField fx:id="supplierNameField" promptText="Search or type supplier name" HBox.hgrow="ALWAYS"/>
                             <Button text="Select" onAction="#handleSelectSupplier" styleClass="btn-secondary"/>
                             <Button text="+" onAction="#handleQuickAddSupplier" styleClass="btn-secondary" tooltip="$null">
                                 <tooltip>

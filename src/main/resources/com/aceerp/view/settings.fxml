@@ -260,7 +260,6 @@
         <!-- ===== REPORT DESIGN TAB ===== -->
         <Tab text="Report Design">
             <VBox spacing="0">
-                <!-- Scrollable controls (template pickers + visual style) -->
                 <ScrollPane fitToWidth="true" hbarPolicy="NEVER"
                             pannable="true"
                             minHeight="180" prefHeight="300" maxHeight="360">
@@ -302,7 +301,14 @@
                             <Button text="Open Templates Folder" onAction="#handleOpenTemplatesFolder" styleClass="btn-secondary"/>
                         </HBox>
 
-                        <Label text="Visual Style &amp; Layout Designer" styleClass="section-title"/>
+                        <!-- NEW: Full Window Designer Launch Button -->
+                        <HBox alignment="CENTER_LEFT" spacing="10" style="-fx-padding: 10 0 5 0;">
+                            <Label text="Visual Style &amp; Layout Designer" styleClass="section-title"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button text="🎨 Open Full Visual Designer (New Window)" onAction="#handleOpenVisualEditor"
+                                    style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 6 12;"/>
+                        </HBox>
+                        
                         <GridPane hgap="10" vgap="8">
                             <columnConstraints>
                                 <ColumnConstraints minWidth="110" prefWidth="120"/>
@@ -361,7 +367,6 @@
                             <Button text="↺ Reset Style Defaults" onAction="#handleResetVisualStyle" styleClass="btn-secondary"/>
                         </HBox>
 
-                        <!-- Selected Element Inspector Bar -->
                         <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-background-color: #f3f4f6; -fx-padding: 8; -fx-background-radius: 4;">
                             <Label text="Selected Element:" styleClass="field-label"/>
                             <ComboBox fx:id="cmbSelectedElement" prefWidth="200" promptText="Click canvas box or select..."/>
@@ -388,7 +393,6 @@
                     </VBox>
                 </ScrollPane>
 
-                <!-- Editor + Preview always visible and takes remaining height -->
                 <SplitPane VBox.vgrow="ALWAYS" dividerPositions="0.45" minHeight="280">
                     <VBox spacing="6">
                         <padding><Insets top="8" right="8" bottom="8" left="16"/></padding>

@@ -1,6 +1,5 @@
-    package com.aceerp.service;
+package com.aceerp.service;
 
-  
 import com.aceerp.model.UserRole;
 import com.aceerp.model.UserSession;
 import org.slf4j.Logger;
@@ -24,20 +23,25 @@ public class NavigationService {
         navItems.put("suppliers",        new NavItem("Suppliers",         "🏭", "suppliers.fxml",         UserRole.USER));
         navItems.put("products",         new NavItem("Products",          "📦", "products.fxml",          UserRole.USER));
         navItems.put("inventory",        new NavItem("Inventory",         "🏬", "inventory.fxml",         UserRole.USER));
+        navItems.put("stock_transfers",  new NavItem("Stock Transfers",   "🚚", "stock_transfers.fxml",   UserRole.USER));
         navItems.put("quotations",       new NavItem("Quotations",        "📋", "quotations.fxml",        UserRole.USER));
         navItems.put("sales_orders",     new NavItem("Sales Orders",      "📦", "sales_orders.fxml",      UserRole.USER));
         navItems.put("delivery_notes",   new NavItem("Delivery Notes",    "🚚", "delivery_notes.fxml",    UserRole.USER));
         navItems.put("invoices",         new NavItem("Invoices",          "📄", "invoices.fxml",          UserRole.USER));
+        navItems.put("credit_memos",     new NavItem("Credit Memos",      "🏷️", "credit_memos.fxml",      UserRole.USER));
 
         // Purchasing Cycle
         navItems.put("purchases",        new NavItem("Purchases",         "🛒", "purchase_orders.fxml",   UserRole.USER));
         navItems.put("GRN",              new NavItem("GRN",              "🚚", "GRN.fxml",               UserRole.USER));
         navItems.put("supplier_bills",   new NavItem("Supplier Bills",    "📑", "supplier_bills.fxml",    UserRole.USER));
         navItems.put("supplier_payments",new NavItem("Supplier Payments", "💳", "supplier_payments.fxml", UserRole.USER));
+        navItems.put("vendor_credits",   new NavItem("Vendor Credits",    "🔖", "vendor_credits.fxml",    UserRole.USER));
         navItems.put("purchase_returns", new NavItem("Purchase Returns",  "↩️", "purchase_returns.fxml",  UserRole.USER));
 
         // Operations, Financials & Analytics
         navItems.put("services",         new NavItem("Services",          "🔧", "services.fxml",          UserRole.TECHNICIAN));
+         navItems.put("amc_contracts",       new NavItem("AMC Contracts",     "📅", "amc_contracts.fxml",       UserRole.USER));
+        navItems.put("payroll_commissions", new NavItem("Commissions",       "💵", "payroll_commissions.fxml", UserRole.MANAGER));
         navItems.put("fixed_assets",     new NavItem("Fixed Assets",      "🚚", "fixed_assets.fxml",      UserRole.MANAGER));
         navItems.put("accounting",       new NavItem("Accounting",        "💰", "accounting.fxml",        UserRole.MANAGER));
         navItems.put("reports",          new NavItem("Reports",           "📊", "reports.fxml",           UserRole.MANAGER));

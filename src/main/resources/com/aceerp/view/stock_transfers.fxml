@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.aceerp.controller.StockTransferController"
+      spacing="12" styleClass="content-pane">
+    <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+    <Label text="Warehouse &amp; Van Stock Transfers" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+
+    <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
+        <Tab text="New Stock Transfer">
+            <VBox spacing="10">
+                <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+
+                <HBox spacing="15" alignment="CENTER_LEFT">
+                    <Label text="Source Location:" style="-fx-font-weight: bold;"/>
+                    <ComboBox fx:id="cmbSourceWh" prefWidth="200"/>
+                    <Label text="Destination Location:" style="-fx-font-weight: bold;"/>
+                    <ComboBox fx:id="cmbDestWh" prefWidth="200"/>
+                    <Label text="Date:" style="-fx-font-weight: bold;"/>
+                    <DatePicker fx:id="dpTransferDate" prefWidth="130"/>
+                </HBox>
+
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Transfer Notes:" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="txtTransferNotes" promptText="Reason / Van restock memo..." HBox.hgrow="ALWAYS"/>
+                </HBox>
+
+                <HBox spacing="8" alignment="CENTER_LEFT">
+                    <Label text="Items to Transfer" style="-fx-font-weight: bold;"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button text="+ Add Product" onAction="#handleAddProduct" styleClass="btn-secondary"/>
+                    <Button text="− Remove Line" onAction="#handleRemoveProduct" styleClass="btn-danger"/>
+                </HBox>
+
+                <TableView fx:id="tblLines" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colProductCode" text="Code" prefWidth="110"/>
+                        <TableColumn fx:id="colProductName" text="Product Name" prefWidth="280"/>
+                        <TableColumn fx:id="colQty" text="Qty Transferred" prefWidth="120"/>
+                        <TableColumn fx:id="colNotes" text="Notes" prefWidth="200"/>
+                    </columns>
+                </TableView>
+
+                <HBox alignment="CENTER_RIGHT">
+                    <Button text="🚚 Execute Stock Transfer" onAction="#handleExecuteTransfer" styleClass="btn-primary" style="-fx-font-size: 14px; -fx-padding: 8 20;"/>
+                </HBox>
+            </VBox>
+        </Tab>
+
+        <Tab text="Transfer History">
+            <VBox spacing="10">
+                <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                <TableView fx:id="tblHistory" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colHistNumber" text="Transfer #" prefWidth="120"/>
+                        <TableColumn fx:id="colHistDate" text="Date" prefWidth="100"/>
+                        <TableColumn fx:id="colHistSource" text="Source Location" prefWidth="200"/>
+                        <TableColumn fx:id="colHistDest" text="Destination Location" prefWidth="200"/>
+                        <TableColumn fx:id="colHistStatus" text="Status" prefWidth="110"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+    </TabPane>
+</VBox>

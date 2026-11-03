@@ -14,6 +14,7 @@ import java.util.List;
 
 /**
  * Service to supply real-time business metrics and chart datasets for the ACE ERP Dashboard.
+ * Includes HVAC enterprise metrics: Active AMC Contracts, Upcoming AMC Visits, Pending Commissions.
  */
 public class DashboardService {
 
@@ -31,6 +32,9 @@ public class DashboardService {
         double outstandingBalance = 0.0;
         int pendingServiceJobs = 0;
         int lowStockProducts = 0;
+        int activeAmcContracts = 0;
+        int upcomingAmcVisits = 0;
+        double pendingCommissions = 0.0;
         List<DashboardStats.MonthlySales> monthlySalesList = new ArrayList<>();
         List<DashboardStats.JobStatusCount> jobStatusList = new ArrayList<>();
 
@@ -52,7 +56,7 @@ public class DashboardService {
                 if (rs.next()) invoices = rs.getInt(1);
             }
 
-            // 4. Monthly revenue for paid/partially paid invoices in current month
+            // 4. Monthly revenue
             String revenueSql = """
                 SELECT COALESCE(SUM(total_amount), 0) FROM invoices
                 WHERE status IN ('PAID', 'PARTIAL')
@@ -62,7 +66,7 @@ public class DashboardService {
                 if (rs.next()) revenue = rs.getDouble(1);
             }
 
-            // 5. Open Invoices count & Outstanding Balance
+            // 5. Open Invoices
             String openInvoicesSql = """
                 SELECT COUNT(*), COALESCE(SUM(total_amount - COALESCE(paid_amount, 0)), 0)
                 FROM invoices
@@ -75,19 +79,19 @@ public class DashboardService {
                 }
             }
 
-            // 6. Pending or Active Service Jobs
+            // 6. Pending Service Jobs
             String activeJobsSql = "SELECT COUNT(*) FROM service_jobs WHERE status IN ('PENDING', 'IN_PROGRESS', 'SCHEDULED')";
             try (ResultSet rs = stmt.executeQuery(activeJobsSql)) {
                 if (rs.next()) pendingServiceJobs = rs.getInt(1);
             }
 
-            // 7. Low Stock Products Count
+            // 7. Low Stock
             String lowStockSql = "SELECT COUNT(*) FROM products WHERE is_active = TRUE AND stock_quantity <= 5";
             try (ResultSet rs = stmt.executeQuery(lowStockSql)) {
                 if (rs.next()) lowStockProducts = rs.getInt(1);
             }
 
-            // 8. 6-Month Sales Revenue Trend Data
+            // 8. 6-Month Sales Trend
             String salesTrendSql = """
                 SELECT TO_CHAR(COALESCE(invoice_date, CURRENT_DATE), 'Mon YY') AS month_label,
                        DATE_TRUNC('month', COALESCE(invoice_date, CURRENT_DATE)) AS month_date,
@@ -107,7 +111,7 @@ public class DashboardService {
                 }
             }
 
-            // 9. Service Job Status Breakdown for PieChart
+            // 9. Service Job Status Breakdown
             String jobStatusSql = "SELECT status, COUNT(*) FROM service_jobs GROUP BY status";
             try (ResultSet rs = stmt.executeQuery(jobStatusSql)) {
                 while (rs.next()) {
@@ -118,6 +122,27 @@ public class DashboardService {
                 }
             }
 
+            // 10. Active AMC Contracts
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM amc_contracts WHERE status = 'ACTIVE'")) {
+                if (rs.next()) activeAmcContracts = rs.getInt(1);
+            }
+
+            // 11. Upcoming AMC Visits (next 30 days)
+            String upcomingAmcSql = """
+                SELECT COUNT(*) FROM amc_schedules
+                WHERE status = 'SCHEDULED'
+                  AND scheduled_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
+            """;
+            try (ResultSet rs = stmt.executeQuery(upcomingAmcSql)) {
+                if (rs.next()) upcomingAmcVisits = rs.getInt(1);
+            }
+
+            // 12. Pending Technician Commissions
+            try (ResultSet rs = stmt.executeQuery(
+                    "SELECT COALESCE(SUM(commission_amount), 0) FROM technician_commissions WHERE status = 'PENDING'")) {
+                if (rs.next()) pendingCommissions = rs.getDouble(1);
+            }
+
         } catch (SQLException e) {
             logger.error("Failed to fetch dashboard stats: {}", e.getMessage(), e);
             return DashboardStats.empty();
@@ -126,6 +151,7 @@ public class DashboardService {
         return new DashboardStats(
             customers, products, invoices, revenue,
             openInvoices, outstandingBalance, pendingServiceJobs, lowStockProducts,
+            activeAmcContracts, upcomingAmcVisits, pendingCommissions,
             monthlySalesList, jobStatusList
         );
     }

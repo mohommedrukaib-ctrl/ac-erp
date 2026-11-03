@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" name="TechnicianPayslip" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="40" bottomMargin="40" uuid="bb222">
+    <parameter name="TECH_ID" class="java.lang.Integer"/>
+    <parameter name="COMPANY_NAME" class="java.lang.String"/>
+    <queryString>
+        <![CDATA[
+            SELECT u.full_name, t.job_number, t.commission_amount, t.status, t.created_at
+            FROM technician_commissions t
+            JOIN users u ON t.technician_id = u.id
+            WHERE t.technician_id = $P{TECH_ID} AND t.status = 'PENDING'
+            ORDER BY t.created_at DESC
+        ]]>
+    </queryString>
+    <field name="full_name" class="java.lang.String"/>
+    <field name="job_number" class="java.lang.String"/>
+    <field name="commission_amount" class="java.math.BigDecimal"/>
+    <field name="created_at" class="java.sql.Timestamp"/>
+    <variable name="TotalCommission" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{commission_amount}]]></variableExpression>
+    </variable>
+    <title>
+        <band height="80">
+            <textField><reportElement x="0" y="0" width="535" height="30" uuid="tp1"/><textElement textAlignment="Center"><font size="18" isBold="true"/></textElement><textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression></textField>
+            <staticText><reportElement x="0" y="30" width="535" height="30" uuid="tp2"/><textElement textAlignment="Center"><font size="14" isBold="true" isUnderline="true"/></textElement><text><![CDATA[TECHNICIAN COMMISSION PAYSLIP (PENDING)]]></text></staticText>
+        </band>
+    </title>
+    <pageHeader>
+        <band height="40">
+            <textField><reportElement x="0" y="10" width="300" height="20" uuid="tp3"/><textElement><font size="12" isBold="true"/></textElement><textFieldExpression><![CDATA["Technician: " + $F{full_name}]]></textFieldExpression></textField>
+        </band>
+    </pageHeader>
+    <columnHeader>
+        <band height="20">
+            <staticText><reportElement x="0" y="0" width="150" height="20" uuid="ch1"/><textElement><font isBold="true"/></textElement><text><![CDATA[Date Earned]]></text></staticText>
+            <staticText><reportElement x="150" y="0" width="200" height="20" uuid="ch2"/><textElement><font isBold="true"/></textElement><text><![CDATA[Job Number]]></text></staticText>
+            <staticText><reportElement x="350" y="0" width="185" height="20" uuid="ch3"/><textElement textAlignment="Right"><font isBold="true"/></textElement><text><![CDATA[Commission Amt]]></text></staticText>
+        </band>
+    </columnHeader>
+    <detail>
+        <band height="20">
+            <textField pattern="dd/MM/yyyy"><reportElement x="0" y="0" width="150" height="20" uuid="dt1"/><textFieldExpression><![CDATA[$F{created_at}]]></textFieldExpression></textField>
+            <textField><reportElement x="150" y="0" width="200" height="20" uuid="dt2"/><textFieldExpression><![CDATA[$F{job_number}]]></textFieldExpression></textField>
+            <textField pattern="¤ #,##0.00"><reportElement x="350" y="0" width="185" height="20" uuid="dt3"/><textElement textAlignment="Right"/></textFieldExpression><textFieldExpression><![CDATA[$F{commission_amount}]]></textFieldExpression></textField>
+        </band>
+    </detail>
+    <summary>
+        <band height="50">
+            <staticText><reportElement x="200" y="20" width="150" height="20" uuid="s1"/><textElement textAlignment="Right"><font size="14" isBold="true"/></textElement><text><![CDATA[Total Payable:]]></text></staticText>
+            <textField pattern="¤ #,##0.00"><reportElement x="350" y="20" width="185" height="20" uuid="s2"/><textElement textAlignment="Right"><font size="14" isBold="true" forecolor="#27AE60"/></textElement><textFieldExpression><![CDATA[$V{TotalCommission}]]></textFieldExpression></textField>
+        </band>
+    </summary>
+</jasperReport>

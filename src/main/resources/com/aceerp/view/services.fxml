@@ -21,80 +21,200 @@
     </VBox>
 
     <!-- Right Detail Form Pane -->
-    <VBox spacing="15">
-        <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
-        <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent;">
-            <VBox spacing="15">
-                <HBox spacing="15" alignment="CENTER_LEFT">
-                    <Label text="Job Number:" style="-fx-font-weight: bold;"/>
-                    <TextField fx:id="txtJobNumber" editable="false" prefWidth="130"/>
-                    <Label text="Job Type:" style="-fx-font-weight: bold;"/>
-                    <ComboBox fx:id="cmbJobType" prefWidth="150"/>
-                    <Label text="Status:" style="-fx-font-weight: bold;"/>
-                    <ComboBox fx:id="cmbStatus" prefWidth="130"/>
-                </HBox>
+    <VBox spacing="10">
+        <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
 
-                <GridPane hgap="10" vgap="10">
-                    <Label text="Customer:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                    <HBox spacing="10" alignment="CENTER_LEFT" GridPane.rowIndex="0" GridPane.columnIndex="1">
-                        <Label fx:id="lblCustomerName" text="No Customer Selected" style="-fx-font-weight: bold;"/>
-                        <Button fx:id="btnSelectCustomer" text="Select..." onAction="#handleSelectCustomer" styleClass="btn-secondary"/>
-                    </HBox>
+        <TabPane fx:id="detailTabs" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
 
-                    <Label text="Assigned Technician:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                    <ComboBox fx:id="cmbTechnician" prefWidth="250" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+            <!-- ==================== JOB DETAILS TAB ==================== -->
+            <Tab text="Job Details">
+                <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;">
+                    <VBox spacing="15">
+                        <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
 
-                    <Label text="Scheduled Date:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-                    <DatePicker fx:id="dpScheduledDate" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        <HBox spacing="15" alignment="CENTER_LEFT">
+                            <Label text="Job Number:" style="-fx-font-weight: bold;"/>
+                            <TextField fx:id="txtJobNumber" editable="false" prefWidth="130"/>
+                            <Label text="Job Type:" style="-fx-font-weight: bold;"/>
+                            <ComboBox fx:id="cmbJobType" prefWidth="150"/>
+                            <Label text="Status:" style="-fx-font-weight: bold;"/>
+                            <ComboBox fx:id="cmbStatus" prefWidth="130"/>
+                        </HBox>
 
-                    <Label text="Completion Date:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-                    <DatePicker fx:id="dpCompletionDate" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                        <GridPane hgap="10" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="120"/>
+                                <ColumnConstraints minWidth="180"/>
+                                <ColumnConstraints minWidth="100"/>
+                                <ColumnConstraints minWidth="140"/>
+                                <ColumnConstraints minWidth="80"/>
+                            </columnConstraints>
 
-                    <Label text="AC Model / Info:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
-                    <TextField fx:id="txtAcModelInfo" promptText="e.g. Daikin 1.5 Ton Split AC" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
-                </GridPane>
+                            <Label text="Customer Name:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <TextField fx:id="txtCustomerName" promptText="Search or type customer name..." GridPane.rowIndex="0" GridPane.columnIndex="1"/>
 
-                <VBox spacing="5">
-                    <Label text="Reported Issue:" style="-fx-font-weight: bold;"/>
-                    <TextArea fx:id="txtReportedIssue" prefRowCount="3" promptText="Customer complaint or issue details..."/>
-                </VBox>
+                            <Label text="Phone Number:" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                            <TextField fx:id="txtCustomerPhone" promptText="Enter phone..." GridPane.rowIndex="0" GridPane.columnIndex="3"/>
 
-                <VBox spacing="5">
-                    <Label text="Resolution / Service Notes:" style="-fx-font-weight: bold;"/>
-                    <TextArea fx:id="txtResolutionNotes" prefRowCount="3" promptText="Technician findings and repairs performed..."/>
-                </VBox>
+                            <Button fx:id="btnSelectCustomer" text="Select..." onAction="#handleSelectCustomer" styleClass="btn-secondary" GridPane.rowIndex="0" GridPane.columnIndex="4"/>
 
-                <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Label text="Spare Parts &amp; Materials Used" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
-                    <Region HBox.hgrow="ALWAYS"/>
-                    <Button fx:id="btnMoveUp" text="↑" onAction="#handleMoveUp" styleClass="btn-secondary" prefWidth="36"/>
-                    <Button fx:id="btnMoveDown" text="↓" onAction="#handleMoveDown" styleClass="btn-secondary" prefWidth="36"/>
-                    <Button fx:id="btnAddPart" text="+ Add Part" onAction="#handleAddPart" styleClass="btn-secondary"/>
-                </HBox>
+                            <Label text="Assigned Technician:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <ComboBox fx:id="cmbTechnician" prefWidth="250" GridPane.rowIndex="1" GridPane.columnIndex="1" GridPane.columnSpan="4"/>
 
-                <TableView fx:id="linesTable" prefHeight="200">
-                    <columns>
-                        <TableColumn fx:id="colPartCode" text="Part Code" prefWidth="100"/>
-                        <TableColumn fx:id="colPartName" text="Part Name" prefWidth="180"/>
-                        <TableColumn fx:id="colQty" text="Qty" prefWidth="60"/>
-                        <TableColumn fx:id="colUnitPrice" text="Unit Price" prefWidth="95"/>
-                        <TableColumn fx:id="colDisc" text="Disc %" prefWidth="70"/>
-                        <TableColumn fx:id="colNotes" text="Notes" prefWidth="140"/>
-                        <TableColumn fx:id="colLineTotal" text="Total" prefWidth="95"/>
-                        <TableColumn fx:id="colAction" text="" prefWidth="50"/>
-                    </columns>
-                </TableView>
+                            <Label text="Scheduled Date:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <DatePicker fx:id="dpScheduledDate" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
 
-                <HBox spacing="20" alignment="CENTER_RIGHT">
-                    <Label text="Labor Cost:" style="-fx-font-weight: bold;"/>
-                    <TextField fx:id="txtLaborCost" prefWidth="120" text="0.00"/>
-                    <Label text="Parts Total:" style="-fx-font-weight: bold;"/>
-                    <Label fx:id="lblPartsTotal" text="0.00" style="-fx-font-weight: bold;"/>
-                    <Label text="Grand Total:" style="-fx-font-weight: bold; -fx-font-size: 16px;"/>
-                    <Label fx:id="lblGrandTotal" text="0.00" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
-                </HBox>
-            </VBox>
-        </ScrollPane>
+                            <Label text="Completion Date:" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                            <DatePicker fx:id="dpCompletionDate" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                            <Label text="AC Model / Info:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                            <TextField fx:id="txtAcModelInfo" promptText="e.g. Daikin 1.5 Ton Split AC" GridPane.rowIndex="4" GridPane.columnIndex="1" GridPane.columnSpan="4"/>
+                        </GridPane>
+
+                        <VBox spacing="5">
+                            <Label text="Reported Issue:" style="-fx-font-weight: bold;"/>
+                            <TextArea fx:id="txtReportedIssue" prefRowCount="3" promptText="Customer complaint or issue details..."/>
+                        </VBox>
+
+                        <VBox spacing="5">
+                            <Label text="Resolution / Service Notes:" style="-fx-font-weight: bold;"/>
+                            <TextArea fx:id="txtResolutionNotes" prefRowCount="3" promptText="Technician findings and repairs performed..."/>
+                        </VBox>
+
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label text="Spare Parts &amp; Materials Used" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="btnMoveUp" text="&#8593;" onAction="#handleMoveUp" styleClass="btn-secondary" prefWidth="36"/>
+                            <Button fx:id="btnMoveDown" text="&#8595;" onAction="#handleMoveDown" styleClass="btn-secondary" prefWidth="36"/>
+                            <Button fx:id="btnAddPart" text="+ Add Product" onAction="#handleAddPart" styleClass="btn-secondary"/>
+                            <Button fx:id="btnAddEmptyLine" text="+ Empty Line" onAction="#handleAddEmptyLine" styleClass="btn-secondary"/>
+                        </HBox>
+
+                        <TableView fx:id="linesTable" prefHeight="200">
+                            <columns>
+                                <TableColumn fx:id="colPartCode" text="Part Code" prefWidth="100"/>
+                                <TableColumn fx:id="colPartName" text="Part Name" prefWidth="180"/>
+                                <TableColumn fx:id="colQty" text="Qty" prefWidth="60"/>
+                                <TableColumn fx:id="colUnitPrice" text="Unit Price" prefWidth="95"/>
+                                <TableColumn fx:id="colDisc" text="Disc %" prefWidth="70"/>
+                                <TableColumn fx:id="colNotes" text="Notes" prefWidth="140"/>
+                                <TableColumn fx:id="colLineTotal" text="Total" prefWidth="95"/>
+                                <TableColumn fx:id="colAction" text="" prefWidth="50"/>
+                            </columns>
+                        </TableView>
+
+                        <HBox spacing="20" alignment="CENTER_RIGHT">
+                            <Label text="Labor Cost:" style="-fx-font-weight: bold;"/>
+                            <TextField fx:id="txtLaborCost" prefWidth="120" text="0.00"/>
+                            <Label text="Parts Total:" style="-fx-font-weight: bold;"/>
+                            <Label fx:id="lblPartsTotal" text="0.00" style="-fx-font-weight: bold;"/>
+                            <Label text="Grand Total:" style="-fx-font-weight: bold; -fx-font-size: 16px;"/>
+                            <Label fx:id="lblGrandTotal" text="0.00" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
+                        </HBox>
+                    </VBox>
+                </ScrollPane>
+            </Tab>
+
+            <!-- ==================== COSTING & PROFITABILITY TAB ==================== -->
+            <Tab text="Costing &amp; Profitability">
+                <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;">
+                    <VBox spacing="16">
+                        <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
+
+                        <!-- Budget -->
+                        <Label text="Job Cost Budget" style="-fx-font-size: 15px; -fx-font-weight: bold;"/>
+                        <GridPane hgap="12" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="140" halignment="RIGHT"/>
+                                <ColumnConstraints minWidth="140"/>
+                                <ColumnConstraints minWidth="140" halignment="RIGHT"/>
+                                <ColumnConstraints minWidth="140"/>
+                            </columnConstraints>
+
+                            <Label text="Materials:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <TextField fx:id="txtBudgetMaterials" prefWidth="130" promptText="0.00" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                            <Label text="Labor:" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                            <TextField fx:id="txtBudgetLabor" prefWidth="130" promptText="0.00" GridPane.rowIndex="0" GridPane.columnIndex="3"/>
+
+                            <Label text="Equipment:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <TextField fx:id="txtBudgetEquipment" prefWidth="130" promptText="0.00" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <Label text="Subcontractor:" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                            <TextField fx:id="txtBudgetSubcontractor" prefWidth="130" promptText="0.00" GridPane.rowIndex="1" GridPane.columnIndex="3"/>
+
+                            <Label text="Overhead:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <TextField fx:id="txtBudgetOverhead" prefWidth="130" promptText="0.00" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                            <Label text="Total Budget:" style="-fx-font-weight: bold;" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
+                            <Label fx:id="lblTotalBudget" text="0.00" style="-fx-font-weight: bold;" GridPane.rowIndex="2" GridPane.columnIndex="3"/>
+                        </GridPane>
+
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Button fx:id="btnSaveBudget" text="Save Budget" onAction="#handleSaveBudget" styleClass="btn-primary"/>
+                            <Label text="Budgets are per job and do not post to GL." style="-fx-text-fill: #7f8c8d;"/>
+                        </HBox>
+
+                        <Separator/>
+
+                        <!-- Actual costs -->
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Label text="Actual Cost Entries (WIP)" style="-fx-font-size: 15px; -fx-font-weight: bold;"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="btnAddCostEntry" text="+ Add Cost Entry" onAction="#handleAddCostEntry" styleClass="btn-secondary"/>
+                            <Button fx:id="btnRefreshCosting" text="Refresh" onAction="#handleRefreshCosting" styleClass="btn-secondary"/>
+                        </HBox>
+
+                        <TableView fx:id="costEntriesTable" prefHeight="220">
+                            <columns>
+                                <TableColumn fx:id="colCostDate" text="Date" prefWidth="100"/>
+                                <TableColumn fx:id="colCostCategory" text="Category" prefWidth="120"/>
+                                <TableColumn fx:id="colCostDesc" text="Description" prefWidth="220"/>
+                                <TableColumn fx:id="colCostQty" text="Qty" prefWidth="70"/>
+                                <TableColumn fx:id="colCostUnit" text="Unit Cost" prefWidth="100"/>
+                                <TableColumn fx:id="colCostTotal" text="Total" prefWidth="100"/>
+                                <TableColumn fx:id="colCostSource" text="Source" prefWidth="110"/>
+                            </columns>
+                        </TableView>
+
+                        <Separator/>
+
+                        <!-- Profitability KPIs -->
+                        <Label text="WIP Profitability" style="-fx-font-size: 15px; -fx-font-weight: bold;"/>
+                        <GridPane hgap="16" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="150" halignment="RIGHT"/>
+                                <ColumnConstraints minWidth="140"/>
+                                <ColumnConstraints minWidth="150" halignment="RIGHT"/>
+                                <ColumnConstraints minWidth="140"/>
+                            </columnConstraints>
+
+                            <Label text="Contract / Job Value:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <Label fx:id="lblContractPrice" text="0.00" style="-fx-font-weight: bold;" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                            <Label text="Budgeted Cost:" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                            <Label fx:id="lblBudgetedCost" text="0.00" style="-fx-font-weight: bold;" GridPane.rowIndex="0" GridPane.columnIndex="3"/>
+
+                            <Label text="Actual Cost (WIP):" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <Label fx:id="lblActualCost" text="0.00" style="-fx-font-weight: bold;" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                            <Label text="Cost Variance:" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                            <Label fx:id="lblCostVariance" text="0.00" style="-fx-font-weight: bold;" GridPane.rowIndex="1" GridPane.columnIndex="3"/>
+
+                            <Label text="Net Profit:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                            <Label fx:id="lblNetProfit" text="0.00" style="-fx-font-size: 16px; -fx-font-weight: bold;" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                            <Label text="Gross Margin %:" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
+                            <Label fx:id="lblGrossMargin" text="0.00%" style="-fx-font-size: 16px; -fx-font-weight: bold;" GridPane.rowIndex="2" GridPane.columnIndex="3"/>
+                        </GridPane>
+
+                        <Label fx:id="lblCostingHint"
+                               text="Save the service job first to enable budgeting and WIP cost posting."
+                               style="-fx-text-fill: #7f8c8d;"/>
+                    </VBox>
+                </ScrollPane>
+            </Tab>
+        </TabPane>
 
         <HBox spacing="10" alignment="CENTER_RIGHT">
             <Button text="Print Job Note" onAction="#handlePrint" styleClass="btn-secondary"/>

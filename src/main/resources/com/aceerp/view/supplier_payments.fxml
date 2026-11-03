@@ -48,7 +48,7 @@
                         <DatePicker fx:id="paymentDatePicker" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
 
                         <Label text="Supplier:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-                        <ComboBox fx:id="supplierCombo" prefWidth="300" promptText="Select Supplier" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                        <TextField fx:id="supplierSearchField" prefWidth="300" promptText="Search or type supplier name" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
 
                         <Label text="Supplier Bill (Optional):" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
                         <ComboBox fx:id="billCombo" prefWidth="300" promptText="Select Bill to pay" GridPane.columnIndex="1" GridPane.rowIndex="3"/>

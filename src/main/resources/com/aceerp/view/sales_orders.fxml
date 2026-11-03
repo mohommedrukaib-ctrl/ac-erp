@@ -22,7 +22,7 @@
             <GridPane hgap="15" vgap="15">
                 <Label text="Customer:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
                 <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="0">
-                    <TextField fx:id="customerSearchField" promptText="Type to search..." HBox.hgrow="ALWAYS"/>
+                    <TextField fx:id="customerSearchField" promptText="Search or type customer name..." HBox.hgrow="ALWAYS"/>
                     <Button text="+" onAction="#handleQuickAddCustomer" style="-fx-font-weight: bold; -fx-background-color: #28a745; -fx-text-fill: white;">
                         <tooltip><Tooltip text="Quick Add Customer"/></tooltip>
                     </Button>

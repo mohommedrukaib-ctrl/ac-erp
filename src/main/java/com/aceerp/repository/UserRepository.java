@@ -7,6 +7,7 @@ import com.aceerp.model.UserRole;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -52,22 +53,11 @@ public class UserRepository {
     /**
      * Find a user by their username.
      * Returns Optional.empty() if no user with that username exists.
-     * 
-     * WHY OPTIONAL?
-     * Optional is a Java class that explicitly represents "maybe a value, maybe not".
-     * Forces calling code to handle the "not found" case, preventing NullPointerException.
-     * 
-     * USAGE:
-     *   Optional<User> result = userRepository.findByUsername("admin");
-     *   if (result.isPresent()) {
-     *       User user = result.get();
-     *       // use user
-     *   }
      */
     public Optional<User> findByUsername(String username) {
         String sql = """
             SELECT id, username, password_hash, full_name, email, phone, role,
-                   is_active, last_login, created_at, updated_at
+                   is_active, commission_type, commission_rate, last_login, created_at, updated_at
             FROM users
             WHERE LOWER(username) = LOWER(?)
             """;
@@ -95,7 +85,7 @@ public class UserRepository {
     public Optional<User> findById(int id) {
         String sql = """
             SELECT id, username, password_hash, full_name, email, phone, role,
-                   is_active, last_login, created_at, updated_at
+                   is_active, commission_type, commission_rate, last_login, created_at, updated_at
             FROM users
             WHERE id = ?
             """;
@@ -123,7 +113,7 @@ public class UserRepository {
     public List<User> findAll() {
         String sql = """
             SELECT id, username, password_hash, full_name, email, phone, role,
-                   is_active, last_login, created_at, updated_at
+                   is_active, commission_type, commission_rate, last_login, created_at, updated_at
             FROM users
             ORDER BY username
             """;
@@ -146,15 +136,13 @@ public class UserRepository {
 
     /**
      * Insert a new user. Returns the generated ID.
-     * 
-     * RETURN_GENERATED_KEYS: PostgreSQL will tell us the auto-generated ID 
-     * after INSERT (because the id column is SERIAL).
      */
     public int insert(User user, Integer createdByUserId) throws SQLException {
         String sql = """
             INSERT INTO users 
-                (username, password_hash, full_name, email, phone, role, is_active, created_by, updated_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (username, password_hash, full_name, email, phone, role, is_active,
+                 commission_type, commission_rate, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         try (Connection conn = DatabaseConfig.getInstance().getConnection();
@@ -167,14 +155,16 @@ public class UserRepository {
             stmt.setString(5, user.getPhone());
             stmt.setString(6, user.getRole().name());
             stmt.setBoolean(7, user.isActive());
+            stmt.setString(8, user.getCommissionType() != null ? user.getCommissionType() : "NONE");
+            stmt.setBigDecimal(9, user.getCommissionRate() != null ? user.getCommissionRate() : BigDecimal.ZERO);
 
             // Audit columns: can be null for the very first user (setup wizard)
             if (createdByUserId != null) {
-                stmt.setInt(8, createdByUserId);
-                stmt.setInt(9, createdByUserId);
+                stmt.setInt(10, createdByUserId);
+                stmt.setInt(11, createdByUserId);
             } else {
-                stmt.setNull(8, java.sql.Types.INTEGER);
-                stmt.setNull(9, java.sql.Types.INTEGER);
+                stmt.setNull(10, java.sql.Types.INTEGER);
+                stmt.setNull(11, java.sql.Types.INTEGER);
             }
 
             stmt.executeUpdate();
@@ -200,6 +190,7 @@ public class UserRepository {
         String sql = """
             UPDATE users
             SET full_name = ?, email = ?, phone = ?, role = ?, is_active = ?,
+                commission_type = ?, commission_rate = ?,
                 updated_at = CURRENT_TIMESTAMP, updated_by = ?
             WHERE id = ?
             """;
@@ -212,8 +203,10 @@ public class UserRepository {
             stmt.setString(3, user.getPhone());
             stmt.setString(4, user.getRole().name());
             stmt.setBoolean(5, user.isActive());
-            stmt.setInt(6, updatedByUserId);
-            stmt.setInt(7, user.getId());
+            stmt.setString(6, user.getCommissionType() != null ? user.getCommissionType() : "NONE");
+            stmt.setBigDecimal(7, user.getCommissionRate() != null ? user.getCommissionRate() : BigDecimal.ZERO);
+            stmt.setInt(8, updatedByUserId);
+            stmt.setInt(9, user.getId());
 
             int rows = stmt.executeUpdate();
             if (rows == 0) {
@@ -300,6 +293,17 @@ public class UserRepository {
         user.setPhone(rs.getString("phone"));
         user.setRole(UserRole.fromString(rs.getString("role")));
         user.setActive(rs.getBoolean("is_active"));
+
+        try {
+            String ct = rs.getString("commission_type");
+            user.setCommissionType(ct != null ? ct : "NONE");
+            BigDecimal cr = rs.getBigDecimal("commission_rate");
+            user.setCommissionRate(cr != null ? cr : BigDecimal.ZERO);
+        } catch (SQLException ignore) {
+            // Failsafe in case migrations haven't run yet
+            user.setCommissionType("NONE");
+            user.setCommissionRate(BigDecimal.ZERO);
+        }
 
         Timestamp lastLogin = rs.getTimestamp("last_login");
         if (lastLogin != null) user.setLastLogin(lastLogin.toLocalDateTime());

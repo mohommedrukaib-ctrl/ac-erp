@@ -27,7 +27,7 @@
             
             <Label text="Supplier:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
             <HBox spacing="5" GridPane.rowIndex="0" GridPane.columnIndex="1">
-                <TextField fx:id="supplierSearchField" promptText="Type to search..." HBox.hgrow="ALWAYS"/>
+                <TextField fx:id="supplierSearchField" promptText="Search or type supplier name..." HBox.hgrow="ALWAYS"/>
                 <Button text="+" onAction="#handleQuickAddSupplier" style="-fx-background-color: #28a745; -fx-text-fill: white;"/>
             </HBox>
             

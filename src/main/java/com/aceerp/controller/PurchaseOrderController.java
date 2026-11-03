@@ -13,14 +13,12 @@ import com.aceerp.util.CurrencyFormatter;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.GridPane;
-import javafx.stage.Popup;
 import javafx.util.converter.BigDecimalStringConverter;
 
 import java.math.BigDecimal;
@@ -66,8 +64,6 @@ public class PurchaseOrderController {
     private final ObservableList<PurchaseOrder> allPOs = FXCollections.observableArrayList();
     private PurchaseOrder currentPO;
     
-    private Popup supplierPopup;
-    private ListView<Supplier> supplierListView;
     private boolean editMode = false;
 
     @FXML
@@ -122,59 +118,27 @@ public class PurchaseOrderController {
     }
 
     private void setupSmartSearch() {
-        supplierPopup = new Popup();
-        supplierPopup.setAutoHide(true);
-        supplierListView = new ListView<>();
-        supplierListView.setPrefHeight(150);
-        
-        supplierListView.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(Supplier s, boolean empty) {
-                super.updateItem(s, empty);
-                if (empty || s == null) {
-                    setText(null);
-                } else {
-                    String code = s.getSupplierCode() != null ? s.getSupplierCode() + " | " : "";
-                    setText(code + (s.getName() != null ? s.getName() : ("#" + s.getId())));
-                }
-            }
-        });
-        
-        supplierPopup.getContent().add(supplierListView);
-
-        supplierSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (!editMode) return;
-            if (newVal == null || newVal.trim().isEmpty()) {
-                supplierPopup.hide();
-                return;
-            }
-            String query = newVal.toLowerCase().trim();
-            List<Supplier> results = supplierService.listAll().stream()
-                .filter(s -> s.getName() != null && s.getName().toLowerCase().contains(query))
-                .collect(Collectors.toList());
-
-            if (results.isEmpty()) {
-                supplierPopup.hide();
-            } else {
-                supplierListView.setItems(FXCollections.observableArrayList(results));
-                if (!supplierPopup.isShowing() && supplierSearchField.getScene() != null) {
-                    Bounds bounds = supplierSearchField.localToScreen(supplierSearchField.getBoundsInLocal());
-                    if (bounds != null) {
-                        supplierListView.setPrefWidth(bounds.getWidth());
-                        supplierPopup.show(supplierSearchField, bounds.getMinX(), bounds.getMaxY());
+        com.aceerp.util.SmartSearchHelper.setupEntitySearch(
+                supplierSearchField,
+                query -> supplierService.listAll().stream()
+                        .filter(s -> s.getName() != null
+                                && s.getName().toLowerCase().contains(query.toLowerCase().trim()))
+                        .collect(Collectors.toList()),
+                Supplier::getName,
+                this::selectSupplier,
+                typed -> com.aceerp.util.GlobalQuickAdd.showSupplierDialog(typed, this::selectSupplier),
+                typed -> {
+                    if (selectedSupplier != null && (selectedSupplier.getName() == null
+                            || !selectedSupplier.getName().equalsIgnoreCase(typed.trim()))) {
+                        selectedSupplier = null;
                     }
-                }
-            }
-        });
+                });
+    }
 
-        supplierListView.setOnMouseClicked(e -> {
-            Supplier s = supplierListView.getSelectionModel().getSelectedItem();
-            if (s != null) {
-                selectedSupplier = s;
-                supplierSearchField.setText(s.getName());
-                supplierPopup.hide();
-            }
-        });
+    private void selectSupplier(Supplier supplier) {
+        if (supplier == null) return;
+        supplierSearchField.setText(supplier.getName());
+        selectedSupplier = supplier;
     }
 
     private void setupTable() {
@@ -306,8 +270,8 @@ public class PurchaseOrderController {
         expectedDatePicker.setValue(po.getExpectedDate());
         statusCombo.setValue(po.getStatus());
         
-        selectedSupplier = po.getSupplier();
         supplierSearchField.setText(po.getSupplierName() != null ? po.getSupplierName() : "");
+        selectedSupplier = po.getSupplier();
         
         boolean allTaxed = po.getLines().stream().allMatch(PurchaseOrderLine::isTaxable);
         globalTaxCheck.setSelected(allTaxed);
@@ -503,34 +467,7 @@ public class PurchaseOrderController {
     @FXML
     private void handleQuickAddSupplier() {
         if (!editMode) { showAlert("Locked", "Click Edit first."); return; }
-        
-        Dialog<Supplier> dialog = new Dialog<>();
-        dialog.setTitle("Quick Add Supplier");
-        ButtonType saveBtn = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
-
-        GridPane grid = new GridPane();
-        grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(10));
-        TextField nameField = new TextField(); nameField.setPromptText("Supplier Name *");
-        grid.add(new Label("Name *:"), 0, 0); grid.add(nameField, 1, 0);
-        dialog.getDialogPane().setContent(grid);
-        
-        dialog.setResultConverter(btn -> {
-            if (btn != saveBtn || nameField.getText().trim().isEmpty()) return null;
-            try {
-                supplierService.addSupplier(nameField.getText().trim(), null, null, null, null, null, null, null);
-                return supplierService.listAll().stream()
-                        .filter(s -> s.getName().equalsIgnoreCase(nameField.getText().trim()))
-                        .findFirst().orElse(null);
-            } catch (Exception e) {
-                showAlert("Error", e.getMessage()); return null;
-            }
-        });
-
-        dialog.showAndWait().ifPresent(s -> {
-            selectedSupplier = s;
-            supplierSearchField.setText(s.getName());
-        });
+        com.aceerp.util.GlobalQuickAdd.showSupplierDialog(supplierSearchField.getText(), this::selectSupplier);
     }
 
     private void loadPOs() {

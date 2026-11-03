@@ -1,12 +1,14 @@
 package com.aceerp.controller;
 
-import com.aceerp.config.DatabaseConfig;
 import com.aceerp.model.Product;
 import com.aceerp.model.PurchaseReturn;
 import com.aceerp.model.PurchaseReturnLine;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.PurchaseReturnService;
+import com.aceerp.service.SupplierService;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.GlobalQuickAdd;
+import com.aceerp.util.SmartSearchHelper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -18,12 +20,7 @@ import javafx.scene.layout.VBox;
 import javafx.util.converter.BigDecimalStringConverter;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,7 +40,7 @@ public class PurchaseReturnController {
 
     @FXML private TextField returnNumberField;
     @FXML private DatePicker returnDatePicker;
-    @FXML private ComboBox<SimpleSupplier> supplierCombo;
+    @FXML private TextField supplierSearchField;
     @FXML private TextField reasonField;
     @FXML private Label lblTotalValuation;
 
@@ -55,18 +52,45 @@ public class PurchaseReturnController {
 
     private final PurchaseReturnService returnService = new PurchaseReturnService();
     private final ProductService productService = new ProductService();
+    private final SupplierService supplierService = new SupplierService();
 
     private final ObservableList<PurchaseReturn> allReturns = FXCollections.observableArrayList();
     private final ObservableList<PurchaseReturnLine> lines = FXCollections.observableArrayList();
     private PurchaseReturn currentReturn;
+    private SimpleSupplier selectedSupplier;
 
     @FXML
     public void initialize() {
         setupTable();
         setupListView();
-        loadSuppliers();
+        setupSupplierSearch();
         loadReturns();
         handleNewReturn();
+    }
+
+    private void setupSupplierSearch() {
+        SmartSearchHelper.setupEntitySearch(
+                supplierSearchField,
+                query -> supplierService.listAll().stream()
+                        .filter(s -> s.getName() != null
+                                && s.getName().toLowerCase().contains(query.toLowerCase().trim()))
+                        .map(s -> new SimpleSupplier(s.getId(), s.getName()))
+                        .collect(Collectors.toList()),
+                SimpleSupplier::getName,
+                this::selectSupplier,
+                typed -> GlobalQuickAdd.showSupplierDialog(typed,
+                        supplier -> selectSupplier(new SimpleSupplier(supplier.getId(), supplier.getName()))),
+                typed -> {
+                    if (selectedSupplier != null && !selectedSupplier.getName().equalsIgnoreCase(typed.trim())) {
+                        selectedSupplier = null;
+                    }
+                });
+    }
+
+    private void selectSupplier(SimpleSupplier supplier) {
+        if (supplier == null) return;
+        supplierSearchField.setText(supplier.getName());
+        selectedSupplier = supplier;
     }
 
     private void setupTable() {
@@ -136,19 +160,6 @@ public class PurchaseReturnController {
         ));
     }
 
-    private void loadSuppliers() {
-        List<SimpleSupplier> list = new ArrayList<>();
-        String sql = "SELECT id, name FROM suppliers ORDER BY name ASC";
-        try (Connection conn = DatabaseConfig.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                list.add(new SimpleSupplier(rs.getInt("id"), rs.getString("name")));
-            }
-        } catch (SQLException ignored) {}
-        supplierCombo.setItems(FXCollections.observableArrayList(list));
-    }
-
     private void loadReturns() {
         allReturns.setAll(returnService.getAllReturns());
         returnListView.setItems(allReturns);
@@ -159,6 +170,8 @@ public class PurchaseReturnController {
         returnNumberField.setText(pr.getReturnNumber());
         returnDatePicker.setValue(pr.getReturnDate());
         reasonField.setText(pr.getReason() != null ? pr.getReason() : "");
+        supplierSearchField.setText(pr.getSupplierName() != null ? pr.getSupplierName() : "");
+        selectedSupplier = new SimpleSupplier(pr.getSupplierId(), pr.getSupplierName());
 
         lines.clear();
         if (pr.getLines() != null) {
@@ -167,7 +180,7 @@ public class PurchaseReturnController {
 
         updateTotal();
         linesTable.setEditable(false);
-        supplierCombo.setDisable(true);
+        supplierSearchField.setDisable(true);
     }
 
     @FXML
@@ -177,11 +190,12 @@ public class PurchaseReturnController {
         returnNumberField.setText(currentReturn.getReturnNumber());
         returnDatePicker.setValue(LocalDate.now());
         reasonField.clear();
-        supplierCombo.setValue(null);
+        supplierSearchField.clear();
+        selectedSupplier = null;
         lines.clear();
 
         linesTable.setEditable(true);
-        supplierCombo.setDisable(false);
+        supplierSearchField.setDisable(false);
         returnListView.getSelectionModel().clearSelection();
 
         updateTotal();
@@ -262,7 +276,7 @@ public class PurchaseReturnController {
 
     @FXML
     private void handleProcessReturn() {
-        if (supplierCombo.getValue() == null) {
+        if (selectedSupplier == null || selectedSupplier.getId() <= 0) {
             showAlert(Alert.AlertType.WARNING, "Validation", "Please select a Supplier.");
             return;
         }
@@ -272,8 +286,8 @@ public class PurchaseReturnController {
             return;
         }
 
-        currentReturn.setSupplierId(supplierCombo.getValue().getId());
-        currentReturn.setSupplierName(supplierCombo.getValue().getName());
+        currentReturn.setSupplierId(selectedSupplier.getId());
+        currentReturn.setSupplierName(selectedSupplier.getName());
         currentReturn.setReturnDate(returnDatePicker.getValue());
         currentReturn.setReason(reasonField.getText() != null ? reasonField.getText().trim() : "");
         currentReturn.setLines(lines);

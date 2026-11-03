@@ -69,7 +69,7 @@
 
                         <Label text="Supplier:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
                         <HBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                            <TextField fx:id="supplierSearchField" promptText="Type to search supplier..."
+                            <TextField fx:id="supplierSearchField" promptText="Search or type supplier name..."
                                        HBox.hgrow="ALWAYS"/>
                             <Button text="+" onAction="#handleQuickAddSupplier" styleClass="btn-secondary">
                                 <tooltip>
@@ -117,6 +117,7 @@
                         <Button text="↓" onAction="#handleMoveDown" styleClass="btn-secondary">
                             <tooltip><Tooltip text="Move line down"/></tooltip>
                         </Button>
+                        <Button text="Apply Vendor Credit" onAction="#handleApplyVendorCredit" styleClass="btn-secondary"/>
                         <Button text="+ Add Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
                         <Button text="+ Empty Line" onAction="#handleAddEmptyLine" styleClass="btn-secondary"/>
                         <Button text="Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>

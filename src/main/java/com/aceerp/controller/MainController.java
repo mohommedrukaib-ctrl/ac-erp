@@ -139,7 +139,7 @@ public class MainController {
         }
     }
 
-    private void navigateTo(String moduleKey) {
+     private void navigateTo(String moduleKey) {
         if (!navigationService.canAccess(moduleKey)) {
             AlertHelper.warning("Access Denied", "You do not have permission to view this module.");
             return;
@@ -159,11 +159,10 @@ public class MainController {
             statusLabel.setText(item.label() + " module loaded.");
             logger.info("Navigated to: {}", moduleKey);
         } catch (IOException e) {
-            logger.error("Failed to load view for '{}': {}", moduleKey, e.getMessage());
+            logger.error("Failed to load view for '{}': {}", moduleKey, e.getMessage(), e);
             showContentError("Could not load " + item.label() + " module.");
         }
     }
-
     private void updateActiveNav(String moduleKey) {
         int index = 0;
         for (Map.Entry<String, NavItem> entry : navigationService.getVisibleNavItems().entrySet()) {

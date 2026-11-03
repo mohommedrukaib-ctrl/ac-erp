@@ -246,4 +246,18 @@ p.setUpdatedAt(rs.getTimestamp("updated_at"));
         }
         return list;
     }
+
+    /**
+ * Updates only the catalog cost_price (e.g. BOM roll-up for assembly items).
+ */
+public void updateCostPrice(int productId, BigDecimal costPrice) throws SQLException {
+    String sql = "UPDATE products SET cost_price = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+    try (Connection conn = DatabaseConfig.getInstance().getConnection();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setBigDecimal(1, costPrice != null ? costPrice : BigDecimal.ZERO);
+        ps.setInt(2, productId);
+        ps.executeUpdate();
+    }
+    log.info("Updated product {} cost_price to {}", productId, costPrice);
+}
 }   

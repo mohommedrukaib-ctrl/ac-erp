@@ -1,9 +1,9 @@
-
 package com.aceerp.controller;
 
 import com.aceerp.model.*;
 import com.aceerp.service.ReportService;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.VisualTemplateEditor;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
@@ -178,6 +177,19 @@ public class ReportController {
         stockList.setAll(reportService.getStockValuation());
         customerAgingList.setAll(reportService.getCustomerAging());
         supplierAgingList.setAll(reportService.getSupplierAging());
+    }
+
+    /**
+     * Opens the Visual Template Editor Popup (Interactive Canvas Drag & Drop).
+     */
+    @FXML
+    private void handleEditTemplates() {
+        try {
+            VisualTemplateEditor.show();
+        } catch (Exception e) {
+            logger.error("Failed to open Visual Template Editor: {}", e.getMessage(), e);
+            showAlert(Alert.AlertType.ERROR, "Editor Error", "Could not launch the template editor: " + e.getMessage());
+        }
     }
 
     @FXML

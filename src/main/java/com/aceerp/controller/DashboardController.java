@@ -21,13 +21,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Controller for the Dashboard view.
- * Displays real-time business metrics, interactive sales charts, and quick actions.
+ * Displays real-time business metrics, interactive sales charts, HVAC enterprise KPIs,
+ * and quick actions.
  */
 public class DashboardController {
 
     private static final Logger logger = LoggerFactory.getLogger(DashboardController.class);
 
-    // Metric Labels
+    // Core Metric Labels
     @FXML private Label customerCountLabel;
     @FXML private Label productCountLabel;
     @FXML private Label invoiceCountLabel;
@@ -38,6 +39,11 @@ public class DashboardController {
     @FXML private Label lblOpenInvoicesCount;
     @FXML private Label lblActiveJobs;
     @FXML private Label lblLowStock;
+
+    // HVAC Enterprise Metric Labels
+    @FXML private Label lblActiveAmc;
+    @FXML private Label lblUpcomingAmc;
+    @FXML private Label lblPendingCommissions;
 
     // Visual Charts
     @FXML private BarChart<String, Number> salesChart;
@@ -51,24 +57,18 @@ public class DashboardController {
         loadDashboardStats();
     }
 
-    /**
-     * Refresh the dashboard metrics.
-     */
     @FXML
     public void refresh() {
         loadDashboardStats();
     }
 
-    /**
-     * Asynchronously loads summary statistics and renders visual charts.
-     */
     private void loadDashboardStats() {
         new Thread(() -> {
             DashboardStats stats = dashboardService.getDashboardStats();
             boolean isHealthy = DatabaseConfig.getInstance().isHealthy();
 
             Platform.runLater(() -> {
-                // Populate Core Counts & Currency Metrics
+                // Core Counts & Currency Metrics
                 customerCountLabel.setText(String.valueOf(stats.totalCustomers()));
                 productCountLabel.setText(String.valueOf(stats.totalProducts()));
                 invoiceCountLabel.setText(String.valueOf(stats.totalInvoices()));
@@ -85,6 +85,17 @@ public class DashboardController {
                 }
                 if (lblLowStock != null) {
                     lblLowStock.setText(String.valueOf(stats.lowStockProducts()));
+                }
+
+                // HVAC Enterprise Metrics
+                if (lblActiveAmc != null) {
+                    lblActiveAmc.setText(String.valueOf(stats.activeAmcContracts()));
+                }
+                if (lblUpcomingAmc != null) {
+                    lblUpcomingAmc.setText(stats.upcomingAmcVisits() + " Visits");
+                }
+                if (lblPendingCommissions != null) {
+                    lblPendingCommissions.setText(CurrencyFormatter.format(stats.pendingCommissions()));
                 }
 
                 // Database Status Badge

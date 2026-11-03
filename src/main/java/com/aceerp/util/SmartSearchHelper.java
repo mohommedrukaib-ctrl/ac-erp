@@ -139,6 +139,16 @@ public class SmartSearchHelper {
             Function<T, String> displayFunction,
             Consumer<T> onSelect,
             Consumer<String> onAddNew) {
+        setupEntitySearch(textField, searchFunction, displayFunction, onSelect, onAddNew, null);
+    }
+
+    public static <T> void setupEntitySearch(
+            TextField textField,
+            Function<String, List<T>> searchFunction,
+            Function<T, String> displayFunction,
+            Consumer<T> onSelect,
+            Consumer<String> onAddNew,
+            Consumer<String> onTextChanged) {
 
         Popup popup = new Popup();
         popup.setAutoHide(true);
@@ -167,6 +177,9 @@ public class SmartSearchHelper {
         });
 
         textField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (onTextChanged != null) {
+                onTextChanged.accept(newVal != null ? newVal : "");
+            }
             if (newVal == null || newVal.trim().isEmpty()) {
                 popup.hide();
                 return;

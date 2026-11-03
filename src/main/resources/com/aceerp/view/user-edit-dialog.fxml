@@ -57,6 +57,16 @@
         <Label text="Confirm Password" styleClass="field-label"/>
         <PasswordField fx:id="passwordConfirmField"/>
     </VBox>
+    <HBox spacing="10">
+        <VBox spacing="4" HBox.hgrow="ALWAYS">
+            <Label text="Commission Type" styleClass="field-label"/>
+            <ChoiceBox fx:id="commissionTypeChoice" maxWidth="Infinity"/>
+        </VBox>
+        <VBox spacing="4" HBox.hgrow="ALWAYS">
+            <Label text="Commission Rate" styleClass="field-label"/>
+            <TextField fx:id="commissionRateField" promptText="0.00"/>
+        </VBox>
+    </HBox>
 
     <CheckBox fx:id="activeCheckBox" text="Account is active" selected="true"/>
 
