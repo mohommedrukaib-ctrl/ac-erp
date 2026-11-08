@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.*;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,21 +66,11 @@ public class ReportService {
     public static void printDeliveryNote(int dnId) { new ReportService().printDocument("delivery_note", "DN_ID", dnId); }
     public static void printPurchaseOrder(int poId) { new ReportService().printDocument("purchase_order", "PO_ID", poId); }
     public static void printJobNote(int jobId) { new ReportService().printDocument("job_note_a5", "JOB_ID", jobId); }
+    public static void printWarrantyCertificate(int serialId) { new ReportService().printDocument("warranty_certificate", "SERIAL_ID", serialId); }
+    public static void printAmcRenewalNotice(int contractId) { new ReportService().printDocument("amc_renewal_notice", "CONTRACT_ID", contractId); }
+    public static void printTechnicianPayslip(int technicianId) { new ReportService().printDocument("technician_payslip", "TECH_ID", technicianId); }
 
-    // ===================== HVAC Enterprise Documents =====================
-    public static void printWarrantyCertificate(int serialId) {
-        new ReportService().printDocument("warranty_certificate", "SERIAL_ID", serialId);
-    }
-
-    public static void printAmcRenewalNotice(int contractId) {
-        new ReportService().printDocument("amc_renewal_notice", "CONTRACT_ID", contractId);
-    }
-
-    public static void printTechnicianPayslip(int technicianId) {
-        new ReportService().printDocument("technician_payslip", "TECH_ID", technicianId);
-    }
-
-    // ===================== Double-Entry General Ledger Financials =====================
+    // ===================== Double-Entry Financial Statements =====================
 
     public ProfitAndLossDTO getProfitAndLoss(LocalDate startDate, LocalDate endDate) {
         ProfitAndLossDTO dto = new ProfitAndLossDTO();
@@ -267,8 +258,409 @@ public class ReportService {
         return dto;
     }
 
-    // ===================== Sub-Ledgers & Inventory =====================
+    // ===================== PHASE 1 REPORTS DATA SERVICES =====================
 
+    /**
+     * 1. Open Invoices Report
+     */
+    public List<OpenInvoiceRow> getOpenInvoices(LocalDate startDate, LocalDate endDate) {
+        List<OpenInvoiceRow> list = new ArrayList<>();
+        String sql = """
+            SELECT i.id, i.invoice_number, c.name AS customer_name, i.invoice_date, i.due_date,
+                   i.total_amount, COALESCE(i.paid_amount, 0) AS paid_amount, i.status
+            FROM invoices i
+            JOIN customers c ON i.customer_id = c.id
+            WHERE COALESCE(i.status, '') NOT IN ('PAID', 'CANCELLED')
+              AND i.invoice_date BETWEEN ? AND ?
+            ORDER BY i.due_date ASC
+        """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(startDate));
+            stmt.setDate(2, Date.valueOf(endDate));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                LocalDate today = LocalDate.now();
+                while (rs.next()) {
+                    Date due = rs.getDate("due_date");
+                    LocalDate dueDate = due != null ? due.toLocalDate() : today;
+                    long overdueDays = ChronoUnit.DAYS.between(dueDate, today);
+                    if (overdueDays < 0) overdueDays = 0;
+
+                    BigDecimal total = rs.getBigDecimal("total_amount");
+                    BigDecimal paid = rs.getBigDecimal("paid_amount");
+                    BigDecimal balance = total.subtract(paid);
+
+                    list.add(new OpenInvoiceRow(
+                        rs.getInt("id"),
+                        rs.getString("invoice_number"),
+                        rs.getString("customer_name"),
+                        rs.getDate("invoice_date").toLocalDate(),
+                        dueDate,
+                        overdueDays,
+                        total,
+                        paid,
+                        balance,
+                        rs.getString("status")
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error fetching open invoices: {}", e.getMessage(), e);
+        }
+        return list;
+    }
+
+    /**
+     * 2. A/R Aging Detail Report
+     */
+    public List<ArAgingDetailRow> getArAgingDetail(LocalDate asOfDate) {
+        List<ArAgingDetailRow> list = new ArrayList<>();
+        String sql = """
+            SELECT c.name AS customer_name, i.invoice_number, i.invoice_date, i.due_date,
+                   i.total_amount, COALESCE(i.paid_amount, 0) AS paid_amount
+            FROM invoices i
+            JOIN customers c ON i.customer_id = c.id
+            WHERE COALESCE(i.status, '') NOT IN ('PAID', 'CANCELLED')
+              AND i.invoice_date <= ?
+            ORDER BY c.name ASC, i.due_date ASC
+        """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(asOfDate));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Date due = rs.getDate("due_date");
+                    LocalDate dueDate = due != null ? due.toLocalDate() : asOfDate;
+                    long overdue = ChronoUnit.DAYS.between(dueDate, asOfDate);
+
+                    String bucket;
+                    if (overdue <= 30) bucket = "0-30 Days";
+                    else if (overdue <= 60) bucket = "31-60 Days";
+                    else if (overdue <= 90) bucket = "61-90 Days";
+                    else bucket = "Over 90 Days";
+
+                    BigDecimal orig = rs.getBigDecimal("total_amount");
+                    BigDecimal paid = rs.getBigDecimal("paid_amount");
+                    BigDecimal bal = orig.subtract(paid);
+
+                    list.add(new ArAgingDetailRow(
+                        rs.getString("customer_name"),
+                        rs.getString("invoice_number"),
+                        rs.getDate("invoice_date").toLocalDate(),
+                        dueDate,
+                        Math.max(0, overdue),
+                        bucket,
+                        orig,
+                        paid,
+                        bal
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error generating AR aging detail: {}", e.getMessage(), e);
+        }
+        return list;
+    }
+
+    /**
+     * 3. A/P Aging Detail Report
+     */
+    public List<ApAgingDetailRow> getApAgingDetail(LocalDate asOfDate) {
+        List<ApAgingDetailRow> list = new ArrayList<>();
+        String sql = """
+            SELECT s.name AS vendor_name, sb.bill_number, sb.bill_date, sb.due_date,
+                   sb.total_amount, COALESCE(sb.paid_amount, 0) AS paid_amount
+            FROM supplier_bills sb
+            JOIN suppliers s ON sb.supplier_id = s.id
+            WHERE COALESCE(sb.status, '') NOT IN ('PAID', 'CANCELLED')
+              AND sb.bill_date <= ?
+            ORDER BY s.name ASC, sb.due_date ASC
+        """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(asOfDate));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Date due = rs.getDate("due_date");
+                    LocalDate dueDate = due != null ? due.toLocalDate() : asOfDate;
+                    long overdue = ChronoUnit.DAYS.between(dueDate, asOfDate);
+
+                    String bucket;
+                    if (overdue <= 30) bucket = "0-30 Days";
+                    else if (overdue <= 60) bucket = "31-60 Days";
+                    else if (overdue <= 90) bucket = "61-90 Days";
+                    else bucket = "Over 90 Days";
+
+                    BigDecimal orig = rs.getBigDecimal("total_amount");
+                    BigDecimal paid = rs.getBigDecimal("paid_amount");
+                    BigDecimal bal = orig.subtract(paid);
+
+                    list.add(new ApAgingDetailRow(
+                        rs.getString("vendor_name"),
+                        rs.getString("bill_number"),
+                        rs.getDate("bill_date").toLocalDate(),
+                        dueDate,
+                        Math.max(0, overdue),
+                        bucket,
+                        orig,
+                        paid,
+                        bal
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error generating AP aging detail: {}", e.getMessage(), e);
+        }
+        return list;
+    }
+
+    /**
+     * 4. Sales By Customer Report
+     */
+    public List<SalesByCustomerRow> getSalesByCustomer(LocalDate startDate, LocalDate endDate) {
+        List<SalesByCustomerRow> list = new ArrayList<>();
+        String sql = """
+            SELECT c.id, c.name, COUNT(i.id) AS inv_count,
+                   COALESCE(SUM(i.subtotal), 0) AS subtotal,
+                   COALESCE(SUM(i.tax_amount), 0) AS tax_amount,
+                   COALESCE(SUM(i.total_amount), 0) AS total_sales
+            FROM customers c
+            JOIN invoices i ON i.customer_id = c.id
+            WHERE i.status != 'CANCELLED' AND i.invoice_date BETWEEN ? AND ?
+            GROUP BY c.id, c.name
+            ORDER BY total_sales DESC
+        """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(startDate));
+            stmt.setDate(2, Date.valueOf(endDate));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                BigDecimal grandTotal = BigDecimal.ZERO;
+                List<SalesByCustomerRow> temp = new ArrayList<>();
+
+                while (rs.next()) {
+                    BigDecimal total = rs.getBigDecimal("total_sales");
+                    grandTotal = grandTotal.add(total);
+                    temp.add(new SalesByCustomerRow(
+                        rs.getInt("id"),
+                        rs.getString("name"),
+                        rs.getInt("inv_count"),
+                        rs.getBigDecimal("subtotal"),
+                        rs.getBigDecimal("tax_amount"),
+                        total,
+                        0.0
+                    ));
+                }
+
+                for (SalesByCustomerRow r : temp) {
+                    double pct = grandTotal.compareTo(BigDecimal.ZERO) > 0
+                        ? r.totalSales().divide(grandTotal, 4, RoundingMode.HALF_UP).doubleValue() * 100
+                        : 0.0;
+                    list.add(new SalesByCustomerRow(
+                        r.customerId(), r.customerName(), r.invoiceCount(),
+                        r.totalSubtotal(), r.totalTax(), r.totalSales(), pct
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error generating sales by customer: {}", e.getMessage(), e);
+        }
+        return list;
+    }
+
+    /**
+     * 5. Sales By Product/Service Report
+     */
+    public List<SalesByProductRow> getSalesByProduct(LocalDate startDate, LocalDate endDate) {
+        List<SalesByProductRow> list = new ArrayList<>();
+        String sql = """
+            SELECT p.product_code, p.name AS product_name, COALESCE(p.category, 'General') AS category,
+                   COALESCE(SUM(il.quantity), 0) AS qty_sold,
+                   COALESCE(SUM(il.line_total), 0) AS sales_amount
+            FROM invoice_lines il
+            JOIN invoices i ON il.invoice_id = i.id
+            JOIN products p ON il.product_id = p.id
+            WHERE i.status != 'CANCELLED' AND i.invoice_date BETWEEN ? AND ?
+            GROUP BY p.product_code, p.name, p.category
+            ORDER BY sales_amount DESC
+        """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(startDate));
+            stmt.setDate(2, Date.valueOf(endDate));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                BigDecimal grandTotal = BigDecimal.ZERO;
+                List<SalesByProductRow> temp = new ArrayList<>();
+
+                while (rs.next()) {
+                    BigDecimal qty = rs.getBigDecimal("qty_sold");
+                    BigDecimal sales = rs.getBigDecimal("sales_amount");
+                    grandTotal = grandTotal.add(sales);
+
+                    BigDecimal avgPrice = qty.compareTo(BigDecimal.ZERO) > 0
+                        ? sales.divide(qty, 2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
+
+                    temp.add(new SalesByProductRow(
+                        rs.getString("product_code"),
+                        rs.getString("product_name"),
+                        rs.getString("category"),
+                        qty, sales, avgPrice, 0.0
+                    ));
+                }
+
+                for (SalesByProductRow r : temp) {
+                    double pct = grandTotal.compareTo(BigDecimal.ZERO) > 0
+                        ? r.totalSalesAmount().divide(grandTotal, 4, RoundingMode.HALF_UP).doubleValue() * 100
+                        : 0.0;
+                    list.add(new SalesByProductRow(
+                        r.productCode(), r.productName(), r.category(),
+                        r.totalQuantitySold(), r.totalSalesAmount(), r.averagePrice(), pct
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error generating sales by product: {}", e.getMessage(), e);
+        }
+        return list;
+    }
+
+    /**
+     * 6. Bill Payment List
+     */
+    public List<BillPaymentRow> getBillPayments(LocalDate startDate, LocalDate endDate) {
+        List<BillPaymentRow> list = new ArrayList<>();
+        String sql = """
+            SELECT sp.id, sp.payment_number, sp.payment_date, s.name AS vendor_name,
+                   sb.bill_number, sp.payment_method, sp.reference_number, sp.amount, sp.notes
+            FROM supplier_payments sp
+            JOIN suppliers s ON sp.supplier_id = s.id
+            LEFT JOIN supplier_bills sb ON sp.bill_id = sb.id
+            WHERE sp.payment_date BETWEEN ? AND ?
+            ORDER BY sp.payment_date DESC
+        """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(startDate));
+            stmt.setDate(2, Date.valueOf(endDate));
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new BillPaymentRow(
+                        rs.getInt("id"),
+                        rs.getString("payment_number"),
+                        rs.getDate("payment_date").toLocalDate(),
+                        rs.getString("vendor_name"),
+                        rs.getString("bill_number") != null ? rs.getString("bill_number") : "N/A",
+                        rs.getString("payment_method"),
+                        rs.getString("reference_number"),
+                        rs.getBigDecimal("amount"),
+                        rs.getString("notes")
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error generating bill payment list: {}", e.getMessage(), e);
+        }
+        return list;
+    }
+
+    /**
+     * 7. Customer Balance Summary
+     */
+    public List<CustomerBalanceSummaryRow> getCustomerBalanceSummary() {
+        List<CustomerBalanceSummaryRow> list = new ArrayList<>();
+        String sql = """
+            SELECT c.id, c.name, c.phone,
+                   COALESCE(SUM(i.total_amount), 0) AS total_invoiced,
+                   COALESCE(SUM(i.paid_amount), 0) AS total_paid
+            FROM customers c
+            LEFT JOIN invoices i ON i.customer_id = c.id AND i.status != 'CANCELLED'
+            GROUP BY c.id, c.name, c.phone
+            HAVING COALESCE(SUM(i.total_amount - i.paid_amount), 0) != 0
+            ORDER BY c.name ASC
+        """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                BigDecimal inv = rs.getBigDecimal("total_invoiced");
+                BigDecimal paid = rs.getBigDecimal("total_paid");
+                BigDecimal bal = inv.subtract(paid);
+
+                list.add(new CustomerBalanceSummaryRow(
+                    rs.getInt("id"),
+                    rs.getString("name"),
+                    rs.getString("phone") != null ? rs.getString("phone") : "N/A",
+                    inv, paid, bal
+                ));
+            }
+        } catch (SQLException e) {
+            logger.error("Error generating customer balance summary: {}", e.getMessage(), e);
+        }
+        return list;
+    }
+
+    /**
+     * 8. Vendor Balance Summary
+     */
+    public List<VendorBalanceSummaryRow> getVendorBalanceSummary() {
+        List<VendorBalanceSummaryRow> list = new ArrayList<>();
+        String sql = """
+            SELECT s.id, s.name, s.phone,
+                   COALESCE(SUM(sb.total_amount), 0) AS total_billed,
+                   COALESCE(SUM(sb.paid_amount), 0) AS total_paid
+            FROM suppliers s
+            LEFT JOIN supplier_bills sb ON sb.supplier_id = s.id AND sb.status != 'CANCELLED'
+            GROUP BY s.id, s.name, s.phone
+            HAVING COALESCE(SUM(sb.total_amount - sb.paid_amount), 0) != 0
+            ORDER BY s.name ASC
+        """;
+
+        try (Connection conn = DatabaseConfig.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                BigDecimal billed = rs.getBigDecimal("total_billed");
+                BigDecimal paid = rs.getBigDecimal("total_paid");
+                BigDecimal owed = billed.subtract(paid);
+
+                list.add(new VendorBalanceSummaryRow(
+                    rs.getInt("id"),
+                    rs.getString("name"),
+                    rs.getString("phone") != null ? rs.getString("phone") : "N/A",
+                    billed, paid, owed
+                ));
+            }
+        } catch (SQLException e) {
+            logger.error("Error generating vendor balance summary: {}", e.getMessage(), e);
+        }
+        return list;
+    }
+
+    /**
+     * Stock Valuation & Existing Agings
+     */
     public List<StockValuationDTO> getStockValuation() {
         List<StockValuationDTO> list = new ArrayList<>();
         String sql = """

@@ -9,6 +9,7 @@ import com.aceerp.service.NavigationService.NavItem;
 import com.aceerp.service.SearchService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.GlobalQuickAdd;
+import com.aceerp.util.QuickBooksContextMenus;
 import com.aceerp.util.SceneRouter;
 import com.aceerp.util.ViewManager;
 
@@ -153,6 +154,7 @@ public class MainController {
 
         try {
             Parent view = viewManager.loadView(item.fxmlPath());
+            QuickBooksContextMenus.installDefaultMenus(view);
             contentArea.getChildren().clear();
             contentArea.getChildren().add(view);
             updateActiveNav(moduleKey);

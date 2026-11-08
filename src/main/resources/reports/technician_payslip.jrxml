@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" name="TechnicianPayslip" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="40" bottomMargin="40" uuid="bb222">
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" name="TechnicianPayslip" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="40" bottomMargin="40" uuid="3a3059ad-4ec5-578f-9b8b-189eb8bd5ada">
     <parameter name="TECH_ID" class="java.lang.Integer"/>
     <parameter name="COMPANY_NAME" class="java.lang.String"/>
     <queryString>
@@ -20,33 +20,33 @@
     </variable>
     <title>
         <band height="80">
-            <textField><reportElement x="0" y="0" width="535" height="30" uuid="tp1"/><textElement textAlignment="Center"><font size="18" isBold="true"/></textElement><textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression></textField>
-            <staticText><reportElement x="0" y="30" width="535" height="30" uuid="tp2"/><textElement textAlignment="Center"><font size="14" isBold="true" isUnderline="true"/></textElement><text><![CDATA[TECHNICIAN COMMISSION PAYSLIP (PENDING)]]></text></staticText>
+            <textField><reportElement x="0" y="0" width="535" height="30" uuid="9c777fe6-db82-5a98-9e29-7dad9334b87e"/><textElement textAlignment="Center"><font size="18" isBold="true"/></textElement><textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression></textField>
+            <staticText><reportElement x="0" y="30" width="535" height="30" uuid="1171bcf9-a9a9-5a6e-a329-7592a9c73787"/><textElement textAlignment="Center"><font size="14" isBold="true" isUnderline="true"/></textElement><text><![CDATA[TECHNICIAN COMMISSION PAYSLIP (PENDING)]]></text></staticText>
         </band>
     </title>
     <pageHeader>
         <band height="40">
-            <textField><reportElement x="0" y="10" width="300" height="20" uuid="tp3"/><textElement><font size="12" isBold="true"/></textElement><textFieldExpression><![CDATA["Technician: " + $F{full_name}]]></textFieldExpression></textField>
+            <textField><reportElement x="0" y="10" width="300" height="20" uuid="67c463a1-bf9c-57e6-8858-b7dc92f7b92f"/><textElement><font size="12" isBold="true"/></textElement><textFieldExpression><![CDATA["Technician: " + $F{full_name}]]></textFieldExpression></textField>
         </band>
     </pageHeader>
     <columnHeader>
         <band height="20">
-            <staticText><reportElement x="0" y="0" width="150" height="20" uuid="ch1"/><textElement><font isBold="true"/></textElement><text><![CDATA[Date Earned]]></text></staticText>
-            <staticText><reportElement x="150" y="0" width="200" height="20" uuid="ch2"/><textElement><font isBold="true"/></textElement><text><![CDATA[Job Number]]></text></staticText>
-            <staticText><reportElement x="350" y="0" width="185" height="20" uuid="ch3"/><textElement textAlignment="Right"><font isBold="true"/></textElement><text><![CDATA[Commission Amt]]></text></staticText>
+            <staticText><reportElement x="0" y="0" width="150" height="20" uuid="a604f805-2915-545a-8e7f-dde01b20f4c6"/><textElement><font isBold="true"/></textElement><text><![CDATA[Date Earned]]></text></staticText>
+            <staticText><reportElement x="150" y="0" width="200" height="20" uuid="bede7ce7-3f33-52b1-bf6d-330902289918"/><textElement><font isBold="true"/></textElement><text><![CDATA[Job Number]]></text></staticText>
+            <staticText><reportElement x="350" y="0" width="185" height="20" uuid="a6cd5382-ac82-5266-ac31-ff4d6f43f475"/><textElement textAlignment="Right"><font isBold="true"/></textElement><text><![CDATA[Commission Amt]]></text></staticText>
         </band>
     </columnHeader>
     <detail>
         <band height="20">
-            <textField pattern="dd/MM/yyyy"><reportElement x="0" y="0" width="150" height="20" uuid="dt1"/><textFieldExpression><![CDATA[$F{created_at}]]></textFieldExpression></textField>
-            <textField><reportElement x="150" y="0" width="200" height="20" uuid="dt2"/><textFieldExpression><![CDATA[$F{job_number}]]></textFieldExpression></textField>
-            <textField pattern="¤ #,##0.00"><reportElement x="350" y="0" width="185" height="20" uuid="dt3"/><textElement textAlignment="Right"/></textFieldExpression><textFieldExpression><![CDATA[$F{commission_amount}]]></textFieldExpression></textField>
+            <textField pattern="dd/MM/yyyy"><reportElement x="0" y="0" width="150" height="20" uuid="7a3ee82c-7bfe-57e4-8ccf-8990040ae77f"/><textFieldExpression><![CDATA[$F{created_at}]]></textFieldExpression></textField>
+            <textField><reportElement x="150" y="0" width="200" height="20" uuid="b4adc831-1a23-51be-892f-266732d46eac"/><textFieldExpression><![CDATA[$F{job_number}]]></textFieldExpression></textField>
+            <textField pattern="¤ #,##0.00"><reportElement x="350" y="0" width="185" height="20" uuid="507c9753-1167-51c2-b0b3-2668bb03b2a5"/><textElement textAlignment="Right"/><textFieldExpression><![CDATA[$F{commission_amount}]]></textFieldExpression></textField>
         </band>
     </detail>
     <summary>
         <band height="50">
-            <staticText><reportElement x="200" y="20" width="150" height="20" uuid="s1"/><textElement textAlignment="Right"><font size="14" isBold="true"/></textElement><text><![CDATA[Total Payable:]]></text></staticText>
-            <textField pattern="¤ #,##0.00"><reportElement x="350" y="20" width="185" height="20" uuid="s2"/><textElement textAlignment="Right"><font size="14" isBold="true" forecolor="#27AE60"/></textElement><textFieldExpression><![CDATA[$V{TotalCommission}]]></textFieldExpression></textField>
+            <staticText><reportElement x="200" y="20" width="150" height="20" uuid="a84c2eed-ab1e-5c98-b398-2a3408f42cbb"/><textElement textAlignment="Right"><font size="14" isBold="true"/></textElement><text><![CDATA[Total Payable:]]></text></staticText>
+            <textField pattern="¤ #,##0.00"><reportElement x="350" y="20" width="185" height="20" forecolor="#27AE60" uuid="0cf22f77-3ac8-5961-a2e4-349fb37d11a1"/><textElement textAlignment="Right"><font size="14" isBold="true"/></textElement><textFieldExpression><![CDATA[$V{TotalCommission}]]></textFieldExpression></textField>
         </band>
     </summary>
 </jasperReport>

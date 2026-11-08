@@ -79,6 +79,9 @@ public class UserManagementController {
         });
 
         usersTable.setItems(users);
+        com.aceerp.util.QuickBooksContextMenus.installTableView(usersTable, user ->
+            java.util.List.of(com.aceerp.util.QuickBooksContextMenus.action("Edit", () -> showUserDialog(user)))
+        );
 
         // Double-click to edit
         usersTable.setRowFactory(tv -> {

@@ -84,8 +84,8 @@ public class SalesOrderRepository {
         boolean hasOrderNumber = columnExists(conn, "sales_orders", "order_number");
         
         String sql = hasOrderNumber 
-            ? "INSERT INTO sales_orders (so_number, order_number, quotation_id, customer_id, order_date, expected_delivery_date, status, subtotal, tax_amount, total_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
-            : "INSERT INTO sales_orders (so_number, quotation_id, customer_id, order_date, expected_delivery_date, status, subtotal, tax_amount, total_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+            ? "INSERT INTO sales_orders (so_number, order_number, quotation_id, customer_id, order_date, expected_delivery_date, status, subtotal, tax_amount, total_amount, document_discount_type, document_discount_value, document_discount_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+            : "INSERT INTO sales_orders (so_number, quotation_id, customer_id, order_date, expected_delivery_date, status, subtotal, tax_amount, total_amount, document_discount_type, document_discount_value, document_discount_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             int i = 1;
@@ -106,6 +106,9 @@ public class SalesOrderRepository {
             ps.setBigDecimal(i++, so.getSubtotal() != null ? so.getSubtotal() : BigDecimal.ZERO);
             ps.setBigDecimal(i++, so.getTaxAmount() != null ? so.getTaxAmount() : BigDecimal.ZERO);
             ps.setBigDecimal(i++, so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO);
+            ps.setString(i++, so.getDocumentDiscountType());
+            ps.setBigDecimal(i++, so.getDocumentDiscountValue());
+            ps.setBigDecimal(i++, so.getDocumentDiscountAmount());
             ps.setString(i, so.getNotes());
             
             try (ResultSet rs = ps.executeQuery()) {
@@ -120,7 +123,8 @@ public class SalesOrderRepository {
         }
 
         String sql = "UPDATE sales_orders SET customer_id=?, order_date=?, expected_delivery_date=?, status=?, " +
-                     "subtotal=?, tax_amount=?, total_amount=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?";
+                     "subtotal=?, tax_amount=?, total_amount=?, document_discount_type=?, document_discount_value=?, " +
+                     "document_discount_amount=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             int cId = so.getCustomerId();
             if (cId > 0) ps.setInt(1, cId); else ps.setNull(1, Types.INTEGER);
@@ -130,8 +134,11 @@ public class SalesOrderRepository {
             ps.setBigDecimal(5, so.getSubtotal() != null ? so.getSubtotal() : BigDecimal.ZERO);
             ps.setBigDecimal(6, so.getTaxAmount() != null ? so.getTaxAmount() : BigDecimal.ZERO);
             ps.setBigDecimal(7, so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO);
-            ps.setString(8, so.getNotes());
-            ps.setInt(9, so.getId());
+            ps.setString(8, so.getDocumentDiscountType());
+            ps.setBigDecimal(9, so.getDocumentDiscountValue());
+            ps.setBigDecimal(10, so.getDocumentDiscountAmount());
+            ps.setString(11, so.getNotes());
+            ps.setInt(12, so.getId());
             ps.executeUpdate();
         }
     }
@@ -244,6 +251,9 @@ public class SalesOrderRepository {
         so.setSubtotal(rs.getBigDecimal("subtotal"));
         so.setTaxAmount(rs.getBigDecimal("tax_amount"));
         so.setTotalAmount(rs.getBigDecimal("total_amount"));
+        so.setDocumentDiscountType(rs.getString("document_discount_type"));
+        so.setDocumentDiscountValue(rs.getBigDecimal("document_discount_value"));
+        so.setDocumentDiscountAmount(rs.getBigDecimal("document_discount_amount"));
         so.setNotes(rs.getString("notes"));
         return so;
     }

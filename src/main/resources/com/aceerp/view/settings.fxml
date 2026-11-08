@@ -297,11 +297,12 @@
                             <Button text="Load JRXML into Editor" onAction="#handleLoadJrxmlEditor" styleClass="btn-secondary"/>
                             <Button text="Preview Editor JRXML" onAction="#handlePreviewEditorJrxml" styleClass="btn-secondary"/>
                             <Button text="Save As New Template…" onAction="#handleSaveAsNewReportTemplate" styleClass="btn-primary"/>
+                            <Button fx:id="btnToggleEditor" text="👁 Hide Editor &amp; Canvas" onAction="#handleToggleEditorView" styleClass="btn-secondary"/>
                             <Region HBox.hgrow="ALWAYS"/>
                             <Button text="Open Templates Folder" onAction="#handleOpenTemplatesFolder" styleClass="btn-secondary"/>
                         </HBox>
 
-                        <!-- NEW: Full Window Designer Launch Button -->
+                        <!-- Visual Style & Layout Designer Section -->
                         <HBox alignment="CENTER_LEFT" spacing="10" style="-fx-padding: 10 0 5 0;">
                             <Label text="Visual Style &amp; Layout Designer" styleClass="section-title"/>
                             <Region HBox.hgrow="ALWAYS"/>
@@ -393,7 +394,8 @@
                     </VBox>
                 </ScrollPane>
 
-                <SplitPane VBox.vgrow="ALWAYS" dividerPositions="0.45" minHeight="280">
+                <!-- Lower JRXML Editor + Canvas Pane (Toggleable) -->
+                <SplitPane fx:id="editorSplitPane" VBox.vgrow="ALWAYS" dividerPositions="0.45" minHeight="280">
                     <VBox spacing="6">
                         <padding><Insets top="8" right="8" bottom="8" left="16"/></padding>
                         <Label text="JRXML Editor (Save As creates a NEW template — never overwrites built-ins)"/>

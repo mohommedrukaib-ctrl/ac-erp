@@ -42,6 +42,7 @@ public final class GlobalQuickAdd {
         GridPane grid = formGrid();
         TextField name = new TextField(initialName != null ? initialName : "");
         TextField phone = new TextField();
+        InputValidation.phoneNumber(phone);
         TextField email = new TextField();
         name.setPromptText("Required");
         phone.setPromptText("Optional");
@@ -96,6 +97,7 @@ public final class GlobalQuickAdd {
         GridPane grid = formGrid();
         TextField name = new TextField(initialName != null ? initialName : "");
         TextField phone = new TextField();
+        InputValidation.phoneNumber(phone);
         TextField email = new TextField();
         name.setPromptText("Required");
 

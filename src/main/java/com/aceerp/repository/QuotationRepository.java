@@ -82,8 +82,9 @@ public class QuotationRepository {
 
     private void insertQuotation(Connection conn, Quotation q) throws SQLException {
         String sql = "INSERT INTO quotations (quote_number, customer_id, issue_date, expiry_date, status, " +
-                     "subtotal, tax_amount, total_amount, tax_total, grand_total, terms_conditions, notes, created_by) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+                     "subtotal, tax_amount, total_amount, tax_total, grand_total, document_discount_type, " +
+                     "document_discount_value, document_discount_amount, terms_conditions, notes, created_by) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, q.getQuoteNumber());
             ps.setInt(2, q.getCustomerId());
@@ -95,12 +96,15 @@ public class QuotationRepository {
             ps.setBigDecimal(8, q.getGrandTotal() != null ? q.getGrandTotal() : BigDecimal.ZERO);
             ps.setBigDecimal(9, q.getTaxTotal() != null ? q.getTaxTotal() : BigDecimal.ZERO);
             ps.setBigDecimal(10, q.getGrandTotal() != null ? q.getGrandTotal() : BigDecimal.ZERO);
-            ps.setString(11, q.getTermsConditions());
-            ps.setString(12, q.getNotes());
+            ps.setString(11, q.getDocumentDiscountType());
+            ps.setBigDecimal(12, q.getDocumentDiscountValue());
+            ps.setBigDecimal(13, q.getDocumentDiscountAmount());
+            ps.setString(14, q.getTermsConditions());
+            ps.setString(15, q.getNotes());
             if (q.getCreatedBy() != 0) {
-                ps.setInt(13, q.getCreatedBy());
+                ps.setInt(16, q.getCreatedBy());
             } else {
-                ps.setNull(13, Types.INTEGER);
+                ps.setNull(16, Types.INTEGER);
             }
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) q.setId(rs.getInt(1));
@@ -110,7 +114,8 @@ public class QuotationRepository {
 
     private void updateQuotation(Connection conn, Quotation q) throws SQLException {
         String sql = "UPDATE quotations SET customer_id=?, issue_date=?, expiry_date=?, status=?, " +
-                     "subtotal=?, tax_amount=?, total_amount=?, tax_total=?, grand_total=?, terms_conditions=?, notes=?, updated_at=CURRENT_TIMESTAMP " +
+                     "subtotal=?, tax_amount=?, total_amount=?, tax_total=?, grand_total=?, document_discount_type=?, " +
+                     "document_discount_value=?, document_discount_amount=?, terms_conditions=?, notes=?, updated_at=CURRENT_TIMESTAMP " +
                      "WHERE id=?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, q.getCustomerId());
@@ -122,9 +127,12 @@ public class QuotationRepository {
             ps.setBigDecimal(7, q.getGrandTotal() != null ? q.getGrandTotal() : BigDecimal.ZERO);
             ps.setBigDecimal(8, q.getTaxTotal() != null ? q.getTaxTotal() : BigDecimal.ZERO);
             ps.setBigDecimal(9, q.getGrandTotal() != null ? q.getGrandTotal() : BigDecimal.ZERO);
-            ps.setString(10, q.getTermsConditions());
-            ps.setString(11, q.getNotes());
-            ps.setInt(12, q.getId());
+            ps.setString(10, q.getDocumentDiscountType());
+            ps.setBigDecimal(11, q.getDocumentDiscountValue());
+            ps.setBigDecimal(12, q.getDocumentDiscountAmount());
+            ps.setString(13, q.getTermsConditions());
+            ps.setString(14, q.getNotes());
+            ps.setInt(15, q.getId());
             ps.executeUpdate();
         }
     }
@@ -257,6 +265,9 @@ public class QuotationRepository {
             try { total = rs.getBigDecimal("grand_total"); } catch (SQLException ignored) {}
         }
         q.setTotalAmount(total != null ? total : BigDecimal.ZERO);
+        q.setDocumentDiscountType(rs.getString("document_discount_type"));
+        q.setDocumentDiscountValue(rs.getBigDecimal("document_discount_value"));
+        q.setDocumentDiscountAmount(rs.getBigDecimal("document_discount_amount"));
 
         q.setTermsConditions(rs.getString("terms_conditions"));
         q.setNotes(rs.getString("notes"));

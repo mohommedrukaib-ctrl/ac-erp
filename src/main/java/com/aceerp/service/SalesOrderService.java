@@ -46,6 +46,9 @@ public class SalesOrderService {
         so.setSubtotal(quote.getSubtotal());
         so.setTaxAmount(quote.getTaxAmount());
         so.setTotalAmount(quote.getTotalAmount());
+        so.setDocumentDiscountType(quote.getDocumentDiscountType());
+        so.setDocumentDiscountValue(quote.getDocumentDiscountValue());
+        so.setDocumentDiscountAmount(quote.getDocumentDiscountAmount());
         so.setNotes("Converted from Quotation #" + quote.getQuoteNumber());
 
         List<SalesOrderLine> lines = new ArrayList<>();

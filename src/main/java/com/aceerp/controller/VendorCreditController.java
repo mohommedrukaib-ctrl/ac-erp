@@ -95,7 +95,7 @@ public class VendorCreditController {
     }
 
     private void selectSupplier(SimpleSupplier supplier) {
-        supplierSearchField.setText(supplier.getName());
+        SmartSearchHelper.setTextWithoutSuggestions(supplierSearchField, supplier.getName());
         selectedSupplier = supplier;
     }
 
@@ -195,7 +195,7 @@ public class VendorCreditController {
         currentCredit = credit;
         creditNumberField.setText(credit.getVendorCreditNumber());
         issueDatePicker.setValue(credit.getIssueDate());
-        supplierSearchField.setText(credit.getSupplierName());
+        SmartSearchHelper.setTextWithoutSuggestions(supplierSearchField, credit.getSupplierName());
         lblStatus.setText(credit.getStatus());
         memoNotesField.setText(credit.getMemo() != null ? credit.getMemo() : "");
 

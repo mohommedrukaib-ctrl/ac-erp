@@ -3,6 +3,7 @@ package com.aceerp.controller;
 import com.aceerp.model.Supplier;
 import com.aceerp.service.AuditLogService;
 import com.aceerp.service.SupplierService;
+import com.aceerp.util.InputValidation;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -51,6 +52,9 @@ public class SupplierController {
             );
         });
 
+        com.aceerp.util.QuickBooksContextMenus.installTableView(tableView, supplier ->
+            java.util.List.of(com.aceerp.util.QuickBooksContextMenus.action("Edit", () -> showAddEditDialog(supplier)))
+        );
         loadData();
     }
 
@@ -98,6 +102,7 @@ public class SupplierController {
         TextField nameField = new TextField();
         TextField contactField = new TextField();
         TextField phoneField = new TextField();
+        InputValidation.phoneNumber(phoneField);
         TextField emailField = new TextField();
         TextField addressField = new TextField();
         TextField cityField = new TextField();

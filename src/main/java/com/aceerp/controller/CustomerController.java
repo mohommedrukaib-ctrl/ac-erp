@@ -4,6 +4,7 @@ import com.aceerp.model.Customer;
 import com.aceerp.service.AuditLogService;
 import com.aceerp.service.CustomerService;
 import com.aceerp.util.AlertHelper;
+import com.aceerp.util.InputValidation;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -36,6 +37,9 @@ public class CustomerController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         setupColumns();
         setupSearch();
+        com.aceerp.util.QuickBooksContextMenus.installTableView(customersTable, customer ->
+            java.util.List.of(com.aceerp.util.QuickBooksContextMenus.action("Edit", () -> showCustomerDialog(customer)))
+        );
         loadCustomers();
     }
 
@@ -118,6 +122,7 @@ public class CustomerController implements Initializable {
 
         TextField phoneField = new TextField();
         phoneField.setPromptText("Phone Number");
+        InputValidation.phoneNumber(phoneField);
 
         TextField emailField = new TextField();
         emailField.setPromptText("Email Address");

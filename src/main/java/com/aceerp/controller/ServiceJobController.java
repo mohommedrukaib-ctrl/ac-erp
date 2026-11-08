@@ -10,6 +10,7 @@ import com.aceerp.service.ReportService;
 import com.aceerp.service.ServiceJobService;
 import com.aceerp.util.CurrencyFormatter;
 import com.aceerp.util.GlobalQuickAdd;
+import com.aceerp.util.InputValidation;
 import com.aceerp.util.SmartSearchHelper;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -125,7 +126,23 @@ public class ServiceJobController {
 
     @FXML
     public void initialize() {
+        if (txtCustomerPhone != null) {
+            InputValidation.phoneNumber(txtCustomerPhone);
+        }
+        if (txtLaborCost != null) {
+            InputValidation.decimalOnly(txtLaborCost);
+        }
+        if (txtBudgetMaterials != null) InputValidation.decimalOnly(txtBudgetMaterials);
+        if (txtBudgetLabor != null) InputValidation.decimalOnly(txtBudgetLabor);
+        if (txtBudgetEquipment != null) InputValidation.decimalOnly(txtBudgetEquipment);
+        if (txtBudgetSubcontractor != null) InputValidation.decimalOnly(txtBudgetSubcontractor);
+        if (txtBudgetOverhead != null) InputValidation.decimalOnly(txtBudgetOverhead);
+
         setupListView();
+        com.aceerp.util.QuickBooksContextMenus.installListView(jobListView, job -> java.util.List.of(
+            com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
+            com.aceerp.util.QuickBooksContextMenus.action("Print", this::handlePrint)
+        ));
         setupComboBoxes();
         setupTable();
         setupCostingTable();
@@ -833,6 +850,8 @@ public class ServiceJobController {
         txtDesc.setPromptText("Description");
         TextField txtQty = new TextField("1");
         TextField txtUnit = new TextField("0.00");
+        InputValidation.decimalOnly(txtQty);
+        InputValidation.decimalOnly(txtUnit);
 
         grid.add(new Label("Category:"), 0, 0);
         grid.add(cmbCategory, 1, 0);

@@ -93,8 +93,9 @@ public class InvoiceRepository {
     }
 
     private void insertInvoice(Connection conn, Invoice inv) throws SQLException {
-        String sql = "INSERT INTO invoices (invoice_number, customer_id, invoice_date, due_date, status, subtotal, tax_amount, total_amount, paid_amount, notes) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+        String sql = "INSERT INTO invoices (invoice_number, customer_id, invoice_date, due_date, status, subtotal, tax_amount, total_amount, " +
+                     "document_discount_type, document_discount_value, document_discount_amount, paid_amount, notes) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, inv.getInvoiceNumber());
             if (inv.getCustomerId() > 0) ps.setInt(2, inv.getCustomerId()); else ps.setNull(2, Types.INTEGER);
@@ -104,8 +105,11 @@ public class InvoiceRepository {
             ps.setBigDecimal(6, inv.getSubtotal());
             ps.setBigDecimal(7, inv.getTaxAmount());
             ps.setBigDecimal(8, inv.getTotalAmount());
-            ps.setBigDecimal(9, inv.getPaidAmount() != null ? inv.getPaidAmount() : BigDecimal.ZERO);
-            ps.setString(10, inv.getNotes());
+            ps.setString(9, inv.getDocumentDiscountType());
+            ps.setBigDecimal(10, inv.getDocumentDiscountValue());
+            ps.setBigDecimal(11, inv.getDocumentDiscountAmount());
+            ps.setBigDecimal(12, inv.getPaidAmount() != null ? inv.getPaidAmount() : BigDecimal.ZERO);
+            ps.setString(13, inv.getNotes());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) inv.setId(rs.getInt(1));
             }
@@ -113,7 +117,9 @@ public class InvoiceRepository {
     }
 
     private void updateInvoice(Connection conn, Invoice inv) throws SQLException {
-        String sql = "UPDATE invoices SET customer_id=?, invoice_date=?, due_date=?, status=?, subtotal=?, tax_amount=?, total_amount=?, paid_amount=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?";
+        String sql = "UPDATE invoices SET customer_id=?, invoice_date=?, due_date=?, status=?, subtotal=?, tax_amount=?, total_amount=?, " +
+                     "document_discount_type=?, document_discount_value=?, document_discount_amount=?, paid_amount=?, notes=?, " +
+                     "updated_at=CURRENT_TIMESTAMP WHERE id=?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             if (inv.getCustomerId() > 0) ps.setInt(1, inv.getCustomerId()); else ps.setNull(1, Types.INTEGER);
             ps.setDate(2, Date.valueOf(inv.getInvoiceDate() != null ? inv.getInvoiceDate() : java.time.LocalDate.now()));
@@ -122,9 +128,12 @@ public class InvoiceRepository {
             ps.setBigDecimal(5, inv.getSubtotal());
             ps.setBigDecimal(6, inv.getTaxAmount());
             ps.setBigDecimal(7, inv.getTotalAmount());
-            ps.setBigDecimal(8, inv.getPaidAmount() != null ? inv.getPaidAmount() : BigDecimal.ZERO);
-            ps.setString(9, inv.getNotes());
-            ps.setInt(10, inv.getId());
+            ps.setString(8, inv.getDocumentDiscountType());
+            ps.setBigDecimal(9, inv.getDocumentDiscountValue());
+            ps.setBigDecimal(10, inv.getDocumentDiscountAmount());
+            ps.setBigDecimal(11, inv.getPaidAmount() != null ? inv.getPaidAmount() : BigDecimal.ZERO);
+            ps.setString(12, inv.getNotes());
+            ps.setInt(13, inv.getId());
             ps.executeUpdate();
         }
     }
@@ -134,7 +143,8 @@ public class InvoiceRepository {
             ps.setInt(1, inv.getId());
             ps.executeUpdate();
         }
-        String sql = "INSERT INTO invoice_lines (invoice_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, line_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO invoice_lines (invoice_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (InvoiceLine line : inv.getLines()) {
                 ps.setInt(1, inv.getId());
@@ -142,9 +152,11 @@ public class InvoiceRepository {
                 ps.setString(3, line.getDescription());
                 ps.setBigDecimal(4, line.getQuantity());
                 ps.setBigDecimal(5, line.getUnitPrice());
-                ps.setBigDecimal(6, line.getTaxRate());
-                ps.setBigDecimal(7, line.getTaxAmount());
-                ps.setBigDecimal(8, line.getLineTotal());
+                ps.setBigDecimal(6, line.getDiscountPercent());
+                ps.setString(7, line.getNotes());
+                ps.setBigDecimal(8, line.getTaxRate());
+                ps.setBigDecimal(9, line.getTaxAmount());
+                ps.setBigDecimal(10, line.getLineTotal());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -180,6 +192,8 @@ public class InvoiceRepository {
                     line.setDescription(rs.getString("description"));
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
+                    line.setDiscountPercent(rs.getBigDecimal("discount_percent"));
+                    line.setNotes(rs.getString("notes"));
                     line.setTaxRate(rs.getBigDecimal("tax_rate"));
                     line.setTaxAmount(rs.getBigDecimal("tax_amount"));
                     
@@ -217,6 +231,9 @@ public class InvoiceRepository {
         inv.setSubtotal(rs.getBigDecimal("subtotal"));
         inv.setTaxAmount(rs.getBigDecimal("tax_amount"));
         inv.setTotalAmount(rs.getBigDecimal("total_amount"));
+        inv.setDocumentDiscountType(rs.getString("document_discount_type"));
+        inv.setDocumentDiscountValue(rs.getBigDecimal("document_discount_value"));
+        inv.setDocumentDiscountAmount(rs.getBigDecimal("document_discount_amount"));
         inv.setPaidAmount(rs.getBigDecimal("paid_amount"));
         inv.setNotes(rs.getString("notes"));
         return inv;

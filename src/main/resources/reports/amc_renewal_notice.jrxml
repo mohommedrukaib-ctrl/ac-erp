@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" name="AMCRenewal" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="40" bottomMargin="40" uuid="aa111">
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" name="AMCRenewal" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="40" bottomMargin="40" uuid="c342c564-680c-5013-909e-1110a1b0212e">
     <parameter name="CONTRACT_ID" class="java.lang.Integer"/>
     <parameter name="COMPANY_NAME" class="java.lang.String"/>
     <queryString>
@@ -16,24 +16,24 @@
     <field name="total_value" class="java.math.BigDecimal"/>
     <title>
         <band height="100">
-            <textField><reportElement x="0" y="0" width="535" height="30" uuid="t1"/><textElement textAlignment="Center"><font size="20" isBold="true"/></textElement><textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression></textField>
-            <staticText><reportElement x="0" y="40" width="535" height="30" uuid="t2"/><textElement textAlignment="Center"><font size="16" isBold="true" isUnderline="true"/></textElement><text><![CDATA[AMC RENEWAL NOTICE]]></text></staticText>
+            <textField><reportElement x="0" y="0" width="535" height="30" uuid="f2c03fd4-1085-5ba5-a682-022f3e8a2e69"/><textElement textAlignment="Center"><font size="20" isBold="true"/></textElement><textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression></textField>
+            <staticText><reportElement x="0" y="40" width="535" height="30" uuid="a07217de-114d-5c09-bddf-6bd09190ba73"/><textElement textAlignment="Center"><font size="16" isBold="true" isUnderline="true"/></textElement><text><![CDATA[AMC RENEWAL NOTICE]]></text></staticText>
         </band>
     </title>
     <detail>
         <band height="250">
-            <textField><reportElement x="30" y="20" width="470" height="40" uuid="d1"/><textElement><font size="12"/></textElement><textFieldExpression><![CDATA["Dear " + $F{customer_name} + ",\n\nThis is a friendly reminder regarding your Annual Maintenance Contract."]]></textFieldExpression></textField>
+            <textField><reportElement x="30" y="20" width="470" height="40" uuid="684e93c6-ca68-527a-a37a-bbcdec3a8a21"/><textElement><font size="12"/></textElement><textFieldExpression><![CDATA["Dear " + $F{customer_name} + ",\n\nThis is a friendly reminder regarding your Annual Maintenance Contract."]]></textFieldExpression></textField>
             
-            <staticText><reportElement x="30" y="80" width="150" height="20" uuid="d2"/><text><![CDATA[Contract Number:]]></text></staticText>
-            <textField><reportElement x="180" y="80" width="200" height="20" uuid="d3"/><textElement><font isBold="true"/></textElement><textFieldExpression><![CDATA[$F{contract_number}]]></textFieldExpression></textField>
+            <staticText><reportElement x="30" y="80" width="150" height="20" uuid="aec3eb58-90fe-513e-bf74-f9f49212125a"/><text><![CDATA[Contract Number:]]></text></staticText>
+            <textField><reportElement x="180" y="80" width="200" height="20" uuid="48ee6cd1-6693-5246-b3a5-6f8017b2b936"/><textElement><font isBold="true"/></textElement><textFieldExpression><![CDATA[$F{contract_number}]]></textFieldExpression></textField>
 
-            <staticText><reportElement x="30" y="110" width="150" height="20" uuid="d4"/><text><![CDATA[Current Expiry Date:]]></text></staticText>
-            <textField pattern="dd/MM/yyyy"><reportElement x="180" y="110" width="200" height="20" forecolor="#CC0000" uuid="d5"/><textElement><font isBold="true"/></textElement><textFieldExpression><![CDATA[$F{end_date}]]></textFieldExpression></textField>
+            <staticText><reportElement x="30" y="110" width="150" height="20" uuid="bbfd1cb8-4477-5129-a621-ceae650e5751"/><text><![CDATA[Current Expiry Date:]]></text></staticText>
+            <textField pattern="dd/MM/yyyy"><reportElement x="180" y="110" width="200" height="20" forecolor="#CC0000" uuid="364b8f8f-5691-5d09-8754-e11c23671caa"/><textElement><font isBold="true"/></textElement><textFieldExpression><![CDATA[$F{end_date}]]></textFieldExpression></textField>
 
-            <staticText><reportElement x="30" y="140" width="150" height="20" uuid="d6"/><text><![CDATA[Renewal Amount Due:]]></text></staticText>
-            <textField pattern="¤ #,##0.00"><reportElement x="180" y="140" width="200" height="20" uuid="d7"/><textElement><font isBold="true" size="12"/></textElement><textFieldExpression><![CDATA[$F{total_value}]]></textFieldExpression></textField>
+            <staticText><reportElement x="30" y="140" width="150" height="20" uuid="c6b70f2c-a124-5b7a-beea-5165e5c70790"/><text><![CDATA[Renewal Amount Due:]]></text></staticText>
+            <textField pattern="¤ #,##0.00"><reportElement x="180" y="140" width="200" height="20" uuid="715d44a3-0877-580e-8918-061dc2b99346"/><textElement><font isBold="true" size="12"/></textElement><textFieldExpression><![CDATA[$F{total_value}]]></textFieldExpression></textField>
 
-            <staticText><reportElement x="30" y="190" width="470" height="40" uuid="d8"/><textElement><font size="11"/></textElement><text><![CDATA[Please contact us to process your renewal and ensure uninterrupted HVAC service.]]></text></staticText>
+            <staticText><reportElement x="30" y="190" width="470" height="40" uuid="c46b72d7-07bb-57ed-988c-7f5855fa47f1"/><textElement><font size="11"/></textElement><text><![CDATA[Please contact us to process your renewal and ensure uninterrupted HVAC service.]]></text></staticText>
         </band>
     </detail>
 </jasperReport>

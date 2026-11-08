@@ -71,6 +71,9 @@ public class GrnController {
         setupSmartSupplierSearch();
         setupTable();
         setupListAndSelection();
+        com.aceerp.util.QuickBooksContextMenus.installListView(grnListView, grn -> java.util.List.of(
+            com.aceerp.util.QuickBooksContextMenus.action("Print", this::handlePrint)
+        ));
         loadGrns();
         handleNewGrn();
     }

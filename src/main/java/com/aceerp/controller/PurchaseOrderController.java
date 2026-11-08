@@ -72,6 +72,10 @@ public class PurchaseOrderController {
         setupSmartSearch();
         setupTable();
         setupListView();
+        com.aceerp.util.QuickBooksContextMenus.installListView(poListView, order -> java.util.List.of(
+            com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
+            com.aceerp.util.QuickBooksContextMenus.action("Print", this::handlePrint)
+        ));
         
         statusCombo.setItems(FXCollections.observableArrayList("DRAFT", "APPROVED", "RECEIVED", "CANCELLED"));
         loadPOs();

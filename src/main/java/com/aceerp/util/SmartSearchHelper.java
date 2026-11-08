@@ -23,6 +23,20 @@ import java.util.function.Function;
  * 3. You can also click "+ Add new" to create a new record
  */
 public class SmartSearchHelper {
+    private static final Object SUPPRESS_SEARCH_KEY = new Object();
+
+    public static void setTextWithoutSuggestions(TextField textField, String value) {
+        boolean alreadySuppressed = Boolean.TRUE.equals(textField.getProperties().get(SUPPRESS_SEARCH_KEY));
+        textField.getProperties().put(SUPPRESS_SEARCH_KEY, Boolean.TRUE);
+        try {
+            textField.setText(value);
+        } finally {
+            if (!alreadySuppressed) {
+                textField.getProperties().remove(SUPPRESS_SEARCH_KEY);
+            }
+        }
+    }
+
 
     /**
      * Wires a TextField and ListView together for smart searching (simple String version).
@@ -177,6 +191,14 @@ public class SmartSearchHelper {
         });
 
         textField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (Boolean.TRUE.equals(textField.getProperties().get(SUPPRESS_SEARCH_KEY))
+                    || textField.isDisabled()
+                    || !textField.isEditable()
+                    || !textField.isFocused()) {
+                popup.hide();
+                return;
+            }
+
             if (onTextChanged != null) {
                 onTextChanged.accept(newVal != null ? newVal : "");
             }
@@ -209,12 +231,14 @@ public class SmartSearchHelper {
             if (selected instanceof String s && s.startsWith("➕")) {
                 String typedText = textField.getText() != null ? textField.getText().trim() : "";
                 if (onAddNew != null) {
+                    setTextWithoutSuggestions(textField, typedText);
                     onAddNew.accept(typedText);
                 }
             } else {
                 @SuppressWarnings("unchecked")
                 T entity = (T) selected;
                 if (onSelect != null) {
+                    setTextWithoutSuggestions(textField, displayFunction.apply(entity));
                     onSelect.accept(entity);
                 }
             }

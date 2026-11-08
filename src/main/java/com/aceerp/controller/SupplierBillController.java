@@ -12,6 +12,7 @@ import com.aceerp.service.ProductService;
 import com.aceerp.service.SupplierBillService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.DocumentDiscount;
 import com.aceerp.util.GlobalQuickAdd;
 import com.aceerp.util.SmartSearchHelper;
 import com.aceerp.util.TaxUtil;
@@ -84,6 +85,9 @@ public class SupplierBillController {
     @FXML private Label lblSubtotal;
     @FXML private Label lblTax;
     @FXML private Label lblTaxTitle;
+    @FXML private ComboBox<String> cmbDocumentDiscountType;
+    @FXML private TextField txtDocumentDiscountValue;
+    @FXML private Label lblDocumentDiscountAmount;
     @FXML private CheckBox globalTaxCheck;
     @FXML private VBox detailsPane;
 
@@ -100,9 +104,15 @@ public class SupplierBillController {
 
     @FXML
     public void initialize() {
+        DocumentDiscount.configureControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                () -> { if (editMode) updateTotal(); });
         setupSmartSearch();
         setupTable();
         setupListView();
+        com.aceerp.util.QuickBooksContextMenus.installListView(supplierBillListView, bill -> java.util.List.of(
+            com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
+            com.aceerp.util.QuickBooksContextMenus.action("Print", this::handlePrint)
+        ));
 
         statusCombo.setItems(FXCollections.observableArrayList("UNPAID", "PARTIALLY_PAID", "PAID", "CANCELLED"));
 
@@ -277,7 +287,10 @@ public class SupplierBillController {
 
     private void loadBillToForm(SupplierBill bill) {
         currentBill = bill;
+        setFormEditable(false);
         billNumberField.setText(bill.getBillNumber());
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                bill.getDocumentDiscountType(), bill.getDocumentDiscountValue());
         billDatePicker.setValue(bill.getBillDate() != null ? bill.getBillDate() : LocalDate.now());
         dueDatePicker.setValue(bill.getDueDate() != null ? bill.getDueDate() : LocalDate.now().plusDays(30));
         supplierInvoiceRefField.setText(bill.getSupplierInvoiceRef() != null ? bill.getSupplierInvoiceRef() : "");
@@ -335,6 +348,8 @@ public class SupplierBillController {
             editMode = editable;
         }
         supplierSearchField.setDisable(!editMode);
+        cmbDocumentDiscountType.setDisable(!editMode);
+        txtDocumentDiscountValue.setDisable(!editMode);
         billDatePicker.setDisable(!editMode);
         dueDatePicker.setDisable(!editMode);
         supplierInvoiceRefField.setEditable(editMode);
@@ -348,7 +363,10 @@ public class SupplierBillController {
 
     @FXML
     private void handleNewBill() {
+        setFormEditable(false);
         currentBill = new SupplierBill();
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                DocumentDiscount.PERCENT, BigDecimal.ZERO);
         currentBill.setBillNumber(billService.generateNextBillNumber());
         billNumberField.setText(currentBill.getBillNumber());
         billDatePicker.setValue(LocalDate.now());
@@ -633,16 +651,24 @@ public class SupplierBillController {
             if (line.getTaxAmount() != null) taxTotal = taxTotal.add(line.getTaxAmount());
         }
 
-        BigDecimal grand = subtotal.add(taxTotal);
+        BigDecimal discountAmount = DocumentDiscount.calculateAmount(
+                subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+        taxTotal = DocumentDiscount.calculateTaxAfterDiscount(subtotal, taxTotal, discountAmount);
+        BigDecimal grand = subtotal.subtract(discountAmount).add(taxTotal);
         linesTable.refresh();
 
         if (lblSubtotal != null) lblSubtotal.setText(CurrencyFormatter.format(subtotal));
         if (lblTax != null) lblTax.setText(CurrencyFormatter.format(taxTotal));
+        if (lblDocumentDiscountAmount != null) lblDocumentDiscountAmount.setText(CurrencyFormatter.format(discountAmount));
         if (lblTaxTitle != null) lblTaxTitle.setText(TaxUtil.getTaxName() + ":");
         if (totalLabel != null) totalLabel.setText("Total: " + CurrencyFormatter.format(grand));
 
         if (currentBill != null) {
             currentBill.setSubtotal(subtotal);
+            currentBill.setDocumentDiscountType(DocumentDiscount.selectedType(cmbDocumentDiscountType));
+            currentBill.setDocumentDiscountValue(DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+            currentBill.setDocumentDiscountAmount(discountAmount);
             currentBill.setTaxAmount(taxTotal);
             currentBill.setTotalAmount(grand);
         }
@@ -678,6 +704,15 @@ public class SupplierBillController {
 
         if (currentBill == null) {
             currentBill = new SupplierBill();
+        }
+        updateTotal();
+        String discountError = DocumentDiscount.validate(
+                DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                txtDocumentDiscountValue.getText(),
+                currentBill.getSubtotal());
+        if (discountError != null) {
+            showAlert(Alert.AlertType.WARNING, "Invalid Discount", discountError);
+            return;
         }
         boolean isNew = currentBill.getId() <= 0;
 

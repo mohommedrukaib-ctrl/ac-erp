@@ -77,8 +77,9 @@ public class SupplierBillService {
                 if (bill.getId() <= 0) {
                     String insertBillSql = "INSERT INTO supplier_bills " +
                             "(bill_number, supplier_id, po_id, grn_id, bill_date, due_date, " +
-                            "supplier_invoice_ref, status, subtotal, tax_amount, total_amount, paid_amount, notes) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+                            "supplier_invoice_ref, status, subtotal, tax_amount, total_amount, document_discount_type, " +
+                            "document_discount_value, document_discount_amount, paid_amount, notes) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
 
                     try (PreparedStatement stmt = conn.prepareStatement(insertBillSql)) {
                         stmt.setString(1, bill.getBillNumber());
@@ -92,8 +93,11 @@ public class SupplierBillService {
                         stmt.setBigDecimal(9, bill.getSubtotal());
                         stmt.setBigDecimal(10, bill.getTaxAmount());
                         stmt.setBigDecimal(11, bill.getTotalAmount());
-                        stmt.setBigDecimal(12, bill.getPaidAmount() != null ? bill.getPaidAmount() : java.math.BigDecimal.ZERO);
-                        stmt.setString(13, bill.getNotes());
+                        stmt.setString(12, bill.getDocumentDiscountType());
+                        stmt.setBigDecimal(13, bill.getDocumentDiscountValue());
+                        stmt.setBigDecimal(14, bill.getDocumentDiscountAmount());
+                        stmt.setBigDecimal(15, bill.getPaidAmount() != null ? bill.getPaidAmount() : java.math.BigDecimal.ZERO);
+                        stmt.setString(16, bill.getNotes());
 
                         ResultSet rs = stmt.executeQuery();
                         if (rs.next()) {
@@ -104,6 +108,7 @@ public class SupplierBillService {
                     String updateBillSql = "UPDATE supplier_bills SET " +
                             "supplier_id = ?, po_id = ?, grn_id = ?, bill_date = ?, due_date = ?, " +
                             "supplier_invoice_ref = ?, status = ?, subtotal = ?, tax_amount = ?, total_amount = ?, " +
+                            "document_discount_type = ?, document_discount_value = ?, document_discount_amount = ?, " +
                             "paid_amount = ?, notes = ? WHERE id = ?";
 
                     try (PreparedStatement stmt = conn.prepareStatement(updateBillSql)) {
@@ -117,9 +122,12 @@ public class SupplierBillService {
                         stmt.setBigDecimal(8, bill.getSubtotal());
                         stmt.setBigDecimal(9, bill.getTaxAmount());
                         stmt.setBigDecimal(10, bill.getTotalAmount());
-                        stmt.setBigDecimal(11, bill.getPaidAmount() != null ? bill.getPaidAmount() : java.math.BigDecimal.ZERO);
-                        stmt.setString(12, bill.getNotes());
-                        stmt.setInt(13, bill.getId());
+                        stmt.setString(11, bill.getDocumentDiscountType());
+                        stmt.setBigDecimal(12, bill.getDocumentDiscountValue());
+                        stmt.setBigDecimal(13, bill.getDocumentDiscountAmount());
+                        stmt.setBigDecimal(14, bill.getPaidAmount() != null ? bill.getPaidAmount() : java.math.BigDecimal.ZERO);
+                        stmt.setString(15, bill.getNotes());
+                        stmt.setInt(16, bill.getId());
                         stmt.executeUpdate();
                     }
 
@@ -131,8 +139,8 @@ public class SupplierBillService {
 
                 if (bill.getLines() != null && !bill.getLines().isEmpty()) {
                     String insertLineSql = "INSERT INTO supplier_bill_lines " +
-                            "(bill_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, total_price, line_total) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                            "(bill_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, total_price, line_total) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
                     try (PreparedStatement stmt = conn.prepareStatement(insertLineSql)) {
                         for (SupplierBillLine line : bill.getLines()) {
@@ -141,10 +149,12 @@ public class SupplierBillService {
                             stmt.setString(3, line.getDescription());
                             stmt.setBigDecimal(4, line.getQuantity());
                             stmt.setBigDecimal(5, line.getUnitPrice());
-                            stmt.setBigDecimal(6, line.getTaxRate());
-                            stmt.setBigDecimal(7, line.getTaxAmount());
-                            stmt.setBigDecimal(8, line.getTotalPrice());
-                            stmt.setBigDecimal(9, line.getLineTotal());
+                            stmt.setBigDecimal(6, line.getDiscountPercent());
+                            stmt.setString(7, line.getNotes());
+                            stmt.setBigDecimal(8, line.getTaxRate());
+                            stmt.setBigDecimal(9, line.getTaxAmount());
+                            stmt.setBigDecimal(10, line.getTotalPrice());
+                            stmt.setBigDecimal(11, line.getLineTotal());
                             stmt.addBatch();
                         }
                         stmt.executeBatch();
@@ -167,7 +177,7 @@ public class SupplierBillService {
                 bill.getId(),
                 bill.getBillNumber(),
                 bill.getBillDate() != null ? bill.getBillDate() : LocalDate.now(),
-                bill.getSubtotal(),
+                bill.getSubtotal().subtract(bill.getDocumentDiscountAmount()),
                 bill.getTaxAmount(),
                 bill.getTotalAmount(),
                 isInventory
@@ -224,6 +234,9 @@ public class SupplierBillService {
         b.setSubtotal(rs.getBigDecimal("subtotal"));
         b.setTaxAmount(rs.getBigDecimal("tax_amount"));
         b.setTotalAmount(rs.getBigDecimal("total_amount"));
+        b.setDocumentDiscountType(rs.getString("document_discount_type"));
+        b.setDocumentDiscountValue(rs.getBigDecimal("document_discount_value"));
+        b.setDocumentDiscountAmount(rs.getBigDecimal("document_discount_amount"));
         b.setPaidAmount(rs.getBigDecimal("paid_amount"));
         b.setNotes(rs.getString("notes"));
 
@@ -251,6 +264,8 @@ public class SupplierBillService {
                     line.setDescription(rs.getString("description"));
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
+                    line.setDiscountPercent(rs.getBigDecimal("discount_percent"));
+                    line.setNotes(rs.getString("notes"));
                     line.setTaxRate(rs.getBigDecimal("tax_rate"));
                     line.setTaxAmount(rs.getBigDecimal("tax_amount"));
                     line.setTotalPrice(rs.getBigDecimal("total_price"));

@@ -7,6 +7,7 @@ import com.aceerp.service.SupplierPaymentService;
 import com.aceerp.service.SupplierService;
 import com.aceerp.util.CurrencyFormatter;
 import com.aceerp.util.GlobalQuickAdd;
+import com.aceerp.util.InputValidation;
 import com.aceerp.util.SmartSearchHelper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -52,6 +53,7 @@ public class SupplierPaymentController {
 
     @FXML
     public void initialize() {
+        InputValidation.decimalOnly(amountField);
         setupListView();
         setupSupplierSearch();
 

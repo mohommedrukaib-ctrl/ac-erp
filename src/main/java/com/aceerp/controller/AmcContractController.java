@@ -7,6 +7,7 @@ import com.aceerp.service.AmcContractService;
 import com.aceerp.service.AuditLogService;
 import com.aceerp.service.CustomerService;
 import com.aceerp.util.AlertHelper;
+import com.aceerp.util.InputValidation;
 import com.aceerp.util.CurrencyFormatter;
 import com.aceerp.util.GlobalQuickAdd;
 import com.aceerp.util.SmartSearchHelper;
@@ -70,6 +71,12 @@ public class AmcContractController {
 
         filtered = new FilteredList<>(master, p -> true);
         contractsTable.setItems(filtered);
+        com.aceerp.util.QuickBooksContextMenus.installTableView(contractsTable, contract ->
+            java.util.List.of(
+                com.aceerp.util.QuickBooksContextMenus.action("Edit", () -> showDialog(contract)),
+                com.aceerp.util.QuickBooksContextMenus.action("Add Visit", this::onAddSchedule)
+            )
+        );
         contractsTable.getSelectionModel().selectedItemProperty().addListener((o, a, b) -> loadSchedules(b));
 
         searchField.textProperty().addListener((o, a, b) -> {
@@ -217,6 +224,7 @@ public class AmcContractController {
         ComboBox<String> status = new ComboBox<>(FXCollections.observableArrayList("ACTIVE", "EXPIRED", "CANCELLED"));
         status.setValue("ACTIVE");
         TextField valueField = new TextField("0.00");
+        InputValidation.decimalOnly(valueField);
         TextArea notes = new TextArea();
         notes.setPrefRowCount(3);
 

@@ -41,7 +41,8 @@ public class DatabaseMigrator {
         "V040__bank_reconciliation.sql", "V041__fixed_assets.sql", "V042__bill_of_materials_and_assemblies.sql",
         "V043__credit_memos_and_vendor_credits.sql", "V044__multi_location_warehouses_and_stock_transfers.sql", "V045__hvac_job_costing_and_wip.sql",
         "V046__allow_nullable_product_in_service_job_lines.sql",
-        "V047__hvac_enterprise_features.sql"
+        "V047__hvac_enterprise_features.sql", "V048__fix_product_stock_insert_sync.sql",
+        "V049__document_level_discounts.sql"
     };
 
     public void migrate() throws SQLException {

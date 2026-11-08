@@ -205,10 +205,10 @@ public class Product {
 
     @Override
     public String toString() {
-        return "Product{" +
-                "id=" + id +
-                ", code='" + productCode + '\'' +
-                ", name='" + name + '\'' +
-                '}';
+        String code = productCode == null ? "" : productCode.trim();
+        String displayName = name == null ? "" : name.trim();
+        if (code.isEmpty()) return displayName.isEmpty() ? "Product #" + id : displayName;
+        if (displayName.isEmpty()) return code;
+        return code + " - " + displayName;
     }
 }

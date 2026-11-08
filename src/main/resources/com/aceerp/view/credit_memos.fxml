@@ -65,17 +65,15 @@
                 </columns>
             </TableView>
 
-            <HBox spacing="20" alignment="CENTER_RIGHT">
-                <Label text="Subtotal:"/>
-                <Label fx:id="lblSubtotal" text="0.00" style="-fx-font-weight: bold;"/>
-                <Label text="Tax:"/>
-                <Label fx:id="lblTax" text="0.00" style="-fx-font-weight: bold;"/>
-                <Label text="Total Credit:"/>
-                <Label fx:id="lblTotal" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
-                <Label text="Remaining Credit:"/>
-                <Label fx:id="lblRemaining" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2980b9;"/>
+            <VBox spacing="8" alignment="CENTER_RIGHT">
+                <FlowPane hgap="14" vgap="6" alignment="CENTER_RIGHT">
+                    <HBox spacing="5"><Label text="Subtotal:"/><Label fx:id="lblSubtotal" text="0.00" style="-fx-font-weight: bold;"/></HBox>
+                    <HBox spacing="5"><Label text="Tax:"/><Label fx:id="lblTax" text="0.00" style="-fx-font-weight: bold;"/></HBox>
+                    <HBox spacing="5"><Label text="Total Credit:"/><Label fx:id="lblTotal" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/></HBox>
+                    <HBox spacing="5"><Label text="Remaining Credit:"/><Label fx:id="lblRemaining" text="0.00" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2980b9;"/></HBox>
+                </FlowPane>
                 <Button text="Issue Credit Memo" onAction="#handleSave" styleClass="btn-primary"/>
-            </HBox>
+            </VBox>
         </VBox>
     </SplitPane>
 </VBox>

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.aceerp.util.DocumentDiscount;
 
 
 
@@ -21,6 +22,9 @@ public class SalesOrder {
     private BigDecimal subtotal = BigDecimal.ZERO;
     private BigDecimal taxAmount = BigDecimal.ZERO;
     private BigDecimal totalAmount = BigDecimal.ZERO;
+    private String documentDiscountType = DocumentDiscount.PERCENT;
+    private BigDecimal documentDiscountValue = BigDecimal.ZERO;
+    private BigDecimal documentDiscountAmount = BigDecimal.ZERO;
     private String notes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -70,6 +74,15 @@ public class SalesOrder {
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
 
+    public String getDocumentDiscountType() { return documentDiscountType; }
+    public void setDocumentDiscountType(String type) { this.documentDiscountType = DocumentDiscount.normalizeType(type); }
+
+    public BigDecimal getDocumentDiscountValue() { return documentDiscountValue; }
+    public void setDocumentDiscountValue(BigDecimal value) { this.documentDiscountValue = value != null ? value : BigDecimal.ZERO; }
+
+    public BigDecimal getDocumentDiscountAmount() { return documentDiscountAmount; }
+    public void setDocumentDiscountAmount(BigDecimal amount) { this.documentDiscountAmount = amount != null ? amount : BigDecimal.ZERO; }
+
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 
@@ -95,8 +108,9 @@ public class SalesOrder {
         if (line.getTaxAmount() != null) sumTax = sumTax.add(line.getTaxAmount());
     }
     this.subtotal = sumExTax;
-    this.taxAmount = sumTax;   // or setTaxTotal(sumTax) if that is your field
-    this.totalAmount = sumExTax.add(sumTax); // or grandTotal
+    this.documentDiscountAmount = DocumentDiscount.calculateAmount(sumExTax, documentDiscountType, documentDiscountValue);
+    this.taxAmount = DocumentDiscount.calculateTaxAfterDiscount(sumExTax, sumTax, documentDiscountAmount);
+    this.totalAmount = sumExTax.subtract(documentDiscountAmount).add(taxAmount);
 }
 
 

@@ -10,6 +10,8 @@ import com.aceerp.service.CustomerService;
 import com.aceerp.service.ProductService;
 import com.aceerp.service.QuotationService;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.DocumentDiscount;
+import com.aceerp.util.InputValidation;
 import com.aceerp.util.TaxUtil;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
@@ -54,6 +56,9 @@ public class QuotationController {
     @FXML private Label lblSubtotal;
     @FXML private Label lblTax;
     @FXML private Label lblTaxTitle;
+    @FXML private ComboBox<String> cmbDocumentDiscountType;
+    @FXML private TextField txtDocumentDiscountValue;
+    @FXML private Label lblDocumentDiscountAmount;
     @FXML private CheckBox globalTaxCheck;
     @FXML private VBox detailsPane;
 
@@ -70,9 +75,17 @@ public class QuotationController {
 
     @FXML
     public void initialize() {
+        DocumentDiscount.configureControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                () -> { if (editMode) updateTotal(); });
         setupSmartSearch();
         setupTable();
         setupListView();
+        com.aceerp.util.QuickBooksContextMenus.installListView(quotationListView, quotation -> java.util.List.of(
+            com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
+            com.aceerp.util.QuickBooksContextMenus.action("Print", this::handlePrint),
+            com.aceerp.util.QuickBooksContextMenus.action("Convert to Sales Order", this::handleConvertToSO),
+            com.aceerp.util.QuickBooksContextMenus.action("Convert to Invoice", this::handleConvertToInvoice)
+        ));
         
         statusCombo.setItems(FXCollections.observableArrayList("DRAFT", "SENT", "ACCEPTED", "EXPIRED", "INVOICED"));
         
@@ -146,7 +159,7 @@ public class QuotationController {
     }
 
     private void selectCustomer(Customer c) {
-        customerSearchField.setText(c.getName());
+        com.aceerp.util.SmartSearchHelper.setTextWithoutSuggestions(customerSearchField, c.getName());
         customerPhoneField.setText(c.getPhone() != null && !c.getPhone().isEmpty() ? c.getPhone() : "N/A");
         selectedCustomer = c;
     }
@@ -154,6 +167,8 @@ public class QuotationController {
     private void setFormEditable(boolean editable) {
         this.editMode = editable;
         customerSearchField.setDisable(!editable);
+        cmbDocumentDiscountType.setDisable(!editable);
+        txtDocumentDiscountValue.setDisable(!editable);
         quoteDatePicker.setDisable(!editable);
         statusCombo.setDisable(!editable);
         linesTable.setEditable(editable);
@@ -164,13 +179,16 @@ public class QuotationController {
 
     private void loadQuotationToForm(Quotation q) {
         currentQuotation = q;
+        setFormEditable(false);
         quoteNumberField.setText(q.getQuoteNumber());
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                q.getDocumentDiscountType(), q.getDocumentDiscountValue());
         quoteDatePicker.setValue(q.getQuoteDate());
         statusCombo.setValue(q.getStatus());
         
         selectedCustomer = q.getCustomer();
         if (selectedCustomer != null) {
-            customerSearchField.setText(selectedCustomer.getName());
+            com.aceerp.util.SmartSearchHelper.setTextWithoutSuggestions(customerSearchField, selectedCustomer.getName());
             customerPhoneField.setText(selectedCustomer.getPhone() != null ? selectedCustomer.getPhone() : "N/A");
         } else {
             customerSearchField.clear();
@@ -218,6 +236,7 @@ public class QuotationController {
         grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(10));
         TextField nameField = new TextField(customerSearchField.getText()); nameField.setPromptText("Company / Person Name *");
         TextField phoneField = new TextField(); phoneField.setPromptText("Phone");
+        InputValidation.phoneNumber(phoneField);
         TextField emailField = new TextField(); emailField.setPromptText("Email");
 
         grid.add(new Label("Name *:"), 0, 0); grid.add(nameField, 1, 0);
@@ -469,16 +488,24 @@ public class QuotationController {
             }
         }
 
-        BigDecimal grand = subtotal.add(taxTotal);
+        BigDecimal discountAmount = DocumentDiscount.calculateAmount(
+                subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+        taxTotal = DocumentDiscount.calculateTaxAfterDiscount(subtotal, taxTotal, discountAmount);
+        BigDecimal grand = subtotal.subtract(discountAmount).add(taxTotal);
         linesTable.refresh();
 
         if (lblSubtotal != null) lblSubtotal.setText(CurrencyFormatter.format(subtotal));
         if (lblTax != null) lblTax.setText(CurrencyFormatter.format(taxTotal));
+        if (lblDocumentDiscountAmount != null) lblDocumentDiscountAmount.setText(CurrencyFormatter.format(discountAmount));
         if (lblTaxTitle != null) lblTaxTitle.setText(TaxUtil.getTaxName() + ":");
         if (totalLabel != null) totalLabel.setText("Total: " + CurrencyFormatter.format(grand));
 
         if (currentQuotation != null) {
             currentQuotation.setSubtotal(subtotal);
+            currentQuotation.setDocumentDiscountType(DocumentDiscount.selectedType(cmbDocumentDiscountType));
+            currentQuotation.setDocumentDiscountValue(DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+            currentQuotation.setDocumentDiscountAmount(discountAmount);
             currentQuotation.setTaxAmount(taxTotal);
             currentQuotation.setTotalAmount(grand);
         }
@@ -495,6 +522,15 @@ public class QuotationController {
         }
         if (lines.isEmpty()) {
             showAlert(Alert.AlertType.WARNING, "Validation", "Cannot save a quotation with empty line items.");
+            return;
+        }
+        updateTotal();
+        String discountError = DocumentDiscount.validate(
+                DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                txtDocumentDiscountValue.getText(),
+                currentQuotation != null ? currentQuotation.getSubtotal() : BigDecimal.ZERO);
+        if (discountError != null) {
+            showAlert(Alert.AlertType.WARNING, "Invalid Discount", discountError);
             return;
         }
         
@@ -565,11 +601,14 @@ public class QuotationController {
 
     @FXML
     private void handleNewQuotation() {
+        setFormEditable(false);
         currentQuotation = new Quotation();
         currentQuotation.setQuoteNumber(quotationService.generateNextQuoteNumber());
         quoteNumberField.setText(currentQuotation.getQuoteNumber());
         quoteDatePicker.setValue(LocalDate.now());
         statusCombo.setValue("DRAFT");
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                DocumentDiscount.PERCENT, BigDecimal.ZERO);
         lines.clear(); 
         customerSearchField.clear(); 
         customerPhoneField.clear(); 
@@ -627,8 +666,8 @@ public class QuotationController {
 
                     boolean hasOrderNumber = columnExists(conn, "sales_orders", "order_number");
                     String insertSo = hasOrderNumber
-                            ? "INSERT INTO sales_orders (so_number, order_number, quotation_id, customer_id, order_date, status, subtotal, tax_amount, total_amount, notes) VALUES (?, ?, ?, ?, CURRENT_DATE, 'APPROVED', ?, ?, ?, ?) RETURNING id"
-                            : "INSERT INTO sales_orders (so_number, quotation_id, customer_id, order_date, status, subtotal, tax_amount, total_amount, notes) VALUES (?, ?, ?, CURRENT_DATE, 'APPROVED', ?, ?, ?, ?) RETURNING id";
+                            ? "INSERT INTO sales_orders (so_number, order_number, quotation_id, customer_id, order_date, status, subtotal, tax_amount, total_amount, document_discount_type, document_discount_value, document_discount_amount, notes) VALUES (?, ?, ?, ?, CURRENT_DATE, 'APPROVED', ?, ?, ?, ?, ?, ?, ?) RETURNING id"
+                            : "INSERT INTO sales_orders (so_number, quotation_id, customer_id, order_date, status, subtotal, tax_amount, total_amount, document_discount_type, document_discount_value, document_discount_amount, notes) VALUES (?, ?, ?, CURRENT_DATE, 'APPROVED', ?, ?, ?, ?, ?, ?, ?) RETURNING id";
 
                     int newSoId;
                     try (PreparedStatement stmt = conn.prepareStatement(insertSo)) {
@@ -640,6 +679,9 @@ public class QuotationController {
                         stmt.setBigDecimal(i++, nz(currentQuotation.getSubtotal()));
                         stmt.setBigDecimal(i++, nz(currentQuotation.getTaxAmount()));
                         stmt.setBigDecimal(i++, nz(currentQuotation.getTotalAmount()));
+                        stmt.setString(i++, currentQuotation.getDocumentDiscountType());
+                        stmt.setBigDecimal(i++, nz(currentQuotation.getDocumentDiscountValue()));
+                        stmt.setBigDecimal(i++, nz(currentQuotation.getDocumentDiscountAmount()));
                         stmt.setString(i, "Converted from Quote " + currentQuotation.getQuoteNumber());
                         try (ResultSet rs = stmt.executeQuery()) {
                             if (!rs.next()) throw new SQLException("Sales order insert returned no id");
@@ -705,8 +747,9 @@ public class QuotationController {
                     String nextInvNum = generateNextInvoiceNumber(conn);
 
                     String insertInv = 
-                            "INSERT INTO invoices (invoice_number, quotation_id, customer_id, invoice_date, status, subtotal, tax_amount, total_amount, paid_amount, notes) " +
-                            "VALUES (?, ?, ?, CURRENT_DATE, 'DRAFT', ?, ?, ?, 0, ?) RETURNING id";
+                            "INSERT INTO invoices (invoice_number, quotation_id, customer_id, invoice_date, status, subtotal, tax_amount, total_amount, " +
+                            "document_discount_type, document_discount_value, document_discount_amount, paid_amount, notes) " +
+                            "VALUES (?, ?, ?, CURRENT_DATE, 'DRAFT', ?, ?, ?, ?, ?, ?, 0, ?) RETURNING id";
 
                     int newInvId;
                     try (PreparedStatement stmt = conn.prepareStatement(insertInv)) {
@@ -716,7 +759,10 @@ public class QuotationController {
                         stmt.setBigDecimal(4, nz(currentQuotation.getSubtotal()));
                         stmt.setBigDecimal(5, nz(currentQuotation.getTaxAmount()));
                         stmt.setBigDecimal(6, nz(currentQuotation.getTotalAmount()));
-                        stmt.setString(7, "Billed from Quote " + currentQuotation.getQuoteNumber());
+                        stmt.setString(7, currentQuotation.getDocumentDiscountType());
+                        stmt.setBigDecimal(8, nz(currentQuotation.getDocumentDiscountValue()));
+                        stmt.setBigDecimal(9, nz(currentQuotation.getDocumentDiscountAmount()));
+                        stmt.setString(10, "Billed from Quote " + currentQuotation.getQuoteNumber());
                         try (ResultSet rs = stmt.executeQuery()) {
                             if (!rs.next()) throw new SQLException("Invoice insert returned no id");
                             newInvId = rs.getInt(1);

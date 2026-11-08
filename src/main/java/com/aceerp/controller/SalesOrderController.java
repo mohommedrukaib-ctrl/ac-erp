@@ -11,6 +11,8 @@ import com.aceerp.service.ReportService;
 import com.aceerp.service.SalesOrderService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.DocumentDiscount;
+import com.aceerp.util.InputValidation;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -45,6 +47,11 @@ public class SalesOrderController {
     @FXML private TableColumn<SalesOrderLine, BigDecimal> colPrice;
     @FXML private TableColumn<SalesOrderLine, BigDecimal> colTotal;
     @FXML private Label totalLabel;
+    @FXML private Label lblSubtotal;
+    @FXML private Label lblTax;
+    @FXML private ComboBox<String> cmbDocumentDiscountType;
+    @FXML private TextField txtDocumentDiscountValue;
+    @FXML private Label lblDocumentDiscountAmount;
     @FXML private VBox detailsPane;
 
     @FXML private TableColumn<SalesOrderLine, BigDecimal> colDiscount;
@@ -63,9 +70,15 @@ public class SalesOrderController {
 
     @FXML
     public void initialize() {
+        DocumentDiscount.configureControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                () -> { if (editMode) updateTotal(); });
         setupSmartSearch();
         setupTable();
         setupListAndSelection();
+        com.aceerp.util.QuickBooksContextMenus.installListView(salesOrderListView, order -> java.util.List.of(
+            com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
+            com.aceerp.util.QuickBooksContextMenus.action("Print", this::handlePrint)
+        ));
         loadSalesOrders();
         statusCombo.setItems(FXCollections.observableArrayList("DRAFT", "APPROVED", "SHIPPED", "INVOICED", "CANCELLED"));
         handleNewSalesOrder();
@@ -99,7 +112,10 @@ public class SalesOrderController {
 
     private void loadSalesOrderToForm(SalesOrder so) {
         currentSalesOrder = so;
+        setFormEditable(false);
         soNumberField.setText(so.getSoNumber());
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                so.getDocumentDiscountType(), so.getDocumentDiscountValue());
         orderDatePicker.setValue(so.getOrderDate() != null ? so.getOrderDate() : LocalDate.now());
         statusCombo.setValue(so.getStatus() != null ? so.getStatus() : "DRAFT");
 
@@ -137,6 +153,8 @@ public class SalesOrderController {
     private void setFormEditable(boolean editable) {
         editMode = editable;
         customerSearchField.setDisable(!editable);
+        cmbDocumentDiscountType.setDisable(!editable);
+        txtDocumentDiscountValue.setDisable(!editable);
         orderDatePicker.setDisable(!editable);
         statusCombo.setDisable(!editable);
         linesTable.setEditable(editable);
@@ -197,6 +215,7 @@ public class SalesOrderController {
         grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(10));
         TextField nameField = new TextField(customerSearchField.getText()); nameField.setPromptText("Company / Person Name *");
         TextField phoneField = new TextField(); phoneField.setPromptText("Phone");
+        InputValidation.phoneNumber(phoneField);
         TextField emailField = new TextField(); emailField.setPromptText("Email");
 
         grid.add(new Label("Name *:"), 0, 0); grid.add(nameField, 1, 0);
@@ -344,7 +363,7 @@ public class SalesOrderController {
         }
     }
 
-        private void updateTotal() {
+    private void updateTotal() {
         BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal taxTotal = BigDecimal.ZERO;
         for (SalesOrderLine line : lines) {
@@ -353,10 +372,20 @@ public class SalesOrderController {
             if (line.getTaxAmount() != null) taxTotal = taxTotal.add(line.getTaxAmount());
         }
         linesTable.refresh();
-        BigDecimal grand = subtotal.add(taxTotal);
+        BigDecimal discountAmount = DocumentDiscount.calculateAmount(
+                subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+        taxTotal = DocumentDiscount.calculateTaxAfterDiscount(subtotal, taxTotal, discountAmount);
+        BigDecimal grand = subtotal.subtract(discountAmount).add(taxTotal);
         totalLabel.setText("Total: " + CurrencyFormatter.format(grand));
+        if (lblSubtotal != null) lblSubtotal.setText(CurrencyFormatter.format(subtotal));
+        if (lblTax != null) lblTax.setText(CurrencyFormatter.format(taxTotal));
+        lblDocumentDiscountAmount.setText(CurrencyFormatter.format(discountAmount));
         if (currentSalesOrder != null) {
             currentSalesOrder.setSubtotal(subtotal);
+            currentSalesOrder.setDocumentDiscountType(DocumentDiscount.selectedType(cmbDocumentDiscountType));
+            currentSalesOrder.setDocumentDiscountValue(DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+            currentSalesOrder.setDocumentDiscountAmount(discountAmount);
             currentSalesOrder.setTaxAmount(taxTotal);
             currentSalesOrder.setTotalAmount(grand);
         }
@@ -370,6 +399,15 @@ public class SalesOrderController {
         }
         if (selectedCustomer == null) {
             showAlert("Validation", "Please select a customer."); return;
+        }
+        updateTotal();
+        String discountError = DocumentDiscount.validate(
+                DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                txtDocumentDiscountValue.getText(),
+                currentSalesOrder != null ? currentSalesOrder.getSubtotal() : BigDecimal.ZERO);
+        if (discountError != null) {
+            showAlert("Invalid Discount", discountError);
+            return;
         }
         if (currentSalesOrder == null) {
             currentSalesOrder = new SalesOrder();
@@ -422,7 +460,10 @@ public class SalesOrderController {
 
     @FXML
     private void handleNewSalesOrder() {
+        setFormEditable(false);
         currentSalesOrder = new SalesOrder();
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                DocumentDiscount.PERCENT, BigDecimal.ZERO);
         currentSalesOrder.setSoNumber(salesOrderService.generateNextSONumber());
         soNumberField.setText(currentSalesOrder.getSoNumber());
         orderDatePicker.setValue(LocalDate.now());

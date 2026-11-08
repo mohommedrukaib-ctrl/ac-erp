@@ -12,6 +12,8 @@ import com.aceerp.service.ProductService;
 import com.aceerp.service.ReportService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.DocumentDiscount;
+import com.aceerp.util.InputValidation;
 import com.aceerp.util.TaxUtil;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
@@ -57,6 +59,9 @@ public class InvoiceController {
     @FXML private Label lblSubtotal;
     @FXML private Label lblTax;
     @FXML private Label lblTaxTitle;
+    @FXML private ComboBox<String> cmbDocumentDiscountType;
+    @FXML private TextField txtDocumentDiscountValue;
+    @FXML private Label lblDocumentDiscountAmount;
     @FXML private CheckBox globalTaxCheck;
     @FXML private VBox detailsPane;
 
@@ -72,9 +77,16 @@ public class InvoiceController {
 
     @FXML
     public void initialize() {
+        DocumentDiscount.configureControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                () -> { if (editMode) updateTotal(); });
         setupSmartSearch();
         setupTable();
         setupListAndSelection();
+        com.aceerp.util.QuickBooksContextMenus.installListView(invoiceListView, invoice -> java.util.List.of(
+            com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
+            com.aceerp.util.QuickBooksContextMenus.action("Receive Payment", this::handleReceivePayment),
+            com.aceerp.util.QuickBooksContextMenus.action("Print", this::handlePrint)
+        ));
         loadInvoices();
         statusCombo.setItems(FXCollections.observableArrayList("DRAFT", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE", "CANCELLED"));
         
@@ -117,6 +129,7 @@ public class InvoiceController {
 
     private void loadInvoiceToForm(Invoice inv) {
         currentInvoice = inv;
+        setFormEditable(false);
         invoiceNumberField.setText(inv.getInvoiceNumber());
         invoiceDatePicker.setValue(inv.getInvoiceDate() != null ? inv.getInvoiceDate() : LocalDate.now());
 
@@ -136,6 +149,8 @@ public class InvoiceController {
         }
         inv.setStatus(calculatedStatus);
         statusCombo.setValue(calculatedStatus);
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                inv.getDocumentDiscountType(), inv.getDocumentDiscountValue());
 
         if (inv.getCustomerId() > 0) {
             selectedCustomer = customerService.getById(inv.getCustomerId()).orElse(null);
@@ -184,6 +199,8 @@ public class InvoiceController {
             editMode = editable;
         }
         customerSearchField.setDisable(!editMode);
+        cmbDocumentDiscountType.setDisable(!editMode);
+        txtDocumentDiscountValue.setDisable(!editMode);
         invoiceDatePicker.setDisable(!editMode);
         statusCombo.setDisable(!editMode);
         linesTable.setEditable(editMode);
@@ -268,6 +285,7 @@ public class InvoiceController {
         grid.setHgap(10); grid.setVgap(10); grid.setPadding(new Insets(10));
         TextField nameField = new TextField(customerSearchField.getText()); nameField.setPromptText("Company / Person Name *");
         TextField phoneField = new TextField(); phoneField.setPromptText("Phone");
+        InputValidation.phoneNumber(phoneField);
         TextField emailField = new TextField(); emailField.setPromptText("Email");
 
         grid.add(new Label("Name *:"), 0, 0); grid.add(nameField, 1, 0);
@@ -520,16 +538,24 @@ public class InvoiceController {
             }
         }
 
-        BigDecimal grand = subtotal.add(taxTotal);
+        BigDecimal discountAmount = DocumentDiscount.calculateAmount(
+                subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+        taxTotal = DocumentDiscount.calculateTaxAfterDiscount(subtotal, taxTotal, discountAmount);
+        BigDecimal grand = subtotal.subtract(discountAmount).add(taxTotal);
         linesTable.refresh();
 
         if (lblSubtotal != null) lblSubtotal.setText(CurrencyFormatter.format(subtotal));
         if (lblTax != null) lblTax.setText(CurrencyFormatter.format(taxTotal));
+        if (lblDocumentDiscountAmount != null) lblDocumentDiscountAmount.setText(CurrencyFormatter.format(discountAmount));
         if (lblTaxTitle != null) lblTaxTitle.setText(TaxUtil.getTaxName() + ":");
         if (totalLabel != null) totalLabel.setText("Total: " + CurrencyFormatter.format(grand));
 
         if (currentInvoice != null) {
             currentInvoice.setSubtotal(subtotal);
+            currentInvoice.setDocumentDiscountType(DocumentDiscount.selectedType(cmbDocumentDiscountType));
+            currentInvoice.setDocumentDiscountValue(DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+            currentInvoice.setDocumentDiscountAmount(discountAmount);
             currentInvoice.setTaxAmount(taxTotal);
             currentInvoice.setTotalAmount(grand);
         }
@@ -543,6 +569,15 @@ public class InvoiceController {
         }
         if (isInvoicePaid(currentInvoice)) {
             showAlert(Alert.AlertType.WARNING, "Invoice Locked", "Paid invoices cannot be edited or modified.");
+            return;
+        }
+        updateTotal();
+        String discountError = DocumentDiscount.validate(
+                DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                txtDocumentDiscountValue.getText(),
+                currentInvoice != null ? currentInvoice.getSubtotal() : BigDecimal.ZERO);
+        if (discountError != null) {
+            showAlert(Alert.AlertType.WARNING, "Invalid Discount", discountError);
             return;
         }
         if (selectedCustomer == null) {
@@ -643,11 +678,14 @@ public class InvoiceController {
 
     @FXML
     public void handleNewInvoice() {
+        setFormEditable(false);
         currentInvoice = new Invoice();
         currentInvoice.setInvoiceNumber(invoiceService.generateNextInvoiceNumber());
         invoiceNumberField.setText(currentInvoice.getInvoiceNumber());
         invoiceDatePicker.setValue(LocalDate.now());
         statusCombo.setValue("DRAFT");
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                DocumentDiscount.PERCENT, BigDecimal.ZERO);
         lines.clear(); customerSearchField.clear(); customerPhoneField.clear(); selectedCustomer = null;
         invoiceListView.getSelectionModel().clearSelection();
         

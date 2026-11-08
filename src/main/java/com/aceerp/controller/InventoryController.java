@@ -5,6 +5,7 @@ import com.aceerp.service.AssemblyService;
 import com.aceerp.service.InventoryService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.InputValidation;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -252,18 +253,24 @@ public class InventoryController implements Initializable {
         dialog.setTitle("New Bill of Materials (Assembly Recipe)");
         dialog.setHeaderText("Create multi-component assembly formula");
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-        dialog.getDialogPane().setPrefSize(720, 500);
+        dialog.setResizable(true);
+        dialog.getDialogPane().setPrefSize(760, 680);
 
         Label lblAssy = new Label("Assembly Finished Product:");
         TextField txtSearchAssy = new TextField();
         txtSearchAssy.setPromptText("Type assembly product name or code...");
         ListView<Product> lstAssy = new ListView<>();
-        lstAssy.setPrefHeight(90);
+        lstAssy.setPrefHeight(110);
+        lstAssy.setMinHeight(80);
         Label lblSelectedAssy = new Label("No Assembly Product selected");
         lblSelectedAssy.setStyle("-fx-font-weight: bold;");
 
         final Product[] selectedAssy = {null};
         txtSearchAssy.textProperty().addListener((o, oldV, newV) -> {
+            lstAssy.getSelectionModel().clearSelection();
+            selectedAssy[0] = null;
+            lblSelectedAssy.setText("No Assembly Product selected");
+            lblSelectedAssy.setStyle("-fx-font-weight: bold;");
             if (newV != null && !newV.isBlank()) {
                 lstAssy.getItems().setAll(inventoryService.searchProducts(newV.trim()));
             } else lstAssy.getItems().clear();
@@ -308,8 +315,10 @@ public class InventoryController implements Initializable {
         TextField txtSearchComp = new TextField();
         txtSearchComp.setPromptText("Search raw material component...");
         ListView<Product> lstComp = new ListView<>();
-        lstComp.setPrefHeight(90);
+        lstComp.setPrefHeight(110);
+        lstComp.setMinHeight(80);
         txtSearchComp.textProperty().addListener((o, oldV, newV) -> {
+            lstComp.getSelectionModel().clearSelection();
             if (newV != null && !newV.isBlank()) {
                 lstComp.getItems().setAll(inventoryService.searchProducts(newV.trim()));
             } else lstComp.getItems().clear();
@@ -335,7 +344,11 @@ public class InventoryController implements Initializable {
                 new Label("Add Components:"), new HBox(8, txtSearchComp, btnAddComp), lstComp,
                 new Label("Recipe Components List:"), tblDraft);
         box.setPadding(new Insets(10));
-        dialog.getDialogPane().setContent(box);
+        ScrollPane contentScroll = new ScrollPane(box);
+        contentScroll.setFitToWidth(true);
+        contentScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        contentScroll.setPrefViewportHeight(560);
+        dialog.getDialogPane().setContent(contentScroll);
 
         Button okBtn = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
         okBtn.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
@@ -448,6 +461,7 @@ public class InventoryController implements Initializable {
         Label qtyLabel = new Label("Quantity:");
         TextField qtyField = new TextField();
         qtyField.setPromptText("Enter number of units");
+        InputValidation.digitsOnly(qtyField);
 
         Label refLabel = new Label("Reference:");
         TextField refField = new TextField();
@@ -553,6 +567,7 @@ public class InventoryController implements Initializable {
         Label countLabel = new Label("Actual Count:");
         TextField countField = new TextField();
         countField.setPromptText("Enter the real physical count");
+        InputValidation.digitsOnly(countField);
 
         Label reasonLabel = new Label("Reason:");
         TextField reasonField = new TextField();

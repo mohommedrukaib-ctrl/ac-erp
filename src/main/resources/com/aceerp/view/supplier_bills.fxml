@@ -7,7 +7,7 @@
 <BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.aceerp.controller.SupplierBillController"
-            stylesheets="@../css/app.css">
+            stylesheets="@../css/style.css">
 
     <!-- TOP: Header + Search + Actions -->
     <top>
@@ -40,15 +40,14 @@
                     </padding>
 
                     <!-- Top Action bar -->
-                    <HBox spacing="8" alignment="CENTER_LEFT">
+                    <FlowPane hgap="8" vgap="6" alignment="CENTER_LEFT">
                         <Button text="Import from GRN" onAction="#handleImportGrn" styleClass="btn-secondary"/>
                         <Button text="Edit" onAction="#handleEdit" styleClass="btn-secondary"/>
                         <Button text="Save" onAction="#handleSave" styleClass="btn-primary"/>
                         <Button text="Delete" onAction="#handleDelete" styleClass="btn-danger"/>
-                        <Region HBox.hgrow="ALWAYS"/>
                         <Button text="Record Payment" onAction="#handlePayBill" styleClass="btn-primary"/>
                         <Button text="Print" onAction="#handlePrint" styleClass="btn-secondary"/>
-                    </HBox>
+                    </FlowPane>
 
                     <!-- Header fields -->
                     <GridPane hgap="12" vgap="10">
@@ -106,11 +105,8 @@
 
                     <Separator/>
 
-                    <!-- Line items toolbar -->
-                                        <!-- Line items toolbar -->
-                    <HBox spacing="8" alignment="CENTER_LEFT">
+                    <FlowPane hgap="8" vgap="6" alignment="CENTER_LEFT">
                         <Label text="Billed Line Items" styleClass="section-title"/>
-                        <Region HBox.hgrow="ALWAYS"/>
                         <Button text="↑" onAction="#handleMoveUp" styleClass="btn-secondary">
                             <tooltip><Tooltip text="Move line up"/></tooltip>
                         </Button>
@@ -121,15 +117,21 @@
                         <Button text="+ Add Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
                         <Button text="+ Empty Line" onAction="#handleAddEmptyLine" styleClass="btn-secondary"/>
                         <Button text="Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>
-                    </HBox>
+                    </FlowPane>
+
+                    <FlowPane hgap="8" vgap="6" alignment="CENTER_LEFT">
+                        <Label text="Document discount:"/>
+                        <ComboBox fx:id="cmbDocumentDiscountType" prefWidth="135"/>
+                        <TextField fx:id="txtDocumentDiscountValue" promptText="0.00" prefWidth="90"/>
+                    </FlowPane>
 
                     <!-- Lines table -->
                     <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="260">
                         <columns>
-                            <TableColumn fx:id="colProduct" text="Product / Expense Description" prefWidth="200"/>
+                            <TableColumn fx:id="colProduct" text="Description" prefWidth="200"/>
                             <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
                             <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="95"/>
-                            <TableColumn fx:id="colDiscount" text="Disc %" prefWidth="70"/>
+                            <TableColumn fx:id="colDiscount" text="Line Disc %" prefWidth="82"/>
                             <TableColumn fx:id="colTaxable" text="Tax" prefWidth="55"/>
                             <TableColumn fx:id="colNotes" text="Notes" prefWidth="130"/>
                             <TableColumn fx:id="colTotal" text="Line Total" prefWidth="110"/>
@@ -140,16 +142,15 @@
                     </TableView>
 
                     <!-- Totals -->
-                    <HBox spacing="24" alignment="CENTER_RIGHT" styleClass="totals-bar">
+                    <FlowPane hgap="14" vgap="6" alignment="CENTER_RIGHT" styleClass="totals-bar">
                         <padding>
                             <Insets top="8" right="8" bottom="8" left="8"/>
                         </padding>
-                        <Label text="Subtotal:"/>
-                        <Label fx:id="lblSubtotal" text="0.00" styleClass="total-value"/>
-                        <Label fx:id="lblTaxTitle" text="VAT:"/>
-                        <Label fx:id="lblTax" text="0.00" styleClass="total-value"/>
+                        <HBox spacing="5"><Label text="Subtotal:"/><Label fx:id="lblSubtotal" text="0.00" styleClass="total-value"/></HBox>
+                        <HBox spacing="5"><Label fx:id="lblTaxTitle" text="VAT:"/><Label fx:id="lblTax" text="0.00" styleClass="total-value"/></HBox>
+                        <HBox spacing="5"><Label text="Discount:"/><Label fx:id="lblDocumentDiscountAmount" text="0.00" styleClass="total-value"/></HBox>
                         <Label fx:id="totalLabel" text="Total: 0.00" styleClass="grand-total"/>
-                    </HBox>
+                    </FlowPane>
                 </VBox>
             </items>
         </SplitPane>

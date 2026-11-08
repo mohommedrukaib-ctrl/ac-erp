@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.aceerp.util.DocumentDiscount;
 
 public class SupplierBill {
     private int id;
@@ -21,6 +22,9 @@ public class SupplierBill {
     private BigDecimal subtotal = BigDecimal.ZERO;
     private BigDecimal taxAmount = BigDecimal.ZERO;
     private BigDecimal totalAmount = BigDecimal.ZERO;
+    private String documentDiscountType = DocumentDiscount.PERCENT;
+    private BigDecimal documentDiscountValue = BigDecimal.ZERO;
+    private BigDecimal documentDiscountAmount = BigDecimal.ZERO;
     private BigDecimal paidAmount = BigDecimal.ZERO;
     private String notes;
     private LocalDateTime createdAt;
@@ -42,7 +46,9 @@ public class SupplierBill {
                 }
             }
         }
-        totalAmount = subtotal.add(taxAmount);
+        documentDiscountAmount = DocumentDiscount.calculateAmount(subtotal, documentDiscountType, documentDiscountValue);
+        taxAmount = DocumentDiscount.calculateTaxAfterDiscount(subtotal, taxAmount, documentDiscountAmount);
+        totalAmount = subtotal.subtract(documentDiscountAmount).add(taxAmount);
     }
 
     public int getId() { return id; }
@@ -92,6 +98,15 @@ public class SupplierBill {
 
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+
+    public String getDocumentDiscountType() { return documentDiscountType; }
+    public void setDocumentDiscountType(String type) { this.documentDiscountType = DocumentDiscount.normalizeType(type); }
+
+    public BigDecimal getDocumentDiscountValue() { return documentDiscountValue; }
+    public void setDocumentDiscountValue(BigDecimal value) { this.documentDiscountValue = value != null ? value : BigDecimal.ZERO; }
+
+    public BigDecimal getDocumentDiscountAmount() { return documentDiscountAmount; }
+    public void setDocumentDiscountAmount(BigDecimal amount) { this.documentDiscountAmount = amount != null ? amount : BigDecimal.ZERO; }
 
     public BigDecimal getPaidAmount() { return paidAmount; }
     public void setPaidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; }

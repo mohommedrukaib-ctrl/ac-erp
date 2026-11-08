@@ -58,17 +58,24 @@
                     <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="220"/>
                     <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
                     <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="100"/>
-                    <TableColumn fx:id="colDiscount" text="Disc %" prefWidth="70"/>
+                    <TableColumn fx:id="colDiscount" text="Line Disc %" prefWidth="82"/>
                     <TableColumn fx:id="colNotes" text="Notes" prefWidth="140"/>
                     <TableColumn fx:id="colTotal" text="Total" prefWidth="110"/>
                 </columns>
             </TableView>
 
-            <HBox spacing="20" alignment="CENTER_RIGHT">
-                <VBox alignment="CENTER_RIGHT" spacing="5">
-                    <Label fx:id="totalLabel" text="" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
-                </VBox>
-            </HBox>
+            <FlowPane hgap="8" vgap="6" alignment="CENTER_RIGHT">
+                <Label text="Document discount:"/>
+                <ComboBox fx:id="cmbDocumentDiscountType" prefWidth="135"/>
+                <TextField fx:id="txtDocumentDiscountValue" promptText="0.00" prefWidth="90"/>
+            </FlowPane>
+
+            <FlowPane hgap="14" vgap="6" alignment="CENTER_RIGHT">
+                <HBox spacing="5"><Label text="Subtotal:"/><Label fx:id="lblSubtotal" text="0.00"/></HBox>
+                <HBox spacing="5"><Label text="Tax:"/><Label fx:id="lblTax" text="0.00"/></HBox>
+                <HBox spacing="5"><Label text="Discount:"/><Label fx:id="lblDocumentDiscountAmount" text="0.00"/></HBox>
+                <Label fx:id="totalLabel" text="" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
+            </FlowPane>
 
             <HBox spacing="10" alignment="CENTER_RIGHT">
                 <Button text="Edit" onAction="#handleEdit" styleClass="button-secondary"/>

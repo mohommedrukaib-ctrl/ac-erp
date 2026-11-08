@@ -3,6 +3,7 @@ package com.aceerp.service;
 import com.aceerp.model.Invoice;
 import com.aceerp.model.InvoiceLine;
 import com.aceerp.repository.InvoiceRepository;
+import com.aceerp.util.DocumentDiscount;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +41,7 @@ public class InvoiceService {
                 saved.getId(),
                 saved.getInvoiceNumber(),
                 saved.getInvoiceDate() != null ? saved.getInvoiceDate() : LocalDate.now(),
-                saved.getSubtotal(),
+                saved.getSubtotal().subtract(saved.getDocumentDiscountAmount()),
                 saved.getTaxAmount(),
                 saved.getTotalAmount()
             );
@@ -68,19 +69,18 @@ public class InvoiceService {
 
         for (InvoiceLine line : invoice.getLines()) {
             line.recalculateTotal();
-            if (line.getTotalPrice() != null) {
-                subtotal = subtotal.add(line.getQuantity().multiply(line.getUnitPrice()));
-                if (line.getTaxRate() != null && line.getTaxRate().compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal tax = line.getQuantity().multiply(line.getUnitPrice())
-                            .multiply(line.getTaxRate().divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
-                    taxTotal = taxTotal.add(tax);
-                }
-            }
+            if (line.getTotalPrice() != null) subtotal = subtotal.add(line.getTotalPrice());
+            if (line.getTaxAmount() != null) taxTotal = taxTotal.add(line.getTaxAmount());
         }
 
-        invoice.setSubtotal(subtotal.setScale(2, RoundingMode.HALF_UP));
-        invoice.setTaxAmount(taxTotal.setScale(2, RoundingMode.HALF_UP));
-        invoice.setTotalAmount(subtotal.add(taxTotal).setScale(2, RoundingMode.HALF_UP));
+        subtotal = subtotal.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal discountAmount = DocumentDiscount.calculateAmount(
+                subtotal, invoice.getDocumentDiscountType(), invoice.getDocumentDiscountValue());
+        BigDecimal adjustedTax = DocumentDiscount.calculateTaxAfterDiscount(subtotal, taxTotal, discountAmount);
+        invoice.setSubtotal(subtotal);
+        invoice.setDocumentDiscountAmount(discountAmount);
+        invoice.setTaxAmount(adjustedTax);
+        invoice.setTotalAmount(subtotal.subtract(discountAmount).add(adjustedTax).setScale(2, RoundingMode.HALF_UP));
 
         updatePaymentStatus(invoice);
     }

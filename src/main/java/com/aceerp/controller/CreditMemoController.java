@@ -100,7 +100,7 @@ public class CreditMemoController {
     }
 
     private void selectCustomer(SimpleCustomer customer) {
-        customerSearchField.setText(customer.getName());
+        SmartSearchHelper.setTextWithoutSuggestions(customerSearchField, customer.getName());
         selectedCustomer = customer;
     }
 
@@ -200,7 +200,7 @@ public class CreditMemoController {
         currentMemo = memo;
         memoNumberField.setText(memo.getCreditMemoNumber());
         issueDatePicker.setValue(memo.getIssueDate());
-        customerSearchField.setText(memo.getCustomerName());
+        SmartSearchHelper.setTextWithoutSuggestions(customerSearchField, memo.getCustomerName());
         lblStatus.setText(memo.getStatus());
         memoNotesField.setText(memo.getMemo() != null ? memo.getMemo() : "");
 

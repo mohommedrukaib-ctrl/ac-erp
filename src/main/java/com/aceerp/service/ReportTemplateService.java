@@ -38,7 +38,10 @@ public class ReportTemplateService {
             "delivery_note",
             "purchase_order",
             "job_note_a5",
-            "supplier_bill"
+            "supplier_bill",
+            "warranty_certificate",
+            "amc_renewal_notice",
+            "technician_payslip"
     );
 
     private static final Map<String, String> ID_PARAM = Map.of(
@@ -48,7 +51,10 @@ public class ReportTemplateService {
             "delivery_note", "DN_ID",
             "purchase_order", "PO_ID",
             "job_note_a5", "JOB_ID",
-            "supplier_bill", "BILL_ID"
+            "supplier_bill", "BILL_ID",
+            "warranty_certificate", "SERIAL_ID",
+            "amc_renewal_notice", "CONTRACT_ID",
+            "technician_payslip", "TECH_ID"
     );
 
     private static final Map<String, String> LATEST_ID_SQL = Map.of(
@@ -58,7 +64,10 @@ public class ReportTemplateService {
             "delivery_note", "SELECT id FROM delivery_notes ORDER BY id DESC LIMIT 1",
             "purchase_order", "SELECT id FROM purchase_orders ORDER BY id DESC LIMIT 1",
             "job_note_a5", "SELECT id FROM service_jobs ORDER BY id DESC LIMIT 1",
-            "supplier_bill", "SELECT id FROM supplier_bills ORDER BY id DESC LIMIT 1"
+            "supplier_bill", "SELECT id FROM supplier_bills ORDER BY id DESC LIMIT 1",
+            "warranty_certificate", "SELECT id FROM product_serials ORDER BY id DESC LIMIT 1",
+            "amc_renewal_notice", "SELECT id FROM amc_contracts ORDER BY id DESC LIMIT 1",
+            "technician_payslip", "SELECT technician_id FROM technician_commissions WHERE status = 'PENDING' ORDER BY id DESC LIMIT 1"
     );
 
     private final CompanyProfileService companyProfileService = new CompanyProfileService();
@@ -161,7 +170,7 @@ public class ReportTemplateService {
             if (!Files.exists(file)) {
                 throw new FileNotFoundException("Custom template not found: " + file);
             }
-            return Files.readString(file, StandardCharsets.UTF_8);
+            return normalizeJrxml(Files.readString(file, StandardCharsets.UTF_8));
         }
 
         String theme = templateKey == null ? "classic" : templateKey.toLowerCase(Locale.ROOT);
@@ -179,7 +188,7 @@ public class ReportTemplateService {
         }
 
         try (InputStream is = stream) {
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            return normalizeJrxml(new String(is.readAllBytes(), StandardCharsets.UTF_8));
         }
     }
 
@@ -195,6 +204,7 @@ public class ReportTemplateService {
             throw new IllegalArgumentException("Name conflicts with a built-in theme. Choose another name.");
         }
 
+        jrxmlContent = normalizeJrxml(jrxmlContent);
         try (InputStream in = new ByteArrayInputStream(jrxmlContent.getBytes(StandardCharsets.UTF_8))) {
             JasperCompileManager.compileReport(in);
         }
@@ -208,6 +218,269 @@ public class ReportTemplateService {
         return "custom:" + safe;
     }
 
+    public static String normalizeInvalidElementUuids(String jrxml) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(<[A-Za-z_][A-Za-z0-9:_.-]*\\b[^>]*?\\buuid\\s*=\\s*\")([^\"]*)(\")",
+                        java.util.regex.Pattern.DOTALL)
+                .matcher(jrxml);
+        StringBuffer normalized = new StringBuffer();
+        int repairedCount = 0;
+        while (matcher.find()) {
+            String value = matcher.group(2);
+            boolean valid;
+            try {
+                valid = UUID.fromString(value).toString().equalsIgnoreCase(value);
+            } catch (IllegalArgumentException ex) {
+                valid = false;
+            }
+            String replacement = valid
+                    ? matcher.group()
+                    : matcher.group(1) + UUID.randomUUID() + matcher.group(3);
+            if (!valid) repairedCount++;
+            matcher.appendReplacement(normalized, java.util.regex.Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(normalized);
+
+        java.util.regex.Pattern reportElementPattern = java.util.regex.Pattern
+                .compile("<reportElement\\b[^>]*>", java.util.regex.Pattern.DOTALL);
+        java.util.regex.Matcher reportElements = reportElementPattern.matcher(normalized);
+        StringBuffer withElementIds = new StringBuffer();
+        while (reportElements.find()) {
+            String tag = reportElements.group();
+            if (!java.util.regex.Pattern.compile("\\buuid\\s*=").matcher(tag).find()) {
+                int closing = tag.length() - 1;
+                while (closing > 0 && Character.isWhitespace(tag.charAt(closing - 1))) closing--;
+                boolean selfClosing = closing > 0 && tag.charAt(closing - 1) == '/';
+                int insertAt = selfClosing ? closing - 1 : closing;
+                tag = tag.substring(0, insertAt) + " uuid=\"" + UUID.randomUUID() + "\"" + tag.substring(insertAt);
+                repairedCount++;
+            }
+            reportElements.appendReplacement(withElementIds, java.util.regex.Matcher.quoteReplacement(tag));
+        }
+        reportElements.appendTail(withElementIds);
+
+        if (repairedCount > 0) {
+            logger.warn("Normalized {} JRXML element UUID value(s).", repairedCount);
+        }
+        return withElementIds.toString();
+    }
+
+    public static String normalizePageGeometry(String jrxml) {
+        java.util.regex.Matcher rootMatcher = java.util.regex.Pattern
+                .compile("<jasperReport\\b[^>]*>", java.util.regex.Pattern.DOTALL)
+                .matcher(jrxml);
+        if (!rootMatcher.find()) {
+            throw new IllegalArgumentException("JRXML must contain a <jasperReport> root element.");
+        }
+
+        String rootTag = rootMatcher.group();
+        java.util.regex.Matcher attributes = java.util.regex.Pattern
+                .compile("\\b(pageWidth|pageHeight|columnWidth|leftMargin|rightMargin|topMargin|bottomMargin)\\s*=\\s*\"([^\"]*)\"")
+                .matcher(rootTag);
+        Map<String, String> values = new HashMap<>();
+        while (attributes.find()) {
+            values.put(attributes.group(1), attributes.group(2));
+        }
+        boolean hasHorizontalGeometry = values.containsKey("pageWidth") && values.containsKey("columnWidth");
+        boolean hasVerticalGeometry = values.containsKey("pageHeight");
+        if (!hasHorizontalGeometry && !hasVerticalGeometry) {
+            return jrxml;
+        }
+
+        boolean repaired = false;
+        if (hasHorizontalGeometry) {
+            int pageWidth = parseGeometryValue(values, "pageWidth", 595);
+            int columnWidth = parseGeometryValue(values, "columnWidth", 555);
+            int leftMargin = parseGeometryValue(values, "leftMargin", 0);
+            int rightMargin = parseGeometryValue(values, "rightMargin", 0);
+            if (pageWidth <= 0) {
+                throw new IllegalArgumentException("JRXML pageWidth must be greater than zero.");
+            }
+            int originalLeftMargin = leftMargin;
+            int originalRightMargin = rightMargin;
+            leftMargin = Math.max(0, leftMargin);
+            rightMargin = Math.max(0, rightMargin);
+
+            long marginTotal = (long) leftMargin + rightMargin;
+            boolean horizontalRepaired = leftMargin != originalLeftMargin || rightMargin != originalRightMargin;
+            if (marginTotal >= pageWidth) {
+                int availableForMargins = pageWidth - 1;
+                leftMargin = marginTotal == 0 ? 0
+                        : (int) (availableForMargins * (double) leftMargin / marginTotal);
+                rightMargin = availableForMargins - leftMargin;
+                marginTotal = (long) leftMargin + rightMargin;
+                horizontalRepaired = true;
+            }
+
+            int availableWidth = (int) (pageWidth - marginTotal);
+            if (columnWidth <= 0 || columnWidth > availableWidth) {
+                columnWidth = availableWidth;
+                horizontalRepaired = true;
+            }
+            if (horizontalRepaired) {
+                rootTag = setRootAttribute(rootTag, "leftMargin", leftMargin);
+                rootTag = setRootAttribute(rootTag, "rightMargin", rightMargin);
+                rootTag = setRootAttribute(rootTag, "columnWidth", columnWidth);
+                logger.warn("Adjusted JRXML page geometry to fit page width {} (margins {}, {}, column {}).",
+                        pageWidth, leftMargin, rightMargin, columnWidth);
+                repaired = true;
+            }
+        }
+
+        if (hasVerticalGeometry) {
+            int pageHeight = parseGeometryValue(values, "pageHeight", 842);
+            int topMargin = parseGeometryValue(values, "topMargin", 0);
+            int bottomMargin = parseGeometryValue(values, "bottomMargin", 0);
+            if (pageHeight <= 0) {
+                throw new IllegalArgumentException("JRXML pageHeight must be greater than zero.");
+            }
+            int originalTopMargin = topMargin;
+            int originalBottomMargin = bottomMargin;
+            topMargin = Math.max(0, topMargin);
+            bottomMargin = Math.max(0, bottomMargin);
+            long marginTotal = (long) topMargin + bottomMargin;
+            boolean verticalRepaired = topMargin != originalTopMargin || bottomMargin != originalBottomMargin;
+            if (marginTotal >= pageHeight) {
+                int availableForMargins = pageHeight - 1;
+                topMargin = (int) (availableForMargins * (double) topMargin / marginTotal);
+                bottomMargin = availableForMargins - topMargin;
+                verticalRepaired = true;
+            }
+            if (verticalRepaired) {
+                rootTag = setRootAttribute(rootTag, "topMargin", topMargin);
+                rootTag = setRootAttribute(rootTag, "bottomMargin", bottomMargin);
+                logger.warn("Adjusted JRXML vertical margins to fit page height {} (top {}, bottom {}).",
+                        pageHeight, topMargin, bottomMargin);
+                repaired = true;
+            }
+        }
+        if (repaired) {
+            return jrxml.substring(0, rootMatcher.start()) + rootTag + jrxml.substring(rootMatcher.end());
+        }
+        return jrxml;
+    }
+
+    public static String normalizeJrxml(String jrxml) {
+        return normalizeMissingSumVariables(
+                normalizePageGeometry(normalizeInvalidElementUuids(jrxml)));
+    }
+
+    private static String normalizeMissingSumVariables(String jrxml) {
+        java.util.regex.Matcher sumReferences = java.util.regex.Pattern
+                .compile("\\$V\\{\\s*([A-Za-z_][A-Za-z0-9_]*)_SUM\\s*}")
+                .matcher(jrxml);
+        Set<String> referencedFields = new LinkedHashSet<>();
+        while (sumReferences.find()) {
+            referencedFields.add(sumReferences.group(1));
+        }
+        if (referencedFields.isEmpty()) return jrxml;
+
+        try {
+            Document document = parseJrxmlDom(jrxml);
+            Element root = document.getDocumentElement();
+            Map<String, String> fieldTypes = new HashMap<>();
+            Set<String> variableNames = new HashSet<>();
+            Element insertionPoint = null;
+            NodeList rootChildren = root.getChildNodes();
+            for (int i = 0; i < rootChildren.getLength(); i++) {
+                Node child = rootChildren.item(i);
+                if (!(child instanceof Element element)) continue;
+                switch (element.getNodeName()) {
+                    case "field" -> {
+                        fieldTypes.put(element.getAttribute("name"), element.getAttribute("class"));
+                        insertionPoint = element;
+                    }
+                    case "sortField" -> insertionPoint = element;
+                    case "variable" -> {
+                        variableNames.add(element.getAttribute("name"));
+                        insertionPoint = element;
+                    }
+                    default -> {
+                        // Variables must appear before groups and report bands in JRXML.
+                    }
+                }
+            }
+
+            List<Element> missingVariables = new ArrayList<>();
+            for (String fieldName : referencedFields) {
+                String variableName = fieldName + "_SUM";
+                if (variableNames.contains(variableName)) continue;
+                String fieldType = fieldTypes.get(fieldName);
+                if (!isNumericJrxmlType(fieldType)) continue;
+
+                Element variable = document.createElement("variable");
+                variable.setAttribute("name", variableName);
+                variable.setAttribute("class", fieldType);
+                variable.setAttribute("calculation", "Sum");
+                Element expression = document.createElement("variableExpression");
+                expression.appendChild(document.createCDATASection("$F{" + fieldName + "}"));
+                variable.appendChild(expression);
+                missingVariables.add(variable);
+            }
+            if (missingVariables.isEmpty()) return jrxml;
+
+            Node insertBefore = insertionPoint == null ? root.getFirstChild() : insertionPoint.getNextSibling();
+            for (Element variable : missingVariables) {
+                root.insertBefore(variable, insertBefore);
+            }
+            logger.warn("Added {} missing numeric sum variable(s) referenced by JRXML expressions: {}.",
+                    missingVariables.size(),
+                    missingVariables.stream().map(variable -> variable.getAttribute("name")).toList());
+            return serializeJrxmlDom(document);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Could not normalize JRXML sum variables: " + e.getMessage(), e);
+        }
+    }
+
+    private static boolean isNumericJrxmlType(String type) {
+        return Set.of(
+                "byte", "short", "int", "long", "float", "double",
+                "java.lang.Byte", "java.lang.Short", "java.lang.Integer", "java.lang.Long",
+                "java.lang.Float", "java.lang.Double", "java.math.BigInteger", "java.math.BigDecimal"
+        ).contains(type);
+    }
+
+    private static Document parseJrxmlDom(String jrxml) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(false);
+        return factory.newDocumentBuilder().parse(new InputSource(new StringReader(jrxml)));
+    }
+
+    private static String serializeJrxmlDom(Document document) throws Exception {
+        Transformer transformer = TransformerFactory.newInstance().newTransformer();
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
+        StringWriter writer = new StringWriter();
+        transformer.transform(new DOMSource(document), new StreamResult(writer));
+        return writer.toString();
+    }
+
+    private static int parseGeometryValue(Map<String, String> attributes, String name, int defaultValue) {
+        String value = attributes.get(name);
+        if (value == null) return defaultValue;
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("JRXML " + name + " must be a whole number: " + value, e);
+        }
+    }
+
+    private static String setRootAttribute(String rootTag, String name, int value) {
+        java.util.regex.Pattern attributePattern = java.util.regex.Pattern.compile(
+                "(\\b" + java.util.regex.Pattern.quote(name) + "\\s*=\\s*\")[^\"]*(\")");
+        java.util.regex.Matcher matcher = attributePattern.matcher(rootTag);
+        if (matcher.find()) {
+            return matcher.replaceFirst(java.util.regex.Matcher.quoteReplacement(
+                    matcher.group(1) + value + matcher.group(2)));
+        }
+        int insertAt = rootTag.length() - 1;
+        while (insertAt > 0 && Character.isWhitespace(rootTag.charAt(insertAt - 1))) insertAt--;
+        if (insertAt > 0 && rootTag.charAt(insertAt - 1) == '/') insertAt--;
+        return rootTag.substring(0, insertAt) + " " + name + "=\"" + value + "\"" + rootTag.substring(insertAt);
+    }
+
     public JasperReport compileTemplate(String docType, String templateKey) throws Exception {
         String jrxml = loadJrxmlText(docType, templateKey);
         try (InputStream in = new ByteArrayInputStream(jrxml.getBytes(StandardCharsets.UTF_8))) {
@@ -216,7 +489,8 @@ public class ReportTemplateService {
     }
 
     public JasperReport compileJrxmlText(String jrxmlContent) throws Exception {
-        try (InputStream in = new ByteArrayInputStream(jrxmlContent.getBytes(StandardCharsets.UTF_8))) {
+        String normalized = normalizeJrxml(jrxmlContent);
+        try (InputStream in = new ByteArrayInputStream(normalized.getBytes(StandardCharsets.UTF_8))) {
             return JasperCompileManager.compileReport(in);
         }
     }
@@ -269,7 +543,8 @@ public class ReportTemplateService {
             id = findLatestDocumentId(docType);
         }
         if (id == null || id <= 0) {
-            throw new IllegalStateException("No saved " + docType + " found to preview. Create one document first, then preview.");
+            throw new IllegalStateException("No saved " + docType
+                    + " was found to preview. Create a document first, or enter a valid sample document ID.");
         }
 
         Map<String, Object> params = buildCompanyParameters();
@@ -278,7 +553,8 @@ public class ReportTemplateService {
         try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
             JasperPrint print = JasperFillManager.fillReport(report, params, conn);
             if (print.getPages() == null || print.getPages().isEmpty()) {
-                throw new IllegalStateException("Report produced no pages (check query / sample id).");
+                throw new IllegalStateException("The " + docType + " report query returned no rows for document ID "
+                        + id + ". Verify that the document exists and matches the template query.");
             }
             BufferedImage bi = (BufferedImage) JasperPrintManager.printPageToImage(print, 0, zoom <= 0 ? 1.5f : zoom);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -290,10 +566,18 @@ public class ReportTemplateService {
     private boolean builtinExists(String theme, String docType) {
         String path = "/reports/" + theme + "/" + docType + ".jrxml";
         try (InputStream in = ReportTemplateService.class.getResourceAsStream(path)) {
-            return in != null;
+            if (in != null) return true;
         } catch (Exception e) {
-            return false;
+            logger.warn("Could not check report resource {}: {}", path, e.getMessage());
         }
+        if ("classic".equals(theme)) {
+            try (InputStream in = ReportTemplateService.class.getResourceAsStream("/reports/" + docType + ".jrxml")) {
+                return in != null;
+            } catch (Exception e) {
+                logger.warn("Could not check root report resource for {}: {}", docType, e.getMessage());
+            }
+        }
+        return false;
     }
 
     /** Resolve stream/path used at print time. Prefer per-doc active key. */
@@ -303,7 +587,8 @@ public class ReportTemplateService {
             String name = key.substring("custom:".length()).trim();
             Path file = getCustomDocDir(docType).resolve(name + ".jrxml");
             if (Files.exists(file)) {
-                return Files.newInputStream(file);
+                String jrxml = normalizeJrxml(Files.readString(file, StandardCharsets.UTF_8));
+                return new ByteArrayInputStream(jrxml.getBytes(StandardCharsets.UTF_8));
             }
             logger.warn("Active custom template missing {}, falling back to theme", file);
         }

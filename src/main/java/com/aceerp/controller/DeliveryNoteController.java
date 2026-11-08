@@ -64,6 +64,10 @@ public class DeliveryNoteController {
     public void initialize() {
         setupSmartCustomerSearch();
         setupListView();
+        com.aceerp.util.QuickBooksContextMenus.installListView(dnListView, note -> java.util.List.of(
+            com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
+            com.aceerp.util.QuickBooksContextMenus.action("Print", this::handlePrint)
+        ));
         setupStatusCombo();
         setupTableColumns();
         loadDeliveryNotes();

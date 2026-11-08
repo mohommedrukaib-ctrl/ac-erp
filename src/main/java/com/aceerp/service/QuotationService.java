@@ -62,6 +62,9 @@ public class QuotationService {
         invoice.setSubtotal(quote.getSubtotal());
         invoice.setTaxAmount(quote.getTaxAmount());
         invoice.setTotalAmount(quote.getTotalAmount());
+        invoice.setDocumentDiscountType(quote.getDocumentDiscountType());
+        invoice.setDocumentDiscountValue(quote.getDocumentDiscountValue());
+        invoice.setDocumentDiscountAmount(quote.getDocumentDiscountAmount());
         invoice.setNotes("Created from Quotation #" + quote.getQuoteNumber());
 
         List<InvoiceLine> invoiceLines = new ArrayList<>();

@@ -4,6 +4,7 @@ import com.aceerp.model.CompanyProfile;
 import com.aceerp.service.CompanyProfileService;
 import com.aceerp.service.ReportTemplateService;
 import com.aceerp.service.SettingsService;
+import com.aceerp.util.InputValidation;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -81,6 +82,8 @@ public class SettingsController {
     @FXML private Label lblActiveReportTemplate;
     @FXML private TextArea txtJrxmlEditor;
     @FXML private ImageView imgReportPreview;
+    @FXML private SplitPane editorSplitPane;
+    @FXML private Button btnToggleEditor;
 
     // ---- Interactive Drag & Layout Designer Controls ----
     @FXML private StackPane previewStackPane;
@@ -118,11 +121,33 @@ public class SettingsController {
 
     private CompanyProfile currentProfile;
     private String pendingLogoPath;
+    private String jrxmlEditorDocType;
+    private String jrxmlEditorTemplateKey;
     private double dragStartX, dragStartY;
     private int elementStartX, elementStartY, elementStartW, elementStartH;
 
     @FXML
     public void initialize() {
+        if (txtPhone != null) InputValidation.phoneNumber(txtPhone);
+        if (currencyDecimalsField != null) InputValidation.digitsOnly(currencyDecimalsField);
+        if (taxDefaultRateField != null) InputValidation.decimalOnly(taxDefaultRateField);
+        if (txtMarginTop != null) InputValidation.digitsOnly(txtMarginTop);
+        if (txtMarginBottom != null) InputValidation.digitsOnly(txtMarginBottom);
+        if (txtMarginLeft != null) InputValidation.digitsOnly(txtMarginLeft);
+        if (txtMarginRight != null) InputValidation.digitsOnly(txtMarginRight);
+        if (txtTitleFontSize != null) InputValidation.digitsOnly(txtTitleFontSize);
+        if (txtBodyFontSize != null) InputValidation.digitsOnly(txtBodyFontSize);
+        if (txtPreviewDocId != null) InputValidation.digitsOnly(txtPreviewDocId);
+        if (txtElemX != null) InputValidation.digitsOnly(txtElemX);
+        if (txtElemY != null) InputValidation.digitsOnly(txtElemY);
+        if (txtElemW != null) InputValidation.digitsOnly(txtElemW);
+        if (txtElemH != null) InputValidation.digitsOnly(txtElemH);
+        if (invoiceNextNumberField != null) InputValidation.digitsOnly(invoiceNextNumberField);
+        if (invoiceDueDaysField != null) InputValidation.digitsOnly(invoiceDueDaysField);
+        if (quotationNextNumberField != null) InputValidation.digitsOnly(quotationNextNumberField);
+        if (purchaseNextNumberField != null) InputValidation.digitsOnly(purchaseNextNumberField);
+        if (itemsPerPageField != null) InputValidation.digitsOnly(itemsPerPageField);
+
         if (cmbPrintTemplate != null) {
             cmbPrintTemplate.getItems().setAll("CLASSIC", "MODERN", "PROFESSIONAL");
         }
@@ -209,19 +234,21 @@ public class SettingsController {
     private void initReportDesignTab() {
         if (cmbReportDocType == null) return;
 
-        cmbReportDocType.getItems().setAll(
-                "invoice",
-                "quotation",
-                "sales_order",
-                "delivery_note",
-                "purchase_order",
-                "job_note_a5",
-                "supplier_bill"
-        );
+        cmbReportDocType.getItems().setAll(ReportTemplateService.DOC_TYPES);
         cmbReportDocType.setValue("invoice");
 
         cmbReportDocType.valueProperty().addListener((o, a, b) -> refreshReportTemplateList());
         refreshReportTemplateList();
+        if (txtJrxmlEditor != null) {
+            txtJrxmlEditor.textProperty().addListener((o, oldText, newText) -> {
+                String doc = cmbReportDocType.getValue();
+                String template = cmbReportTemplate.getValue();
+                if (doc != null && template != null) {
+                    jrxmlEditorDocType = doc;
+                    jrxmlEditorTemplateKey = template;
+                }
+            });
+        }
     }
 
     private void initElementInspector() {
@@ -257,6 +284,17 @@ public class SettingsController {
     }
 
     @FXML
+    private void handleToggleEditorView() {
+        if (editorSplitPane == null) return;
+        boolean makeVisible = !editorSplitPane.isVisible();
+        editorSplitPane.setVisible(makeVisible);
+        editorSplitPane.setManaged(makeVisible);
+        if (btnToggleEditor != null) {
+            btnToggleEditor.setText(makeVisible ? "👁 Hide Editor & Canvas" : "👁 Show Editor & Canvas");
+        }
+    }
+
+    @FXML
     private void handleSetActiveReportTemplate() {
         String doc = cmbReportDocType.getValue();
         String tpl = cmbReportTemplate.getValue();
@@ -285,6 +323,14 @@ public class SettingsController {
         try {
             String jrxml = reportTemplateService.loadJrxmlText(doc, tpl);
             txtJrxmlEditor.setText(jrxml);
+            jrxmlEditorDocType = doc;
+            jrxmlEditorTemplateKey = tpl;
+            
+            // Auto show editor section if hidden
+            if (editorSplitPane != null && !editorSplitPane.isVisible()) {
+                handleToggleEditorView();
+            }
+
             handlePreviewEditorJrxml();
             if (reportTemplateService.isBuiltin(tpl)) {
                 showAlert(Alert.AlertType.INFORMATION, "Read-only source",
@@ -309,23 +355,60 @@ public class SettingsController {
             return;
         }
 
-        TextInputDialog dialog = new TextInputDialog("MyCustom");
+        saveAsNewReportTemplate(doc, jrxml);
+    }
+
+    private String saveAsNewReportTemplate(String doc, String jrxml) {
+        TextInputDialog dialog = new TextInputDialog(suggestAvailableTemplateName(doc, "MyCustom"));
         dialog.setTitle("Save As New Template");
         dialog.setHeaderText("Create a NEW custom template (built-ins stay unchanged)");
         dialog.setContentText("Template name:");
         Optional<String> nameOpt = dialog.showAndWait();
-        if (nameOpt.isEmpty() || nameOpt.get().isBlank()) return;
+        if (nameOpt.isEmpty() || nameOpt.get().isBlank()) return null;
+        String normalizedName = nameOpt.get().trim()
+                .replaceAll("[^a-zA-Z0-9_\\- ]", "").replace(' ', '_');
+        if (reportTemplateService.listTemplatesFor(doc).stream()
+                .anyMatch(key -> key.equalsIgnoreCase("custom:" + normalizedName))) {
+            showAlert(Alert.AlertType.WARNING, "Template Already Exists",
+                    "A custom template with that name already exists for " + doc
+                            + ". Choose a different name; existing templates are not overwritten.");
+            return null;
+        }
 
         try {
             String key = reportTemplateService.saveAsNewCustomTemplate(doc, nameOpt.get().trim(), jrxml);
-            refreshReportTemplateList();
-            cmbReportTemplate.setValue(key);
+            if (doc.equals(cmbReportDocType.getValue())) {
+                refreshReportTemplateList();
+                cmbReportTemplate.setValue(key);
+            }
+            if (txtJrxmlEditor != null) {
+                txtJrxmlEditor.setText(jrxml);
+            }
+            jrxmlEditorDocType = doc;
+            jrxmlEditorTemplateKey = key;
             showAlert(Alert.AlertType.INFORMATION, "Saved",
-                    "New template created: " + key + "\n\nClick Set Active if you want prints to use it.");
+                    "New template created for " + doc + ": " + key
+                            + "\n\nClick Set Active if you want prints to use it.");
+            return key;
         } catch (Exception e) {
             logger.error("Save custom template failed: {}", e.getMessage(), e);
             showAlert(Alert.AlertType.ERROR, "Save Failed", e.getMessage());
+            return null;
         }
+    }
+
+    private String suggestAvailableTemplateName(String doc, String baseName) {
+        List<String> existing = reportTemplateService.listTemplatesFor(doc);
+        String candidate = baseName;
+        int suffix = 2;
+        while (containsTemplateName(existing, candidate)) {
+            candidate = baseName + suffix++;
+        }
+        return candidate;
+    }
+
+    private boolean containsTemplateName(List<String> templateKeys, String name) {
+        return templateKeys.stream().anyMatch(key -> key.equalsIgnoreCase("custom:" + name));
     }
 
     @FXML
@@ -336,7 +419,13 @@ public class SettingsController {
             showAlert(Alert.AlertType.WARNING, "Preview", "Select document type and template.");
             return;
         }
-        runPreview(() -> reportTemplateService.renderPreviewPng(doc, tpl, parsePreviewId(), 1.6f));
+        Integer sampleId = parsePreviewId();
+        if (txtPreviewDocId != null && !txtPreviewDocId.getText().isBlank() && sampleId == null) {
+            showAlert(Alert.AlertType.WARNING, "Invalid Sample Doc ID",
+                    "Enter a positive whole-number document ID, or leave the field blank.");
+            return;
+        }
+        runPreview(() -> reportTemplateService.renderPreviewPng(doc, tpl, sampleId, 1.6f));
     }
 
     @FXML
@@ -347,7 +436,13 @@ public class SettingsController {
             showAlert(Alert.AlertType.WARNING, "Preview", "Select document type and put JRXML in the editor.");
             return;
         }
-        runPreview(() -> reportTemplateService.renderPreviewPngFromText(doc, jrxml, parsePreviewId(), 1.6f));
+        Integer sampleId = parsePreviewId();
+        if (txtPreviewDocId != null && !txtPreviewDocId.getText().isBlank() && sampleId == null) {
+            showAlert(Alert.AlertType.WARNING, "Invalid Sample Doc ID",
+                    "Enter a positive whole-number document ID, or leave the field blank.");
+            return;
+        }
+        runPreview(() -> reportTemplateService.renderPreviewPngFromText(doc, jrxml, sampleId, 1.6f));
     }
 
     private Integer parsePreviewId() {
@@ -355,7 +450,8 @@ public class SettingsController {
             return null;
         }
         try {
-            return Integer.parseInt(txtPreviewDocId.getText().trim());
+            int id = Integer.parseInt(txtPreviewDocId.getText().trim());
+            return id > 0 ? id : null;
         } catch (NumberFormatException e) {
             return null;
         }
@@ -413,7 +509,7 @@ public class SettingsController {
 
         double imgWidth = imgReportPreview.getBoundsInParent().getWidth();
         if (imgWidth <= 0) imgWidth = 520;
-        double scale = imgWidth / 595.0; // Standard JRXML A4 page width
+        double scale = imgWidth / 595.0;
 
         overlayCanvas.setPrefSize(imgReportPreview.getBoundsInParent().getWidth(), imgReportPreview.getBoundsInParent().getHeight());
 
@@ -423,7 +519,7 @@ public class SettingsController {
         }
     }
 
-        private Pane createDraggableBox(ReportTemplateService.ReportElementItem item, double scale) {
+    private Pane createDraggableBox(ReportTemplateService.ReportElementItem item, double scale) {
         Pane box = new Pane();
         double sx = item.x * scale;
         double sy = (item.bandOffsetY + item.y) * scale;
@@ -461,8 +557,6 @@ public class SettingsController {
             double dy = (e.getSceneY() - dragStartY) / scale;
 
             int newX = Math.max(0, elementStartX + (int) Math.round(dx));
-            
-            // STRICT BAND CLAMPING: Lock element Y inside its parent band height
             int maxY = Math.max(0, item.bandHeight - item.height);
             int newY = Math.min(Math.max(0, elementStartY + (int) Math.round(dy)), maxY);
 
@@ -487,8 +581,6 @@ public class SettingsController {
             double dh = (e.getSceneY() - dragStartY) / scale;
 
             int newW = Math.max(10, elementStartW + (int) Math.round(dw));
-            
-            // STRICT HEIGHT CLAMPING: Lock element height inside parent band
             int maxH = Math.max(10, item.bandHeight - item.y);
             int newH = Math.min(Math.max(10, elementStartH + (int) Math.round(dh)), maxH);
 
@@ -825,10 +917,125 @@ public class SettingsController {
         a.showAndWait();
     }
 
-        @FXML
+    @FXML
     private void handleOpenVisualEditor() {
         try {
-            com.aceerp.util.VisualTemplateEditor.show();
+            String doc = cmbReportDocType != null ? cmbReportDocType.getValue() : null;
+            String template = cmbReportTemplate != null ? cmbReportTemplate.getValue() : null;
+            if (doc == null || template == null) {
+                showAlert(Alert.AlertType.WARNING, "Visual Designer", "Select a document type and report template first.");
+                return;
+            }
+
+            String jrxml = txtJrxmlEditor != null ? txtJrxmlEditor.getText() : null;
+            boolean editorMatchesSelection = doc.equals(jrxmlEditorDocType)
+                    && template.equals(jrxmlEditorTemplateKey)
+                    && jrxml != null && !jrxml.isBlank();
+            if (!editorMatchesSelection) {
+                jrxml = reportTemplateService.loadJrxmlText(doc, template);
+                if (txtJrxmlEditor != null) {
+                    txtJrxmlEditor.setText(jrxml);
+                }
+                jrxmlEditorDocType = doc;
+                jrxmlEditorTemplateKey = template;
+            }
+
+            String source = doc + " / " + template;
+            String[] selectedDocumentType = {doc};
+            String[] selectedTemplateKey = {template};
+            com.aceerp.util.VisualTemplateEditor.show(source, jrxml,
+                    new com.aceerp.util.VisualTemplateEditor.TemplateActions() {
+                        @Override
+                        public void update(String xml) {
+                            txtJrxmlEditor.setText(xml);
+                            jrxmlEditorDocType = selectedDocumentType[0];
+                            jrxmlEditorTemplateKey = selectedTemplateKey[0];
+                        }
+
+                        @Override
+                        public byte[] preview(String xml, Integer sampleDocumentId) throws Exception {
+                            return reportTemplateService.renderPreviewPngFromText(
+                                    selectedDocumentType[0], xml, sampleDocumentId, 1.6f);
+                        }
+
+                        @Override
+                        public byte[] previewTemplate(Integer sampleDocumentId) throws Exception {
+                            return reportTemplateService.renderPreviewPng(
+                                    selectedDocumentType[0], selectedTemplateKey[0], sampleDocumentId, 1.6f);
+                        }
+
+                        @Override
+                        public String loadSelectedTemplate() throws Exception {
+                            return reportTemplateService.loadJrxmlText(
+                                    selectedDocumentType[0], selectedTemplateKey[0]);
+                        }
+
+                        @Override
+                        public List<String> getDocumentTypes() {
+                            return reportTemplateService.DOC_TYPES;
+                        }
+
+                        @Override
+                        public List<String> selectDocument(String documentType) {
+                            selectedDocumentType[0] = documentType;
+                            List<String> templates = reportTemplateService.listTemplatesFor(documentType);
+                            String activeKey = reportTemplateService.getActiveTemplateKey(documentType);
+                            selectedTemplateKey[0] = templates.contains(activeKey)
+                                    ? activeKey : (templates.isEmpty() ? null : templates.getFirst());
+                            return templates;
+                        }
+
+                        @Override
+                        public void selectTemplate(String templateKey) {
+                            selectedTemplateKey[0] = templateKey;
+                        }
+
+                        @Override
+                        public String getDocumentType() {
+                            return selectedDocumentType[0];
+                        }
+
+                        @Override
+                        public String getTemplateKey() {
+                            return selectedTemplateKey[0];
+                        }
+
+                        @Override
+                        public String getSampleDocumentId() {
+                            return txtPreviewDocId == null ? "" : txtPreviewDocId.getText();
+                        }
+
+                        @Override
+                        public String getActiveTemplate() {
+                            return reportTemplateService.getActiveTemplateKey(selectedDocumentType[0]);
+                        }
+
+                        @Override
+                        public void setActiveTemplate() {
+                            reportTemplateService.setActiveTemplateKey(
+                                    selectedDocumentType[0], selectedTemplateKey[0]);
+                            if (selectedDocumentType[0].equals(cmbReportDocType.getValue())) {
+                                if (lblActiveReportTemplate != null) {
+                                    lblActiveReportTemplate.setText(selectedTemplateKey[0]);
+                                }
+                                if (statusLabel != null) {
+                                    statusLabel.setText("Active template for " + selectedDocumentType[0]
+                                            + " → " + selectedTemplateKey[0]);
+                                    statusLabel.setStyle("-fx-text-fill: #15803d;");
+                                }
+                            }
+                            showAlert(Alert.AlertType.INFORMATION, "Active Template",
+                                    "Prints for " + selectedDocumentType[0]
+                                            + " will use: " + selectedTemplateKey[0]);
+                        }
+
+                        @Override
+                        public String save(String xml) {
+                            String key = saveAsNewReportTemplate(selectedDocumentType[0], xml);
+                            if (key != null) selectedTemplateKey[0] = key;
+                            return key;
+                        }
+                    });
         } catch (Exception e) {
             logger.error("Failed to open Full Visual Designer: {}", e.getMessage(), e);
             showAlert(Alert.AlertType.ERROR, "Editor Error", "Could not launch the designer: " + e.getMessage());

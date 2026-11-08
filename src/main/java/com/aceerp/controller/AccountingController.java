@@ -10,6 +10,7 @@ import com.aceerp.service.AccountingService.TrialBalanceRow;
 import com.aceerp.service.BankReconciliationService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.InputValidation;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -116,6 +117,7 @@ public class AccountingController {
 
     @FXML
     public void initialize() {
+        InputValidation.decimalOnly(txtReconEndingBalance);
         setupAccountsTable();
         setupJournalEntriesTable();
         setupJournalLinesTable();

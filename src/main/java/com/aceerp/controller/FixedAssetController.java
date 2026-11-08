@@ -5,6 +5,7 @@ import com.aceerp.model.FixedAsset;
 import com.aceerp.service.FixedAssetService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.InputValidation;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -69,6 +70,9 @@ public class FixedAssetController {
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
 
         tblAssets.setItems(assetList);
+        com.aceerp.util.QuickBooksContextMenus.installTableView(tblAssets, asset ->
+            java.util.List.of(com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEditAsset))
+        );
     }
 
     @FXML
@@ -138,6 +142,8 @@ public class FixedAssetController {
         DatePicker dpAcq = new DatePicker(asset.getAcquisitionDate() != null ? asset.getAcquisitionDate() : LocalDate.now());
         TextField txtCost = new TextField(asset.getAcquisitionCost() != null ? asset.getAcquisitionCost().toPlainString() : "0.00");
         TextField txtSalvage = new TextField(asset.getSalvageValue() != null ? asset.getSalvageValue().toPlainString() : "0.00");
+        InputValidation.decimalOnly(txtCost);
+        InputValidation.decimalOnly(txtSalvage);
         Spinner<Integer> spLife = new Spinner<>(1, 30, asset.getUsefulLifeYears() > 0 ? asset.getUsefulLifeYears() : 5);
 
         ComboBox<String> cmbMethod = new ComboBox<>(FXCollections.observableArrayList("STRAIGHT_LINE", "DECLINING_BALANCE"));

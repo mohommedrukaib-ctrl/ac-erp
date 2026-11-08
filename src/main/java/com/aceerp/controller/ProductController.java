@@ -7,6 +7,7 @@ import com.aceerp.service.AuditLogService;
 import com.aceerp.service.InventoryService;
 import com.aceerp.service.ProductService;
 import com.aceerp.util.AlertHelper;
+import com.aceerp.util.InputValidation;
 import com.aceerp.util.SmartSearchHelper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -76,6 +77,9 @@ public class ProductController implements Initializable {
         // Tab 1 setup
         setupProductColumns();
         setupProductSearch();
+        com.aceerp.util.QuickBooksContextMenus.installTableView(productsTable, product ->
+            java.util.List.of(com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit))
+        );
         loadProducts();
 
         // Tab 2 setup
@@ -248,6 +252,11 @@ public class ProductController implements Initializable {
         stockField.setPromptText("0");
         TextField minStockField = new TextField();
         minStockField.setPromptText("0");
+        InputValidation.decimalOnly(sellingPriceField);
+        InputValidation.decimalOnly(costPriceField);
+        InputValidation.decimalOnly(taxRateField);
+        InputValidation.digitsOnly(stockField);
+        InputValidation.digitsOnly(minStockField);
 
         if (isEdit) {
             nameField.setText(existing.getName());
@@ -495,6 +504,7 @@ public class ProductController implements Initializable {
 
         TextField qtyField = new TextField();
         qtyField.setPromptText("Enter number of units");
+        InputValidation.digitsOnly(qtyField);
         TextField refField = new TextField();
         refField.setPromptText("e.g. PO-001, JOB-001");
         TextField notesField = new TextField();
@@ -602,6 +612,7 @@ public class ProductController implements Initializable {
 
         TextField countField = new TextField();
         countField.setPromptText("Enter the real physical count");
+        InputValidation.digitsOnly(countField);
         TextField reasonField = new TextField();
         reasonField.setPromptText("e.g. Physical count, Damaged, Lost");
 

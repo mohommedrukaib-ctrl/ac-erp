@@ -5,6 +5,7 @@ import com.aceerp.model.UserRole;
 import com.aceerp.model.UserSession;
 import com.aceerp.service.UserService;
 import com.aceerp.util.AlertHelper;
+import com.aceerp.util.InputValidation;
 
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -54,6 +55,13 @@ public class UserEditDialogController {
 
     @FXML
     public void initialize() {
+        if (phoneField != null) {
+            InputValidation.phoneNumber(phoneField);
+        }
+        if (commissionRateField != null) {
+            InputValidation.decimalOnly(commissionRateField);
+        }
+
         // Populate role choices based on current user's permissions
         boolean isSuperAdmin = UserSession.getInstance().getCurrentUser().getRole() == UserRole.SUPER_ADMIN;
 

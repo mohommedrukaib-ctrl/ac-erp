@@ -81,15 +81,20 @@
                     <Separator/>
 
                     <!-- Line Items Toolbar with Reorder Controls -->
-                    <HBox spacing="8" alignment="CENTER_LEFT">
+                    <FlowPane hgap="8" vgap="6" alignment="CENTER_LEFT">
                         <Label text="Line Items" styleClass="section-title"/>
-                        <Region HBox.hgrow="ALWAYS"/>
                         <Button text="+ Add Product" onAction="#handleAddLine" styleClass="btn-secondary"/>
                         <Button text="+ Empty Line" onAction="#handleAddEmptyLine" styleClass="btn-secondary"/>
                         <Button text="↑ Move Up" onAction="#handleMoveUp" styleClass="btn-secondary"/>
                         <Button text="↓ Move Down" onAction="#handleMoveDown" styleClass="btn-secondary"/>
                         <Button text="Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>
-                    </HBox>
+                    </FlowPane>
+
+                    <FlowPane hgap="8" vgap="6" alignment="CENTER_LEFT">
+                        <Label text="Document discount:"/>
+                        <ComboBox fx:id="cmbDocumentDiscountType" prefWidth="135"/>
+                        <TextField fx:id="txtDocumentDiscountValue" promptText="0.00" prefWidth="90"/>
+                    </FlowPane>
 
                     <!-- Table with Discount % and Line Notes -->
                     <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="260">
@@ -97,7 +102,7 @@
                             <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="220"/>
                             <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
                             <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="90"/>
-                            <TableColumn fx:id="colDiscount" text="Disc %" prefWidth="70"/>
+                            <TableColumn fx:id="colDiscount" text="Line Disc %" prefWidth="82"/>
                             <TableColumn fx:id="colTaxable" text="Tax" prefWidth="55"/>
                             <TableColumn fx:id="colNotes" text="Line Notes" prefWidth="140"/>
                             <TableColumn fx:id="colTotal" text="Line Total" prefWidth="100"/>
@@ -108,16 +113,15 @@
                     </TableView>
 
                     <!-- Totals Bar -->
-                    <HBox spacing="20" alignment="CENTER_RIGHT" styleClass="totals-bar">
+                    <FlowPane hgap="14" vgap="6" alignment="CENTER_RIGHT" styleClass="totals-bar">
                         <padding>
                             <Insets top="8" right="8" bottom="8" left="8"/>
                         </padding>
-                        <Label text="Subtotal:"/>
-                        <Label fx:id="lblSubtotal" text="Rs. 0.00"/>
-                        <Label fx:id="lblTaxTitle" text="Tax:"/>
-                        <Label fx:id="lblTax" text="Rs. 0.00"/>
+                        <HBox spacing="5"><Label text="Subtotal:"/><Label fx:id="lblSubtotal" text="Rs. 0.00"/></HBox>
+                        <HBox spacing="5"><Label fx:id="lblTaxTitle" text="Tax:"/><Label fx:id="lblTax" text="Rs. 0.00"/></HBox>
+                        <HBox spacing="5"><Label text="Discount:"/><Label fx:id="lblDocumentDiscountAmount" text="Rs. 0.00"/></HBox>
                         <Label fx:id="totalLabel" text="Total: Rs. 0.00" styleClass="grand-total"/>
-                    </HBox>
+                    </FlowPane>
 
                 </VBox>
             </items>
