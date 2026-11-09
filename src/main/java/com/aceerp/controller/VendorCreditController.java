@@ -51,6 +51,10 @@ public class VendorCreditController {
     @FXML private TableColumn<VendorCreditLine, String> colProduct;
     @FXML private TableColumn<VendorCreditLine, BigDecimal> colQty;
     @FXML private TableColumn<VendorCreditLine, BigDecimal> colCost;
+    @FXML private TableColumn<VendorCreditLine, BigDecimal> colSetPrice;
+    @FXML private TableColumn<VendorCreditLine, String> colDiscountType;
+    @FXML private TableColumn<VendorCreditLine, BigDecimal> colDiscount;
+    @FXML private TableColumn<VendorCreditLine, Boolean> colPackagePrice;
     @FXML private TableColumn<VendorCreditLine, BigDecimal> colTaxRate;
     @FXML private TableColumn<VendorCreditLine, BigDecimal> colTotal;
 
@@ -147,9 +151,17 @@ public class VendorCreditController {
         colQty.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colQty.setOnEditCommit(e -> { e.getRowValue().setQuantity(e.getNewValue()); recalculateTotals(); });
 
-        colCost.setCellValueFactory(new PropertyValueFactory<>("unitCost"));
-        colCost.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colCost.setOnEditCommit(e -> { e.getRowValue().setUnitCost(e.getNewValue()); recalculateTotals(); });
+        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
+                colCost, colSetPrice, VendorCreditLine::getUnitCost, VendorCreditLine::setUnitCost,
+                VendorCreditLine::isPackagePrice, () -> linesTable.isEditable(), this::recalculateTotals);
+
+        com.aceerp.util.LinePricingTableColumns.configureDiscountType(
+                colDiscountType, VendorCreditLine::getDiscountType, VendorCreditLine::setDiscountType, this::recalculateTotals);
+        com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
+                colPackagePrice, VendorCreditLine::isPackagePrice, VendorCreditLine::setPackagePrice, this::recalculateTotals);
+        colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
+        colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
+        colDiscount.setOnEditCommit(e -> { e.getRowValue().setDiscountValue(e.getNewValue()); recalculateTotals(); });
 
         colTaxRate.setCellValueFactory(new PropertyValueFactory<>("taxRate"));
         colTaxRate.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
@@ -217,6 +229,9 @@ public class VendorCreditController {
                     l.setDescription(rs.getString("description"));
                     l.setQuantity(rs.getBigDecimal("quantity"));
                     l.setUnitCost(rs.getBigDecimal("unit_cost"));
+                    l.setDiscountType(rs.getString("discount_type"));
+                    l.setDiscountValue(rs.getBigDecimal("discount_value"));
+                    l.setPackagePrice(rs.getBoolean("package_price"));
                     l.setTaxRate(rs.getBigDecimal("tax_rate"));
                     l.setTaxAmount(rs.getBigDecimal("tax_amount"));
                     l.setTotalAmount(rs.getBigDecimal("total_amount"));
@@ -264,7 +279,7 @@ public class VendorCreditController {
         BigDecimal tax = BigDecimal.ZERO;
         for (VendorCreditLine l : lines) {
             l.recalculateTotal();
-            sub = sub.add(l.getQuantity().multiply(l.getUnitCost()));
+            sub = sub.add(l.getTotalAmount().subtract(l.getTaxAmount()));
             tax = tax.add(l.getTaxAmount());
         }
         BigDecimal tot = sub.add(tax);

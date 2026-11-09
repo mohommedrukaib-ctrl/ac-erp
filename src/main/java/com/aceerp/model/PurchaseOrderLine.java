@@ -5,6 +5,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import com.aceerp.util.DocumentDiscount;
 
 public class PurchaseOrderLine {
     private int id;
@@ -17,6 +18,9 @@ public class PurchaseOrderLine {
 
     /** Option B */
     private BigDecimal discountPercent = BigDecimal.ZERO;
+    private String discountType = DocumentDiscount.PERCENT;
+    private BigDecimal discountValue = BigDecimal.ZERO;
+    private boolean packagePrice;
     private String notes;
 
     private BigDecimal taxRate = BigDecimal.ZERO;
@@ -33,16 +37,11 @@ public class PurchaseOrderLine {
         if (quantity == null) quantity = BigDecimal.ZERO;
         if (unitPrice == null) unitPrice = BigDecimal.ZERO;
         if (taxRate == null) taxRate = BigDecimal.ZERO;
-        if (discountPercent == null) discountPercent = BigDecimal.ZERO;
+        if (discountValue == null) discountValue = BigDecimal.ZERO;
 
-        BigDecimal disc = discountPercent;
-        if (disc.compareTo(BigDecimal.ZERO) < 0) disc = BigDecimal.ZERO;
-        if (disc.compareTo(BigDecimal.valueOf(100)) > 0) disc = BigDecimal.valueOf(100);
-        this.discountPercent = disc;
-
-        BigDecimal gross = quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal discountAmount = gross.multiply(disc)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal gross = (packagePrice ? unitPrice : quantity.multiply(unitPrice)).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal discountAmount = DocumentDiscount.calculateAmount(gross, discountType, discountValue);
+        discountPercent = DocumentDiscount.PERCENT.equals(discountType) ? discountValue : BigDecimal.ZERO;
         BigDecimal net = gross.subtract(discountAmount);
 
         if (taxable.get()) {
@@ -81,9 +80,28 @@ public class PurchaseOrderLine {
 
     public BigDecimal getDiscountPercent() { return discountPercent; }
     public void setDiscountPercent(BigDecimal discountPercent) {
-        this.discountPercent = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        this.discountType = DocumentDiscount.PERCENT;
+        this.discountValue = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        this.discountPercent = this.discountValue;
         recalculateTotal();
     }
+
+    public String getDiscountType() { return discountType; }
+    public void setDiscountType(String type) {
+        this.discountType = DocumentDiscount.normalizeType(type);
+        this.discountPercent = DocumentDiscount.PERCENT.equals(this.discountType) ? discountValue : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public BigDecimal getDiscountValue() { return discountValue; }
+    public void setDiscountValue(BigDecimal value) {
+        this.discountValue = value != null ? value.max(BigDecimal.ZERO) : BigDecimal.ZERO;
+        this.discountPercent = DocumentDiscount.PERCENT.equals(discountType) ? this.discountValue : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public boolean isPackagePrice() { return packagePrice; }
+    public void setPackagePrice(boolean packagePrice) { this.packagePrice = packagePrice; recalculateTotal(); }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }

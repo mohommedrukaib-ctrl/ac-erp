@@ -4,6 +4,9 @@ import com.aceerp.config.DatabaseConfig;
 import com.aceerp.model.*;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.view.JasperViewer;
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ChoiceDialog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class ReportService {
 
@@ -39,13 +43,37 @@ public class ReportService {
     }
 
     private void printDocument(String docType, String idParamName, int id) {
-        new Thread(() -> {
-            try (Connection conn = DatabaseConfig.getInstance().getConnection()) {
-                ReportTemplateService templateService = new ReportTemplateService();
-                InputStream stream = templateService.openActiveTemplateStream(docType);
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> printDocument(docType, idParamName, id));
+            return;
+        }
 
+        ReportTemplateService templateService = new ReportTemplateService();
+        List<String> templates = templateService.listTemplatesFor(docType);
+        if (templates.isEmpty()) {
+            showPrintError("No print templates are available for " + docType.replace('_', ' ') + ".");
+            return;
+        }
+
+        String activeTemplate = templateService.getActiveTemplateKey(docType);
+        String initialTemplate = templates.contains(activeTemplate) ? activeTemplate : templates.getFirst();
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(initialTemplate, templates);
+        dialog.setTitle("Choose Print Template");
+        dialog.setHeaderText("Select a template for this " + docType.replace('_', ' ') + ".");
+        dialog.setContentText("Template:");
+        Optional<String> selectedTemplate = dialog.showAndWait();
+        if (selectedTemplate.isEmpty()) {
+            return;
+        }
+
+        printDocument(docType, idParamName, id, selectedTemplate.get());
+    }
+
+    private void printDocument(String docType, String idParamName, int id, String templateKey) {
+        new Thread(() -> {
+            try (Connection conn = DatabaseConfig.getInstance().getConnection();
+                 InputStream stream = new ReportTemplateService().openTemplateStream(docType, templateKey)) {
                 JasperReport report = JasperCompileManager.compileReport(stream);
-                stream.close();
 
                 Map<String, Object> parameters = buildCompanyParameters();
                 parameters.put(idParamName, id);
@@ -54,8 +82,18 @@ public class ReportService {
                 JasperViewer.viewReport(print, false);
             } catch (Exception e) {
                 logger.error("Failed to generate report {} for id {}", docType, id, e);
+                Platform.runLater(() -> showPrintError(
+                        "Could not generate " + docType.replace('_', ' ') + ": " + e.getMessage()));
             }
         }).start();
+    }
+
+    private void showPrintError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Print Error");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     // ===================== Standard Business Documents =====================

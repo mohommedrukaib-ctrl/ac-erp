@@ -61,8 +61,11 @@ public class ServiceJobController {
     @FXML private TableColumn<ServiceJobLine, String> colPartCode;
     @FXML private TableColumn<ServiceJobLine, String> colPartName;
     @FXML private TableColumn<ServiceJobLine, Integer> colQty;
-    @FXML private TableColumn<ServiceJobLine, String> colUnitPrice;
+    @FXML private TableColumn<ServiceJobLine, BigDecimal> colUnitPrice;
+    @FXML private TableColumn<ServiceJobLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<ServiceJobLine, BigDecimal> colDisc;
+    @FXML private TableColumn<ServiceJobLine, String> colDiscountType;
+    @FXML private TableColumn<ServiceJobLine, Boolean> colPackagePrice;
     @FXML private TableColumn<ServiceJobLine, String> colNotes;
     @FXML private TableColumn<ServiceJobLine, String> colLineTotal;
     @FXML private TableColumn<ServiceJobLine, Void> colAction;
@@ -242,17 +245,23 @@ public class ServiceJobController {
             });
         }
 
-        if (colUnitPrice != null) {
-            colUnitPrice.setCellValueFactory(cell -> new SimpleStringProperty(CurrencyFormatter.format(cell.getValue().getUnitPrice())));
+        if (colUnitPrice != null && colSetPrice != null) {
+            com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
+                    colUnitPrice, colSetPrice, ServiceJobLine::getUnitPrice, ServiceJobLine::setUnitPrice,
+                    ServiceJobLine::isPackagePrice, () -> editMode, this::recalculateTotals);
         }
 
         if (colDisc != null) {
-            colDisc.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            com.aceerp.util.LinePricingTableColumns.configureDiscountType(
+                    colDiscountType, ServiceJobLine::getDiscountType, ServiceJobLine::setDiscountType, this::recalculateTotals);
+            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
+                    colPackagePrice, ServiceJobLine::isPackagePrice, ServiceJobLine::setPackagePrice, this::recalculateTotals);
+            colDisc.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDisc.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDisc.setOnEditCommit(event -> {
                 if (!editMode) { linesTable.refresh(); return; }
                 ServiceJobLine line = event.getRowValue();
-                line.setDiscountPercent(event.getNewValue() != null ? event.getNewValue() : BigDecimal.ZERO);
+                line.setDiscountValue(event.getNewValue() != null ? event.getNewValue() : BigDecimal.ZERO);
                 linesTable.refresh();
                 recalculateTotals();
             });

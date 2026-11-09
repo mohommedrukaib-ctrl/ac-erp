@@ -150,7 +150,7 @@ public class SalesOrderRepository {
             ps.executeUpdate();
         }
 
-        String insertSql = "INSERT INTO sales_order_lines (so_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, total_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String insertSql = "INSERT INTO sales_order_lines (so_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, total_price, discount_type, discount_value, package_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (SalesOrderLine line : so.getLines()) {
                 line.recalculateTotal();
@@ -172,6 +172,9 @@ public class SalesOrderRepository {
                 ps.setBigDecimal(9, taxAmt);
                 ps.setBigDecimal(10, lineTot);
                 ps.setBigDecimal(11, lineTot);
+                ps.setString(12, line.getDiscountType());
+                ps.setBigDecimal(13, line.getDiscountValue());
+                ps.setBoolean(14, line.isPackagePrice());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -195,8 +198,9 @@ public class SalesOrderRepository {
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
                     
                     try {
-                        BigDecimal disc = rs.getBigDecimal("discount_percent");
-                        line.setDiscountPercent(disc != null ? disc : BigDecimal.ZERO);
+                        line.setDiscountType(rs.getString("discount_type"));
+                        line.setDiscountValue(rs.getBigDecimal("discount_value"));
+                        line.setPackagePrice(rs.getBoolean("package_price"));
                     } catch (SQLException ignored) {}
 
                     try {

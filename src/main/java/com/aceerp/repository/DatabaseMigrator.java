@@ -42,7 +42,9 @@ public class DatabaseMigrator {
         "V043__credit_memos_and_vendor_credits.sql", "V044__multi_location_warehouses_and_stock_transfers.sql", "V045__hvac_job_costing_and_wip.sql",
         "V046__allow_nullable_product_in_service_job_lines.sql",
         "V047__hvac_enterprise_features.sql", "V048__fix_product_stock_insert_sync.sql",
-        "V049__document_level_discounts.sql"
+        "V049__document_level_discounts.sql",
+        "V050__purchase_order_document_discounts.sql",
+        "V051__line_discount_types_and_package_prices.sql"
     };
 
     public void migrate() throws SQLException {

@@ -1,6 +1,7 @@
 package com.aceerp.model;
 
 import com.aceerp.util.TaxUtil;
+import com.aceerp.util.DocumentDiscount;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -15,6 +16,9 @@ public class InvoiceLine {
     private BigDecimal quantity = BigDecimal.ONE;
     private BigDecimal unitPrice = BigDecimal.ZERO;
     private BigDecimal discountPercent = BigDecimal.ZERO;
+    private String discountType = DocumentDiscount.PERCENT;
+    private BigDecimal discountValue = BigDecimal.ZERO;
+    private boolean packagePrice;
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
     private boolean taxable = TaxUtil.isTaxEnabled();
@@ -59,9 +63,28 @@ public class InvoiceLine {
 
     public BigDecimal getDiscountPercent() { return discountPercent; }
     public void setDiscountPercent(BigDecimal discountPercent) {
-        this.discountPercent = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        this.discountType = DocumentDiscount.PERCENT;
+        this.discountValue = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        this.discountPercent = this.discountValue;
         recalculateTotal();
     }
+
+    public String getDiscountType() { return discountType; }
+    public void setDiscountType(String type) {
+        this.discountType = DocumentDiscount.normalizeType(type);
+        this.discountPercent = DocumentDiscount.PERCENT.equals(this.discountType) ? discountValue : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public BigDecimal getDiscountValue() { return discountValue; }
+    public void setDiscountValue(BigDecimal value) {
+        this.discountValue = value != null ? value.max(BigDecimal.ZERO) : BigDecimal.ZERO;
+        this.discountPercent = DocumentDiscount.PERCENT.equals(discountType) ? this.discountValue : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public boolean isPackagePrice() { return packagePrice; }
+    public void setPackagePrice(boolean packagePrice) { this.packagePrice = packagePrice; recalculateTotal(); }
 
     public BigDecimal getDiscountAmount() { return discountAmount; }
     public void setDiscountAmount(BigDecimal discountAmount) {
@@ -97,20 +120,9 @@ public class InvoiceLine {
     public void recalculateTotal() {
         BigDecimal qty = quantity != null ? quantity : BigDecimal.ZERO;
         BigDecimal price = unitPrice != null ? unitPrice : BigDecimal.ZERO;
-        BigDecimal gross = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
-
-        BigDecimal discPct = discountPercent != null ? discountPercent : BigDecimal.ZERO;
-        if (discPct.compareTo(BigDecimal.ZERO) > 0) {
-            this.discountAmount = gross.multiply(discPct)
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        } else if (this.discountAmount == null) {
-            this.discountAmount = BigDecimal.ZERO;
-        }
-
-        BigDecimal net = gross.subtract(this.discountAmount);
-        if (net.compareTo(BigDecimal.ZERO) < 0) {
-            net = BigDecimal.ZERO;
-        }
+        BigDecimal gross = (packagePrice ? price : qty.multiply(price)).setScale(2, RoundingMode.HALF_UP);
+        this.discountAmount = DocumentDiscount.calculateAmount(gross, discountType, discountValue);
+        BigDecimal net = gross.subtract(this.discountAmount).max(BigDecimal.ZERO);
         this.totalPrice = net.setScale(2, RoundingMode.HALF_UP);
 
         if (taxable && taxRate != null && taxRate.compareTo(BigDecimal.ZERO) > 0) {

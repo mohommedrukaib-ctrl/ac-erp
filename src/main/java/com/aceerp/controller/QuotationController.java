@@ -48,7 +48,10 @@ public class QuotationController {
     @FXML private TableColumn<QuotationLine, String> colProduct;
     @FXML private TableColumn<QuotationLine, BigDecimal> colQty;
     @FXML private TableColumn<QuotationLine, BigDecimal> colPrice;
+    @FXML private TableColumn<QuotationLine, BigDecimal> colSetPrice;
+    @FXML private TableColumn<QuotationLine, String> colDiscountType;
     @FXML private TableColumn<QuotationLine, BigDecimal> colDiscount;
+    @FXML private TableColumn<QuotationLine, Boolean> colPackagePrice;
     @FXML private TableColumn<QuotationLine, Boolean> colTaxable;
     @FXML private TableColumn<QuotationLine, String> colNotes;
     @FXML private TableColumn<QuotationLine, BigDecimal> colTotal;
@@ -275,7 +278,7 @@ public class QuotationController {
             d.getValue().getDescription() != null ? d.getValue().getDescription() :
             (d.getValue().getProduct() != null ? d.getValue().getProduct().getName() : "Custom Item")
         ));
-        colProduct.setCellFactory(TextFieldTableCell.forTableColumn());
+        com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colProduct);
         colProduct.setOnEditCommit(e -> {
             e.getRowValue().setDescription(e.getNewValue());
             linesTable.refresh();
@@ -285,16 +288,20 @@ public class QuotationController {
         colQty.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colQty.setOnEditCommit(e -> { e.getRowValue().setQuantity(e.getNewValue()); updateTotal(); });
 
-        colPrice.setCellValueFactory(new PropertyValueFactory<>("unitPrice"));
-        colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colPrice.setOnEditCommit(e -> { e.getRowValue().setUnitPrice(e.getNewValue()); updateTotal(); });
+        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
+                colPrice, colSetPrice, QuotationLine::getUnitPrice, QuotationLine::setUnitPrice,
+                QuotationLine::isPackagePrice, () -> editMode, this::updateTotal);
 
         if (colDiscount != null) {
-            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            com.aceerp.util.LinePricingTableColumns.configureDiscountType(
+                    colDiscountType, QuotationLine::getDiscountType, QuotationLine::setDiscountType, this::updateTotal);
+            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
+                    colPackagePrice, QuotationLine::isPackagePrice, QuotationLine::setPackagePrice, this::updateTotal);
+            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDiscount.setOnEditCommit(e -> {
                 if (!editMode) { linesTable.refresh(); return; }
-                e.getRowValue().setDiscountPercent(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
+                e.getRowValue().setDiscountValue(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
                 updateTotal();
             });
         }
@@ -322,7 +329,7 @@ public class QuotationController {
             colNotes.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
                 d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
             ));
-            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colNotes);
             colNotes.setOnEditCommit(e -> {
                 if (!editMode) { linesTable.refresh(); return; }
                 e.getRowValue().setNotes(e.getNewValue());
@@ -691,12 +698,14 @@ public class QuotationController {
 
                     String copyLines =
                             "INSERT INTO sales_order_lines (" +
-                            "so_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, total_price" +
+                            "so_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, total_price, discount_type, discount_value, package_price" +
                             ") SELECT ?, product_id, description, quantity, unit_price, " +
                             "COALESCE(discount_percent, 0), notes, " +
                             "COALESCE(tax_rate, 0), COALESCE(tax_amount, 0), " +
                             "COALESCE(line_total, total_price, quantity * unit_price, 0), " +
-                            "COALESCE(total_price, line_total, quantity * unit_price, 0) " +
+                            "COALESCE(total_price, line_total, quantity * unit_price, 0), " +
+                            "COALESCE(discount_type, 'PERCENT'), COALESCE(discount_value, discount_percent, 0), " +
+                            "COALESCE(package_price, FALSE) " +
                             "FROM quotation_lines WHERE quotation_id = ?";
                     try (PreparedStatement stmt = conn.prepareStatement(copyLines)) {
                         stmt.setInt(1, newSoId);
@@ -772,8 +781,8 @@ public class QuotationController {
                     boolean hasTotalPrice = columnExists(conn, "invoice_lines", "total_price");
                     boolean hasLineTotal = columnExists(conn, "invoice_lines", "line_total");
                     
-                    String cols = "invoice_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount";
-                    String vals = "?, product_id, description, quantity, unit_price, COALESCE(discount_percent, 0), notes, COALESCE(tax_rate, 0), COALESCE(tax_amount, 0)";
+                    String cols = "invoice_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, discount_type, discount_value, package_price";
+                    String vals = "?, product_id, description, quantity, unit_price, COALESCE(discount_percent, 0), notes, COALESCE(tax_rate, 0), COALESCE(tax_amount, 0), COALESCE(discount_type, 'PERCENT'), COALESCE(discount_value, discount_percent, 0), COALESCE(package_price, FALSE)";
                     
                     if (hasLineTotal && hasTotalPrice) {
                         cols += ", line_total, total_price";

@@ -1,0 +1,4 @@
+ALTER TABLE purchase_orders
+    ADD COLUMN IF NOT EXISTS document_discount_type VARCHAR(10) NOT NULL DEFAULT 'PERCENT',
+    ADD COLUMN IF NOT EXISTS document_discount_value NUMERIC(12,2) NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS document_discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0;

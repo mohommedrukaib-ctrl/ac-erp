@@ -108,8 +108,9 @@ public class ServiceJobService {
                     line.setQuantity(rs.getInt("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
 
-                    BigDecimal disc = rs.getBigDecimal("discount_percent");
-                    line.setDiscountPercent(disc != null ? disc : BigDecimal.ZERO);
+                    line.setDiscountType(rs.getString("discount_type"));
+                    line.setDiscountValue(rs.getBigDecimal("discount_value"));
+                    line.setPackagePrice(rs.getBoolean("package_price"));
                     line.setNotes(rs.getString("notes"));
 
                     BigDecimal total = rs.getBigDecimal("line_total");
@@ -143,8 +144,9 @@ public class ServiceJobService {
         String deleteLines = "DELETE FROM service_job_lines WHERE service_job_id = ?";
         String insertLine = """
             INSERT INTO service_job_lines
-                (service_job_id, product_id, quantity, unit_price, discount_percent, notes, line_total, serial_number)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (service_job_id, product_id, quantity, unit_price, discount_percent, notes, line_total, serial_number,
+                 discount_type, discount_value, package_price)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
         String deductStock = "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?";
         String logStockMovement = """
@@ -241,6 +243,9 @@ public class ServiceJobService {
                         stmt.setString(6, line.getNotes());
                         stmt.setBigDecimal(7, line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
                         stmt.setString(8, line.getSerialNumber());
+                        stmt.setString(9, line.getDiscountType());
+                        stmt.setBigDecimal(10, line.getDiscountValue());
+                        stmt.setBoolean(11, line.isPackagePrice());
                         stmt.executeUpdate();
                     }
                 }

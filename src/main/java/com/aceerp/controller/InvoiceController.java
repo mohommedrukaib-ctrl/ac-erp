@@ -51,7 +51,10 @@ public class InvoiceController {
     @FXML private TableColumn<InvoiceLine, String> colProduct;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colQty;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colPrice;
+    @FXML private TableColumn<InvoiceLine, BigDecimal> colSetPrice;
+    @FXML private TableColumn<InvoiceLine, String> colDiscountType;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colDiscount;
+    @FXML private TableColumn<InvoiceLine, Boolean> colPackagePrice;
     @FXML private TableColumn<InvoiceLine, Boolean> colTaxable;
     @FXML private TableColumn<InvoiceLine, String> colNotes;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colTotal;
@@ -323,7 +326,7 @@ public class InvoiceController {
         colProduct.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
             d.getValue().getDescription() != null ? d.getValue().getDescription() : "Custom Item"
         ));
-        colProduct.setCellFactory(TextFieldTableCell.forTableColumn());
+        com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colProduct);
         colProduct.setOnEditCommit(e -> {
             if (!editMode) { linesTable.refresh(); return; }
             e.getRowValue().setDescription(e.getNewValue());
@@ -338,20 +341,20 @@ public class InvoiceController {
             updateTotal();
         });
 
-        colPrice.setCellValueFactory(new PropertyValueFactory<>("unitPrice"));
-        colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colPrice.setOnEditCommit(e -> {
-            if (!editMode) { linesTable.refresh(); return; }
-            e.getRowValue().setUnitPrice(e.getNewValue());
-            updateTotal();
-        });
+        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
+                colPrice, colSetPrice, InvoiceLine::getUnitPrice, InvoiceLine::setUnitPrice,
+                InvoiceLine::isPackagePrice, () -> editMode, this::updateTotal);
 
         if (colDiscount != null) {
-            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            com.aceerp.util.LinePricingTableColumns.configureDiscountType(
+                    colDiscountType, InvoiceLine::getDiscountType, InvoiceLine::setDiscountType, this::updateTotal);
+            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
+                    colPackagePrice, InvoiceLine::isPackagePrice, InvoiceLine::setPackagePrice, this::updateTotal);
+            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDiscount.setOnEditCommit(e -> {
                 if (!editMode) { linesTable.refresh(); return; }
-                e.getRowValue().setDiscountPercent(e.getNewValue());
+                e.getRowValue().setDiscountValue(e.getNewValue());
                 updateTotal();
             });
         }
@@ -360,7 +363,7 @@ public class InvoiceController {
             colNotes.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
                 d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
             ));
-            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colNotes);
             colNotes.setOnEditCommit(e -> {
                 if (!editMode) { linesTable.refresh(); return; }
                 e.getRowValue().setNotes(e.getNewValue());

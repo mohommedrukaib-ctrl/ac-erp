@@ -76,7 +76,10 @@ public class QuotationService {
             iLine.setDescription(qLine.getDescription());
             iLine.setQuantity(qLine.getQuantity());
             iLine.setUnitPrice(qLine.getUnitPrice());
-            iLine.setTotalPrice(qLine.getTotalPrice());
+            iLine.setDiscountType(qLine.getDiscountType());
+            iLine.setDiscountValue(qLine.getDiscountValue());
+            iLine.setPackagePrice(qLine.isPackagePrice());
+            iLine.setTaxRate(qLine.getTaxRate());
             invoiceLines.add(iLine);
         }
         invoice.setLines(invoiceLines);

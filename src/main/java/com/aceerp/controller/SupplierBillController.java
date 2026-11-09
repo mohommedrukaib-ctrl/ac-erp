@@ -9,6 +9,7 @@ import com.aceerp.model.SupplierBillLine;
 import com.aceerp.service.AuditLogService;
 import com.aceerp.service.GoodsReceivedNoteService;
 import com.aceerp.service.ProductService;
+import com.aceerp.service.ReportService;
 import com.aceerp.service.SupplierBillService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
@@ -76,7 +77,10 @@ public class SupplierBillController {
     @FXML private TableColumn<SupplierBillLine, String> colProduct;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colQty;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colPrice;
+    @FXML private TableColumn<SupplierBillLine, BigDecimal> colSetPrice;
+    @FXML private TableColumn<SupplierBillLine, String> colDiscountType;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colDiscount;
+    @FXML private TableColumn<SupplierBillLine, Boolean> colPackagePrice;
     @FXML private TableColumn<SupplierBillLine, Boolean> colTaxable;
     @FXML private TableColumn<SupplierBillLine, String> colNotes;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colTotal;
@@ -212,7 +216,7 @@ public class SupplierBillController {
         colProduct.setCellValueFactory(d -> new SimpleStringProperty(
                 d.getValue().getDescription() != null ? d.getValue().getDescription() : "Custom Item"
         ));
-        colProduct.setCellFactory(TextFieldTableCell.forTableColumn());
+        com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colProduct);
         colProduct.setOnEditCommit(e -> {
             if (!editMode) { linesTable.refresh(); return; }
             e.getRowValue().setDescription(e.getNewValue());
@@ -227,20 +231,20 @@ public class SupplierBillController {
             updateTotal();
         });
 
-        colPrice.setCellValueFactory(new PropertyValueFactory<>("unitPrice"));
-        colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colPrice.setOnEditCommit(e -> {
-            if (!editMode) { linesTable.refresh(); return; }
-            e.getRowValue().setUnitPrice(e.getNewValue());
-            updateTotal();
-        });
+        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
+                colPrice, colSetPrice, SupplierBillLine::getUnitPrice, SupplierBillLine::setUnitPrice,
+                SupplierBillLine::isPackagePrice, () -> editMode, this::updateTotal);
 
         if (colDiscount != null) {
-            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            com.aceerp.util.LinePricingTableColumns.configureDiscountType(
+                    colDiscountType, SupplierBillLine::getDiscountType, SupplierBillLine::setDiscountType, this::updateTotal);
+            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
+                    colPackagePrice, SupplierBillLine::isPackagePrice, SupplierBillLine::setPackagePrice, this::updateTotal);
+            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDiscount.setOnEditCommit(e -> {
                 if (!editMode) { linesTable.refresh(); return; }
-                e.getRowValue().setDiscountPercent(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
+                e.getRowValue().setDiscountValue(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
                 updateTotal();
             });
         }
@@ -268,7 +272,7 @@ public class SupplierBillController {
             colNotes.setCellValueFactory(d -> new SimpleStringProperty(
                     d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
             ));
-            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colNotes);
             colNotes.setOnEditCommit(e -> {
                 if (!editMode) { linesTable.refresh(); return; }
                 e.getRowValue().setNotes(e.getNewValue());
@@ -838,7 +842,11 @@ public class SupplierBillController {
             showAlert(Alert.AlertType.WARNING, "Print", "Please select a saved bill to print.");
             return;
         }
-        showAlert(Alert.AlertType.INFORMATION, "Print Preview", "Printing Supplier Bill #" + currentBill.getBillNumber());
+        try {
+            ReportService.printSupplierBill(currentBill.getId());
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Print Error", "Failed to print supplier bill: " + e.getMessage());
+        }
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {

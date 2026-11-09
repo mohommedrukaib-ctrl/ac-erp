@@ -146,8 +146,8 @@ public class QuotationRepository {
 
         String insertSql =
                 "INSERT INTO quotation_lines " +
-                "(quotation_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, total_price, line_total) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "(quotation_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, total_price, line_total, discount_type, discount_value, package_price) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (QuotationLine line : q.getLines()) {
                 line.recalculateTotal();
@@ -167,6 +167,9 @@ public class QuotationRepository {
                 BigDecimal lt = line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO;
                 ps.setBigDecimal(10, lt);
                 ps.setBigDecimal(11, lt);
+                ps.setString(12, line.getDiscountType());
+                ps.setBigDecimal(13, line.getDiscountValue());
+                ps.setBoolean(14, line.isPackagePrice());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -196,8 +199,9 @@ public class QuotationRepository {
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
 
                     try {
-                        BigDecimal disc = rs.getBigDecimal("discount_percent");
-                        line.setDiscountPercent(disc != null ? disc : BigDecimal.ZERO);
+                        line.setDiscountType(rs.getString("discount_type"));
+                        line.setDiscountValue(rs.getBigDecimal("discount_value"));
+                        line.setPackagePrice(rs.getBoolean("package_price"));
                     } catch (SQLException ignored) {}
 
                     try {

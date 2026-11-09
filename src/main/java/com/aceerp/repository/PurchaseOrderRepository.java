@@ -62,8 +62,9 @@ public class PurchaseOrderRepository {
         }
 
         String sql = "INSERT INTO purchase_orders (po_number, supplier_id, order_date, expected_date, status, " +
-                     "subtotal, tax_amount, total_amount, notes) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+                     "subtotal, tax_amount, total_amount, document_discount_type, document_discount_value, " +
+                     "document_discount_amount, notes) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, po.getPoNumber());
             if (po.getSupplierId() != null && po.getSupplierId() > 0) ps.setInt(2, po.getSupplierId());
@@ -74,7 +75,10 @@ public class PurchaseOrderRepository {
             ps.setBigDecimal(6, po.getSubtotal() != null ? po.getSubtotal() : BigDecimal.ZERO);
             ps.setBigDecimal(7, po.getTaxAmount() != null ? po.getTaxAmount() : BigDecimal.ZERO);
             ps.setBigDecimal(8, po.getTotalAmount() != null ? po.getTotalAmount() : BigDecimal.ZERO);
-            ps.setString(9, po.getNotes());
+            ps.setString(9, po.getDocumentDiscountType());
+            ps.setBigDecimal(10, po.getDocumentDiscountValue());
+            ps.setBigDecimal(11, po.getDocumentDiscountAmount());
+            ps.setString(12, po.getNotes());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) po.setId(rs.getInt(1));
             }
@@ -87,7 +91,8 @@ public class PurchaseOrderRepository {
         }
 
         String sql = "UPDATE purchase_orders SET supplier_id=?, order_date=?, expected_date=?, status=?, " +
-                     "subtotal=?, tax_amount=?, total_amount=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?";
+                     "subtotal=?, tax_amount=?, total_amount=?, document_discount_type=?, document_discount_value=?, " +
+                     "document_discount_amount=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             if (po.getSupplierId() != null && po.getSupplierId() > 0) ps.setInt(1, po.getSupplierId());
             else ps.setNull(1, Types.INTEGER);
@@ -97,8 +102,11 @@ public class PurchaseOrderRepository {
             ps.setBigDecimal(5, po.getSubtotal() != null ? po.getSubtotal() : BigDecimal.ZERO);
             ps.setBigDecimal(6, po.getTaxAmount() != null ? po.getTaxAmount() : BigDecimal.ZERO);
             ps.setBigDecimal(7, po.getTotalAmount() != null ? po.getTotalAmount() : BigDecimal.ZERO);
-            ps.setString(8, po.getNotes());
-            ps.setInt(9, po.getId());
+            ps.setString(8, po.getDocumentDiscountType());
+            ps.setBigDecimal(9, po.getDocumentDiscountValue());
+            ps.setBigDecimal(10, po.getDocumentDiscountAmount());
+            ps.setString(11, po.getNotes());
+            ps.setInt(12, po.getId());
             ps.executeUpdate();
         }
     }
@@ -111,15 +119,14 @@ public class PurchaseOrderRepository {
 
         String insertSql =
                 "INSERT INTO purchase_order_lines " +
-                "(po_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, total_price) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "(po_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, total_price, discount_type, discount_value, package_price) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (PurchaseOrderLine line : po.getLines()) {
                 line.recalculateTotal();
                 BigDecimal qty = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ONE;
                 BigDecimal price = line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO;
-                BigDecimal disc = line.getDiscountPercent() != null ? line.getDiscountPercent() : BigDecimal.ZERO;
                 BigDecimal lineTot = line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO;
 
                 ps.setInt(1, po.getId());
@@ -128,12 +135,15 @@ public class PurchaseOrderRepository {
                 ps.setString(3, line.getDescription());
                 ps.setBigDecimal(4, qty);
                 ps.setBigDecimal(5, price);
-                ps.setBigDecimal(6, disc);
+                ps.setBigDecimal(6, line.getDiscountPercent());
                 ps.setString(7, line.getNotes());
                 ps.setBigDecimal(8, line.getTaxRate() != null ? line.getTaxRate() : BigDecimal.ZERO);
                 ps.setBigDecimal(9, line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
                 ps.setBigDecimal(10, lineTot);
                 ps.setBigDecimal(11, lineTot);
+                ps.setString(12, line.getDiscountType());
+                ps.setBigDecimal(13, line.getDiscountValue());
+                ps.setBoolean(14, line.isPackagePrice());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -192,8 +202,9 @@ public class PurchaseOrderRepository {
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
                     
                     try {
-                        BigDecimal disc = rs.getBigDecimal("discount_percent");
-                        line.setDiscountPercent(disc != null ? disc : BigDecimal.ZERO);
+                        line.setDiscountType(rs.getString("discount_type"));
+                        line.setDiscountValue(rs.getBigDecimal("discount_value"));
+                        line.setPackagePrice(rs.getBoolean("package_price"));
                     } catch (SQLException ignored) {}
 
                     try {
@@ -239,6 +250,9 @@ public class PurchaseOrderRepository {
         po.setSubtotal(rs.getBigDecimal("subtotal"));
         po.setTaxAmount(rs.getBigDecimal("tax_amount"));
         po.setTotalAmount(rs.getBigDecimal("total_amount"));
+        po.setDocumentDiscountType(rs.getString("document_discount_type"));
+        po.setDocumentDiscountValue(rs.getBigDecimal("document_discount_value"));
+        po.setDocumentDiscountAmount(rs.getBigDecimal("document_discount_amount"));
         po.setNotes(rs.getString("notes"));
         return po;
     }

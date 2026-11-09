@@ -27,7 +27,7 @@ public class CustomerCreditMemo {
 
         for (CreditMemoLine l : lines) {
             l.recalculateTotal();
-            subtotal = subtotal.add(l.getQuantity().multiply(l.getUnitPrice()));
+            subtotal = subtotal.add(l.getTotalAmount().subtract(l.getTaxAmount()));
             taxAmount = taxAmount.add(l.getTaxAmount());
             totalAmount = totalAmount.add(l.getTotalAmount());
         }

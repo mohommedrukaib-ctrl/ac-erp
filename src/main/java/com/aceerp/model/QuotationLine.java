@@ -1,6 +1,7 @@
 package com.aceerp.model;
 
 import com.aceerp.util.TaxUtil;
+import com.aceerp.util.DocumentDiscount;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -17,6 +18,9 @@ public class QuotationLine {
     
     // Option B Enhancements
     private BigDecimal discountPercent = BigDecimal.ZERO;
+    private String discountType = DocumentDiscount.PERCENT;
+    private BigDecimal discountValue = BigDecimal.ZERO;
+    private boolean packagePrice;
     private String notes;
 
     private boolean taxable = TaxUtil.isTaxEnabled();
@@ -74,9 +78,28 @@ public class QuotationLine {
 
     public BigDecimal getDiscountPercent() { return discountPercent; }
     public void setDiscountPercent(BigDecimal discountPercent) {
-        this.discountPercent = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        this.discountType = DocumentDiscount.PERCENT;
+        this.discountValue = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        this.discountPercent = this.discountValue;
         recalculateTotal();
     }
+
+    public String getDiscountType() { return discountType; }
+    public void setDiscountType(String type) {
+        this.discountType = DocumentDiscount.normalizeType(type);
+        this.discountPercent = DocumentDiscount.PERCENT.equals(this.discountType) ? discountValue : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public BigDecimal getDiscountValue() { return discountValue; }
+    public void setDiscountValue(BigDecimal value) {
+        this.discountValue = value != null ? value.max(BigDecimal.ZERO) : BigDecimal.ZERO;
+        this.discountPercent = DocumentDiscount.PERCENT.equals(discountType) ? this.discountValue : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public boolean isPackagePrice() { return packagePrice; }
+    public void setPackagePrice(boolean packagePrice) { this.packagePrice = packagePrice; recalculateTotal(); }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
@@ -110,16 +133,11 @@ public class QuotationLine {
     public void recalculateTotal() {
         BigDecimal qty = quantity != null ? quantity : BigDecimal.ZERO;
         BigDecimal price = unitPrice != null ? unitPrice : BigDecimal.ZERO;
-        BigDecimal gross = qty.multiply(price).setScale(2, RoundingMode.HALF_UP);
-
-        BigDecimal disc = discountPercent != null ? discountPercent : BigDecimal.ZERO;
-        if (disc.compareTo(BigDecimal.ZERO) < 0) disc = BigDecimal.ZERO;
-        if (disc.compareTo(BigDecimal.valueOf(100)) > 0) disc = BigDecimal.valueOf(100);
-        this.discountPercent = disc;
-
-        BigDecimal discountAmount = gross.multiply(disc)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        this.totalPrice = gross.subtract(discountAmount);
+        BigDecimal gross = (packagePrice ? price : qty.multiply(price)).setScale(2, RoundingMode.HALF_UP);
+        this.discountValue = discountValue != null ? discountValue.max(BigDecimal.ZERO) : BigDecimal.ZERO;
+        this.discountPercent = DocumentDiscount.PERCENT.equals(discountType) ? discountValue : BigDecimal.ZERO;
+        BigDecimal discountAmount = DocumentDiscount.calculateAmount(gross, discountType, discountValue);
+        this.totalPrice = gross.subtract(discountAmount).max(BigDecimal.ZERO);
 
         if (taxable && taxRate != null && taxRate.compareTo(BigDecimal.ZERO) > 0) {
             this.taxAmount = this.totalPrice.multiply(taxRate)

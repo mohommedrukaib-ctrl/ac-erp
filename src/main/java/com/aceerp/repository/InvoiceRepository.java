@@ -143,8 +143,8 @@ public class InvoiceRepository {
             ps.setInt(1, inv.getId());
             ps.executeUpdate();
         }
-        String sql = "INSERT INTO invoice_lines (invoice_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO invoice_lines (invoice_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, discount_type, discount_value, package_price) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (InvoiceLine line : inv.getLines()) {
                 ps.setInt(1, inv.getId());
@@ -157,6 +157,9 @@ public class InvoiceRepository {
                 ps.setBigDecimal(8, line.getTaxRate());
                 ps.setBigDecimal(9, line.getTaxAmount());
                 ps.setBigDecimal(10, line.getLineTotal());
+                ps.setString(11, line.getDiscountType());
+                ps.setBigDecimal(12, line.getDiscountValue());
+                ps.setBoolean(13, line.isPackagePrice());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -192,7 +195,9 @@ public class InvoiceRepository {
                     line.setDescription(rs.getString("description"));
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
-                    line.setDiscountPercent(rs.getBigDecimal("discount_percent"));
+                    line.setDiscountType(rs.getString("discount_type"));
+                    line.setDiscountValue(rs.getBigDecimal("discount_value"));
+                    line.setPackagePrice(rs.getBoolean("package_price"));
                     line.setNotes(rs.getString("notes"));
                     line.setTaxRate(rs.getBigDecimal("tax_rate"));
                     line.setTaxAmount(rs.getBigDecimal("tax_amount"));

@@ -82,7 +82,7 @@ public class PurchaseReturnService {
 
                 // 2. Insert Lines & Deduct Inventory
                 if (pr.getLines() != null && !pr.getLines().isEmpty()) {
-                    String lineSql = "INSERT INTO purchase_return_lines (return_id, product_id, description, quantity, unit_cost, line_total) VALUES (?, ?, ?, ?, ?, ?)";
+                    String lineSql = "INSERT INTO purchase_return_lines (return_id, product_id, description, quantity, unit_cost, line_total, discount_type, discount_value, package_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
                     String stockDeductSql = "UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?";
                     String stockMovementSql = "INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes) VALUES (?, 'PURCHASE_RETURN', ?, 'DEBIT_NOTE', ?, ?)";
 
@@ -97,6 +97,9 @@ public class PurchaseReturnService {
                             stmtLine.setBigDecimal(4, line.getQuantity());
                             stmtLine.setBigDecimal(5, line.getUnitCost());
                             stmtLine.setBigDecimal(6, line.getLineTotal());
+                            stmtLine.setString(7, line.getDiscountType());
+                            stmtLine.setBigDecimal(8, line.getDiscountValue());
+                            stmtLine.setBoolean(9, line.isPackagePrice());
                             stmtLine.addBatch();
 
                             if (line.getProductId() > 0 && line.getQuantity().compareTo(java.math.BigDecimal.ZERO) > 0) {
@@ -165,6 +168,9 @@ public class PurchaseReturnService {
                     line.setDescription(rs.getString("description"));
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitCost(rs.getBigDecimal("unit_cost"));
+                    line.setDiscountType(rs.getString("discount_type"));
+                    line.setDiscountValue(rs.getBigDecimal("discount_value"));
+                    line.setPackagePrice(rs.getBoolean("package_price"));
                     line.setLineTotal(rs.getBigDecimal("line_total"));
                     lines.add(line);
                 }

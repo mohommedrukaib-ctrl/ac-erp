@@ -69,7 +69,11 @@
                         <columns>
                             <TableColumn fx:id="colDescription" text="Product / Description" prefWidth="280"/>
                             <TableColumn fx:id="colQty" text="Qty Returned" prefWidth="100"/>
-                            <TableColumn fx:id="colCost" text="Unit Cost" prefWidth="120"/>
+                            <TableColumn fx:id="colCost" text="Unit Cost" prefWidth="90"/>
+                            <TableColumn fx:id="colSetPrice" text="Whole Set Cost" prefWidth="125"/>
+                            <TableColumn fx:id="colDiscountType" text="Disc Mode" prefWidth="85"/>
+                            <TableColumn fx:id="colDiscount" text="Discount Value" prefWidth="95"/>
+                            <TableColumn fx:id="colPackagePrice" text="Whole Set" prefWidth="75"/>
                             <TableColumn fx:id="colTotal" text="Line Total" prefWidth="140"/>
                         </columns>
                         <columnResizePolicy>

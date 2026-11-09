@@ -610,6 +610,32 @@ public class ReportTemplateService {
         return stream;
     }
 
+    public InputStream openTemplateStream(String docType, String templateKey) throws IOException {
+        if (templateKey != null && templateKey.toLowerCase(Locale.ROOT).startsWith("custom:")) {
+            String name = templateKey.substring("custom:".length()).trim();
+            Path file = getCustomDocDir(docType).resolve(name + ".jrxml");
+            if (!Files.exists(file)) {
+                throw new FileNotFoundException("Custom template not found: " + file);
+            }
+            String jrxml = normalizeJrxml(Files.readString(file, StandardCharsets.UTF_8));
+            return new ByteArrayInputStream(jrxml.getBytes(StandardCharsets.UTF_8));
+        }
+
+        String theme = templateKey == null ? "classic" : templateKey.toLowerCase(Locale.ROOT);
+        InputStream stream = ReportTemplateService.class.getResourceAsStream(
+                "/reports/" + theme + "/" + docType + ".jrxml");
+        if (stream == null) {
+            stream = ReportTemplateService.class.getResourceAsStream("/reports/classic/" + docType + ".jrxml");
+        }
+        if (stream == null) {
+            stream = ReportTemplateService.class.getResourceAsStream("/reports/" + docType + ".jrxml");
+        }
+        if (stream == null) {
+            throw new FileNotFoundException("No template for docType=" + docType + " / " + theme);
+        }
+        return stream;
+    }
+
     // ---- DOM-based JRXML Parser & Layout Patcher ----
 
     public List<ReportElementItem> parseReportElements(String jrxml) {

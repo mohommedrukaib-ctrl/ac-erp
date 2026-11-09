@@ -10,6 +10,7 @@ import com.aceerp.service.ReportService;
 import com.aceerp.service.SettingsService;
 import com.aceerp.service.SupplierService;
 import com.aceerp.util.CurrencyFormatter;
+import com.aceerp.util.DocumentDiscount;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -42,7 +43,10 @@ public class PurchaseOrderController {
     @FXML private TableColumn<PurchaseOrderLine, String> colProduct;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colQty;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colPrice;
+    @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colSetPrice;
+    @FXML private TableColumn<PurchaseOrderLine, String> colDiscountType;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colDiscount;
+    @FXML private TableColumn<PurchaseOrderLine, Boolean> colPackagePrice;
     @FXML private TableColumn<PurchaseOrderLine, Boolean> colTaxable;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colTaxRate;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colTaxAmt;
@@ -52,6 +56,9 @@ public class PurchaseOrderController {
     @FXML private Label subtotalLabel;
     @FXML private Label taxLabel;
     @FXML private Label totalLabel;
+    @FXML private ComboBox<String> cmbDocumentDiscountType;
+    @FXML private TextField txtDocumentDiscountValue;
+    @FXML private Label documentDiscountLabel;
 
     private final PurchaseOrderService poService = new PurchaseOrderService();
     private final SupplierService supplierService = new SupplierService();
@@ -69,6 +76,7 @@ public class PurchaseOrderController {
     @FXML
     public void initialize() {
         loadDefaultTaxRate();
+        DocumentDiscount.configureControls(cmbDocumentDiscountType, txtDocumentDiscountValue, this::updateTotals);
         setupSmartSearch();
         setupTable();
         setupListView();
@@ -147,7 +155,7 @@ public class PurchaseOrderController {
 
     private void setupTable() {
         colProduct.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getDescription()));
-        colProduct.setCellFactory(TextFieldTableCell.forTableColumn());
+        com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colProduct);
         colProduct.setOnEditCommit(e -> {
             if (!editMode) { linesTable.refresh(); return; }
             e.getRowValue().setDescription(e.getNewValue());
@@ -162,20 +170,20 @@ public class PurchaseOrderController {
             updateTotals();
         });
 
-        colPrice.setCellValueFactory(new PropertyValueFactory<>("unitPrice"));
-        colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colPrice.setOnEditCommit(e -> {
-            if (!editMode) { linesTable.refresh(); return; }
-            e.getRowValue().setUnitPrice(e.getNewValue());
-            updateTotals();
-        });
+        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
+                colPrice, colSetPrice, PurchaseOrderLine::getUnitPrice, PurchaseOrderLine::setUnitPrice,
+                PurchaseOrderLine::isPackagePrice, () -> editMode, this::updateTotals);
 
         if (colDiscount != null) {
-            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountPercent"));
+            com.aceerp.util.LinePricingTableColumns.configureDiscountType(
+                    colDiscountType, PurchaseOrderLine::getDiscountType, PurchaseOrderLine::setDiscountType, this::updateTotals);
+            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
+                    colPackagePrice, PurchaseOrderLine::isPackagePrice, PurchaseOrderLine::setPackagePrice, this::updateTotals);
+            colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDiscount.setOnEditCommit(e -> {
                 if (!editMode) { linesTable.refresh(); return; }
-                e.getRowValue().setDiscountPercent(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
+                e.getRowValue().setDiscountValue(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
                 updateTotals();
             });
         }
@@ -198,7 +206,7 @@ public class PurchaseOrderController {
             colNotes.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
                 d.getValue().getNotes() != null ? d.getValue().getNotes() : ""
             ));
-            colNotes.setCellFactory(TextFieldTableCell.forTableColumn());
+            com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colNotes);
             colNotes.setOnEditCommit(e -> {
                 if (!editMode) { linesTable.refresh(); return; }
                 e.getRowValue().setNotes(e.getNewValue());
@@ -265,6 +273,8 @@ public class PurchaseOrderController {
         statusCombo.setDisable(!editable);
         linesTable.setEditable(editable);
         globalTaxCheck.setDisable(!editable);
+        cmbDocumentDiscountType.setDisable(!editable);
+        txtDocumentDiscountValue.setDisable(!editable);
     }
 
     private void loadPOToForm(PurchaseOrder po) {
@@ -273,6 +283,8 @@ public class PurchaseOrderController {
         orderDatePicker.setValue(po.getOrderDate());
         expectedDatePicker.setValue(po.getExpectedDate());
         statusCombo.setValue(po.getStatus());
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                po.getDocumentDiscountType(), po.getDocumentDiscountValue());
         
         supplierSearchField.setText(po.getSupplierName() != null ? po.getSupplierName() : "");
         selectedSupplier = po.getSupplier();
@@ -304,6 +316,8 @@ public class PurchaseOrderController {
         orderDatePicker.setValue(LocalDate.now());
         expectedDatePicker.setValue(null);
         statusCombo.setValue("DRAFT");
+        DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
+                DocumentDiscount.PERCENT, BigDecimal.ZERO);
         supplierSearchField.clear();
         selectedSupplier = null;
         globalTaxCheck.setSelected(true);
@@ -383,29 +397,35 @@ public class PurchaseOrderController {
 
     private void updateTotals() {
         BigDecimal subtotal = BigDecimal.ZERO;
-        BigDecimal tax = BigDecimal.ZERO;
-        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal taxBeforeDocumentDiscount = BigDecimal.ZERO;
 
         for (PurchaseOrderLine line : lines) {
             line.recalculateTotal();
-            // Net of discount, before tax
-            BigDecimal qty = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ZERO;
-            BigDecimal price = line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO;
-            BigDecimal disc = line.getDiscountPercent() != null ? line.getDiscountPercent() : BigDecimal.ZERO;
-            BigDecimal gross = qty.multiply(price);
-            BigDecimal net = gross.subtract(gross.multiply(disc).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP));
+            BigDecimal net = (line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO)
+                    .subtract(line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
             subtotal = subtotal.add(net);
-            tax = tax.add(line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
-            total = total.add(line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
+            taxBeforeDocumentDiscount = taxBeforeDocumentDiscount.add(
+                    line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
         }
+
+        BigDecimal discountAmount = DocumentDiscount.calculateAmount(
+                subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+        BigDecimal tax = DocumentDiscount.calculateTaxAfterDiscount(
+                subtotal, taxBeforeDocumentDiscount, discountAmount);
+        BigDecimal total = subtotal.subtract(discountAmount).add(tax);
 
         subtotalLabel.setText("Subtotal: " + CurrencyFormatter.format(subtotal));
         taxLabel.setText("Tax: " + CurrencyFormatter.format(tax));
+        documentDiscountLabel.setText("Discount: " + CurrencyFormatter.format(discountAmount));
         totalLabel.setText("Grand Total: " + CurrencyFormatter.format(total));
         
         linesTable.refresh();
         if (currentPO != null) {
             currentPO.setSubtotal(subtotal);
+            currentPO.setDocumentDiscountType(DocumentDiscount.selectedType(cmbDocumentDiscountType));
+            currentPO.setDocumentDiscountValue(DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+            currentPO.setDocumentDiscountAmount(discountAmount);
             currentPO.setTaxAmount(tax);
             currentPO.setTotalAmount(total);
         }
@@ -416,6 +436,11 @@ public class PurchaseOrderController {
         if (!editMode) { showAlert("Locked", "Click Edit first."); return; }
         if (selectedSupplier == null) { showAlert("Error", "Select a supplier."); return; }
         if (lines.isEmpty()) { showAlert("Error", "Add at least one item."); return; }
+        String discountError = DocumentDiscount.validate(
+                DocumentDiscount.selectedType(cmbDocumentDiscountType),
+                txtDocumentDiscountValue.getText(),
+                currentPO != null ? currentPO.getSubtotal() : BigDecimal.ZERO);
+        if (discountError != null) { showAlert("Invalid Discount", discountError); return; }
 
         currentPO.setSupplier(selectedSupplier);
         currentPO.setSupplierId(selectedSupplier.getId());

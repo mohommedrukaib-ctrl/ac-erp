@@ -158,8 +158,8 @@ public class SupplierBillRepository {
 
         String sql = """
             INSERT INTO supplier_bill_lines (bill_id, product_id, description, quantity, unit_price,
-                discount_percent, notes, tax_rate, tax_amount, total_price, line_total)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                discount_percent, notes, tax_rate, tax_amount, total_price, line_total, discount_type, discount_value, package_price)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             for (SupplierBillLine line : bill.getLines()) {
@@ -176,6 +176,9 @@ public class SupplierBillRepository {
                 stmt.setBigDecimal(9, nz(line.getTaxAmount()));
                 stmt.setBigDecimal(10, nz(line.getTotalPrice()));
                 stmt.setBigDecimal(11, nz(line.getLineTotal()));
+                stmt.setString(12, line.getDiscountType());
+                stmt.setBigDecimal(13, nz(line.getDiscountValue()));
+                stmt.setBoolean(14, line.isPackagePrice());
                 stmt.addBatch();
             }
             stmt.executeBatch();
@@ -202,8 +205,9 @@ public class SupplierBillRepository {
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
 
                     try {
-                        BigDecimal disc = rs.getBigDecimal("discount_percent");
-                        line.setDiscountPercent(disc != null ? disc : BigDecimal.ZERO);
+                        line.setDiscountType(rs.getString("discount_type"));
+                        line.setDiscountValue(rs.getBigDecimal("discount_value"));
+                        line.setPackagePrice(rs.getBoolean("package_price"));
                     } catch (SQLException ignored) {}
                     try { line.setNotes(rs.getString("notes")); } catch (SQLException ignored) {}
 

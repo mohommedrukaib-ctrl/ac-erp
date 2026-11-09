@@ -2,6 +2,7 @@ package com.aceerp.model;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import com.aceerp.util.DocumentDiscount;
 
 public class CreditMemoLine {
     private int id;
@@ -10,6 +11,9 @@ public class CreditMemoLine {
     private String description;
     private BigDecimal quantity = BigDecimal.ONE;
     private BigDecimal unitPrice = BigDecimal.ZERO;
+    private String discountType = DocumentDiscount.PERCENT;
+    private BigDecimal discountValue = BigDecimal.ZERO;
+    private boolean packagePrice;
     private BigDecimal taxRate = BigDecimal.ZERO;
     private BigDecimal taxAmount = BigDecimal.ZERO;
     private BigDecimal totalAmount = BigDecimal.ZERO;
@@ -19,7 +23,10 @@ public class CreditMemoLine {
         if (unitPrice == null) unitPrice = BigDecimal.ZERO;
         if (taxRate == null) taxRate = BigDecimal.ZERO;
 
-        BigDecimal sub = quantity.multiply(unitPrice);
+        BigDecimal gross = (packagePrice ? unitPrice : quantity.multiply(unitPrice))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal sub = gross.subtract(DocumentDiscount.calculateAmount(gross, discountType, discountValue))
+                .max(BigDecimal.ZERO);
         taxAmount = sub.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         totalAmount = sub.add(taxAmount).setScale(2, RoundingMode.HALF_UP);
     }
@@ -41,6 +48,18 @@ public class CreditMemoLine {
 
     public BigDecimal getUnitPrice() { return unitPrice; }
     public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; recalculateTotal(); }
+
+    public String getDiscountType() { return discountType; }
+    public void setDiscountType(String type) { this.discountType = DocumentDiscount.normalizeType(type); recalculateTotal(); }
+
+    public BigDecimal getDiscountValue() { return discountValue; }
+    public void setDiscountValue(BigDecimal value) {
+        this.discountValue = value != null ? value.max(BigDecimal.ZERO) : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public boolean isPackagePrice() { return packagePrice; }
+    public void setPackagePrice(boolean packagePrice) { this.packagePrice = packagePrice; recalculateTotal(); }
 
     public BigDecimal getTaxRate() { return taxRate; }
     public void setTaxRate(BigDecimal taxRate) { this.taxRate = taxRate; recalculateTotal(); }

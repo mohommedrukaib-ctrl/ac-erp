@@ -48,6 +48,10 @@ public class PurchaseReturnController {
     @FXML private TableColumn<PurchaseReturnLine, String> colDescription;
     @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colQty;
     @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colCost;
+    @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colSetPrice;
+    @FXML private TableColumn<PurchaseReturnLine, String> colDiscountType;
+    @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colDiscount;
+    @FXML private TableColumn<PurchaseReturnLine, Boolean> colPackagePrice;
     @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colTotal;
 
     private final PurchaseReturnService returnService = new PurchaseReturnService();
@@ -110,10 +114,18 @@ public class PurchaseReturnController {
             updateTotal();
         });
 
-        colCost.setCellValueFactory(new PropertyValueFactory<>("unitCost"));
-        colCost.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colCost.setOnEditCommit(e -> {
-            e.getRowValue().setUnitCost(e.getNewValue());
+        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
+                colCost, colSetPrice, PurchaseReturnLine::getUnitCost, PurchaseReturnLine::setUnitCost,
+                PurchaseReturnLine::isPackagePrice, () -> linesTable.isEditable(), this::updateTotal);
+
+        com.aceerp.util.LinePricingTableColumns.configureDiscountType(
+                colDiscountType, PurchaseReturnLine::getDiscountType, PurchaseReturnLine::setDiscountType, this::updateTotal);
+        com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
+                colPackagePrice, PurchaseReturnLine::isPackagePrice, PurchaseReturnLine::setPackagePrice, this::updateTotal);
+        colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
+        colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
+        colDiscount.setOnEditCommit(e -> {
+            e.getRowValue().setDiscountValue(e.getNewValue() != null ? e.getNewValue() : BigDecimal.ZERO);
             updateTotal();
         });
 

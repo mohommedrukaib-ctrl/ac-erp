@@ -58,7 +58,10 @@ public class SalesOrderService {
             sol.setDescription(qLine.getDescription());
             sol.setQuantity(qLine.getQuantity());
             sol.setUnitPrice(qLine.getUnitPrice());
-            sol.setTotalPrice(qLine.getTotalPrice());
+            sol.setDiscountType(qLine.getDiscountType());
+            sol.setDiscountValue(qLine.getDiscountValue());
+            sol.setPackagePrice(qLine.isPackagePrice());
+            sol.setTaxRate(qLine.getTaxRate());
             lines.add(sol);
         }
         so.setLines(lines);

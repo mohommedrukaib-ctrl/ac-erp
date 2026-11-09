@@ -64,8 +64,9 @@ public class CreditService {
             // Insert Lines
             String insertLine = """
                 INSERT INTO credit_memo_lines
-                    (credit_memo_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, total_amount, line_no)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (credit_memo_id, product_id, description, quantity, unit_price, tax_rate, tax_amount, total_amount, line_no,
+                     discount_type, discount_value, package_price)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
             int lineNo = 1;
             try (PreparedStatement ps = conn.prepareStatement(insertLine)) {
@@ -81,6 +82,9 @@ public class CreditService {
                     ps.setBigDecimal(7, line.getTaxAmount());
                     ps.setBigDecimal(8, line.getTotalAmount());
                     ps.setInt(9, lineNo++);
+                    ps.setString(10, line.getDiscountType());
+                    ps.setBigDecimal(11, line.getDiscountValue());
+                    ps.setBoolean(12, line.isPackagePrice());
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -269,8 +273,9 @@ public class CreditService {
             // Insert Lines
             String insertLine = """
                 INSERT INTO vendor_credit_lines
-                    (vendor_credit_id, product_id, account_id, description, quantity, unit_cost, tax_rate, tax_amount, total_amount, line_no)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (vendor_credit_id, product_id, account_id, description, quantity, unit_cost, tax_rate, tax_amount, total_amount, line_no,
+                     discount_type, discount_value, package_price)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
             int lineNo = 1;
             try (PreparedStatement ps = conn.prepareStatement(insertLine)) {
@@ -285,6 +290,9 @@ public class CreditService {
                     ps.setBigDecimal(8, line.getTaxAmount());
                     ps.setBigDecimal(9, line.getTotalAmount());
                     ps.setInt(10, lineNo++);
+                    ps.setString(11, line.getDiscountType());
+                    ps.setBigDecimal(12, line.getDiscountValue());
+                    ps.setBoolean(13, line.isPackagePrice());
                     ps.addBatch();
                 }
                 ps.executeBatch();

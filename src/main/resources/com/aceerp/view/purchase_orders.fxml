@@ -66,8 +66,11 @@
             <columns>
                 <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="200"/>
                 <TableColumn fx:id="colQty" text="Qty" prefWidth="60"/>
-                <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="85"/>
-                <TableColumn fx:id="colDiscount" text="Disc %" prefWidth="65"/>
+                <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="90"/>
+                <TableColumn fx:id="colSetPrice" text="Whole Set Price" prefWidth="110"/>
+                <TableColumn fx:id="colDiscountType" text="Disc Mode" prefWidth="85"/>
+                <TableColumn fx:id="colDiscount" text="Discount Value" prefWidth="95"/>
+                <TableColumn fx:id="colPackagePrice" text="Whole Set" prefWidth="75"/>
                 <TableColumn fx:id="colTaxable" text="Has VAT?" prefWidth="70"/>
                 <TableColumn fx:id="colTaxRate" text="Tax %" prefWidth="60"/>
                 <TableColumn fx:id="colTaxAmt" text="Tax Amt" prefWidth="80" editable="false"/>
@@ -76,10 +79,17 @@
             </columns>
         </TableView>
 
+        <FlowPane hgap="8" vgap="6" alignment="CENTER_RIGHT">
+            <Label text="Document discount:"/>
+            <ComboBox fx:id="cmbDocumentDiscountType" prefWidth="135"/>
+            <TextField fx:id="txtDocumentDiscountValue" promptText="0.00" prefWidth="90"/>
+        </FlowPane>
+
         <HBox alignment="CENTER_RIGHT" spacing="20">
             <VBox alignment="CENTER_RIGHT" spacing="5">
                 <Label fx:id="subtotalLabel" text="Subtotal: 0.00" style="-fx-font-size: 14px; -fx-text-fill: #6c757d;"/>
                 <Label fx:id="taxLabel" text="Tax: 0.00" style="-fx-font-size: 14px; -fx-text-fill: #6c757d;"/>
+                <Label fx:id="documentDiscountLabel" text="Discount: 0.00" style="-fx-font-size: 14px; -fx-text-fill: #6c757d;"/>
                 <Label fx:id="totalLabel" text="Grand Total: 0.00" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
             </VBox>
         </HBox>

@@ -45,7 +45,10 @@ public class SalesOrderController {
     @FXML private TableColumn<SalesOrderLine, String> colProduct;
     @FXML private TableColumn<SalesOrderLine, BigDecimal> colQty;
     @FXML private TableColumn<SalesOrderLine, BigDecimal> colPrice;
+    @FXML private TableColumn<SalesOrderLine, BigDecimal> colSetPrice;
+    @FXML private TableColumn<SalesOrderLine, String> colDiscountType;
     @FXML private TableColumn<SalesOrderLine, BigDecimal> colTotal;
+    @FXML private TableColumn<SalesOrderLine, Boolean> colPackagePrice;
     @FXML private Label totalLabel;
     @FXML private Label lblSubtotal;
     @FXML private Label lblTax;
@@ -251,7 +254,7 @@ public class SalesOrderController {
         colProduct.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
             d.getValue().getDescription() != null ? d.getValue().getDescription() : "Custom Item"
         ));
-        colProduct.setCellFactory(TextFieldTableCell.forTableColumn());
+        com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colProduct);
         colProduct.setOnEditCommit(e -> {
             if (!editMode) { linesTable.refresh(); return; }
             e.getRowValue().setDescription(e.getNewValue());
@@ -266,11 +269,19 @@ public class SalesOrderController {
             updateTotal();
         });
 
-        colPrice.setCellValueFactory(new PropertyValueFactory<>("unitPrice"));
-        colPrice.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
-        colPrice.setOnEditCommit(e -> {
+        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
+                colPrice, colSetPrice, SalesOrderLine::getUnitPrice, SalesOrderLine::setUnitPrice,
+                SalesOrderLine::isPackagePrice, () -> editMode, this::updateTotal);
+
+        com.aceerp.util.LinePricingTableColumns.configureDiscountType(
+                colDiscountType, SalesOrderLine::getDiscountType, SalesOrderLine::setDiscountType, this::updateTotal);
+        com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
+                colPackagePrice, SalesOrderLine::isPackagePrice, SalesOrderLine::setPackagePrice, this::updateTotal);
+        colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
+        colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
+        colDiscount.setOnEditCommit(event -> {
             if (!editMode) { linesTable.refresh(); return; }
-            e.getRowValue().setUnitPrice(e.getNewValue());
+            event.getRowValue().setDiscountValue(event.getNewValue() != null ? event.getNewValue() : BigDecimal.ZERO);
             updateTotal();
         });
 

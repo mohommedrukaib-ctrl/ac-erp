@@ -13,9 +13,11 @@
     <parameter name="COMPANY_LOGO" class="java.lang.String"/> 
     <queryString>
         <![CDATA[
-            SELECT s.order_number, s.order_date, s.total_amount,
+            SELECT s.order_number, s.order_date, s.subtotal, s.tax_amount, s.total_amount,
+                   s.document_discount_type, s.document_discount_value, s.document_discount_amount,
                    c.name AS customer_name,
-                   sl.description, sl.quantity, sl.unit_price, sl.total_price
+                   sl.description, sl.quantity, sl.unit_price, sl.total_price,
+                   sl.discount_type, sl.discount_value, sl.package_price
             FROM sales_orders s
             JOIN customers c ON s.customer_id = c.id
             JOIN sales_order_lines sl ON s.id = sl.order_id
@@ -24,12 +26,20 @@
     </queryString>
     <field name="order_number" class="java.lang.String"/>
     <field name="order_date" class="java.sql.Date"/>
+    <field name="subtotal" class="java.math.BigDecimal"/>
+    <field name="tax_amount" class="java.math.BigDecimal"/>
     <field name="total_amount" class="java.math.BigDecimal"/>
+    <field name="document_discount_type" class="java.lang.String"/>
+    <field name="document_discount_value" class="java.math.BigDecimal"/>
+    <field name="document_discount_amount" class="java.math.BigDecimal"/>
     <field name="customer_name" class="java.lang.String"/>
     <field name="description" class="java.lang.String"/>
     <field name="quantity" class="java.math.BigDecimal"/>
     <field name="unit_price" class="java.math.BigDecimal"/>
     <field name="total_price" class="java.math.BigDecimal"/>
+    <field name="discount_type" class="java.lang.String"/>
+    <field name="discount_value" class="java.math.BigDecimal"/>
+    <field name="package_price" class="java.lang.Boolean"/>
     
 <title>
     <band height="70">
@@ -52,7 +62,7 @@
             <textFieldExpression><![CDATA[$P{COMPANY_TAGLINE}]]></textFieldExpression>
         </textField>
         
-        <textField>
+        <textField textAdjust="StretchHeight">
             <reportElement x="160" y="38" width="220" height="25"/>
             <textElement><font size="8"/></textElement>
             <textFieldExpression><![CDATA[$P{COMPANY_ADDRESS} + "\nPh: " + $P{COMPANY_PHONE}]]></textFieldExpression>
@@ -61,25 +71,30 @@
 </title>
     <columnHeader>
         <band height="25">
-            <staticText><reportElement x="0" y="0" width="250" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Description]]></text></staticText>
-            <staticText><reportElement x="260" y="0" width="80" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Qty]]></text></staticText>
-            <staticText><reportElement x="350" y="0" width="80" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Price]]></text></staticText>
+            <staticText><reportElement x="0" y="0" width="215" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Description]]></text></staticText>
+            <staticText><reportElement x="220" y="0" width="50" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Qty]]></text></staticText>
+            <staticText><reportElement x="275" y="0" width="80" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Price]]></text></staticText>
+            <staticText><reportElement x="360" y="0" width="75" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Discount]]></text></staticText>
             <staticText><reportElement x="450" y="0" width="85" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Total]]></text></staticText>
             <line><reportElement x="0" y="20" width="535" height="1"/></line>
         </band>
     </columnHeader>
     <detail>
-        <band height="25">
-            <textField><reportElement x="0" y="2" width="250" height="20"/><textFieldExpression><![CDATA[$F{description}]]></textFieldExpression></textField>
-            <textField><reportElement x="260" y="2" width="80" height="20"/><textFieldExpression><![CDATA[$F{quantity}]]></textFieldExpression></textField>
-            <textField><reportElement x="350" y="2" width="80" height="20"/><textFieldExpression><![CDATA[$F{unit_price}]]></textFieldExpression></textField>
+        <band height="25" splitType="Stretch">
+            <textField textAdjust="StretchHeight"><reportElement x="0" y="2" width="215" height="20"/><textFieldExpression><![CDATA[$F{description}]]></textFieldExpression></textField>
+            <textField><reportElement x="220" y="2" width="50" height="20"/><textFieldExpression><![CDATA[$F{quantity}]]></textFieldExpression></textField>
+            <textField><reportElement x="275" y="2" width="80" height="20"/><textFieldExpression><![CDATA[($F{package_price} ? "Pkg " : "") + $F{unit_price}]]></textFieldExpression></textField>
+            <textField><reportElement x="360" y="2" width="75" height="20"/><textFieldExpression><![CDATA[$F{discount_value} == null ? "" : ("AMOUNT".equals($F{discount_type}) ? $F{discount_value}.toPlainString() : $F{discount_value}.stripTrailingZeros().toPlainString() + "%")]]></textFieldExpression></textField>
             <textField><reportElement x="450" y="2" width="85" height="20"/><textFieldExpression><![CDATA[$F{total_price}]]></textFieldExpression></textField>
         </band>
     </detail>
     <summary>
-        <band height="50">
+        <band height="100">
             <line><reportElement x="300" y="10" width="235" height="1"/></line>
-            <textField><reportElement x="350" y="20" width="185" height="25"/><textElement><font size="14" isBold="true"/></textElement><textFieldExpression><![CDATA["Total: " + $F{total_amount}]]></textFieldExpression></textField>
+            <textField><reportElement x="350" y="15" width="185" height="18"/><textElement textAlignment="Right"/><textFieldExpression><![CDATA["Subtotal: " + $F{subtotal}]]></textFieldExpression></textField>
+            <textField><reportElement x="350" y="35" width="185" height="18"/><textElement textAlignment="Right"/><textFieldExpression><![CDATA["Tax: " + $F{tax_amount}]]></textFieldExpression></textField>
+            <textField><reportElement x="350" y="55" width="185" height="18"/><textElement textAlignment="Right"/><textFieldExpression><![CDATA["Discount (" + ($F{document_discount_type}.equals("PERCENT") ? $F{document_discount_value} + "%" : $F{document_discount_value}) + "): " + $F{document_discount_amount}]]></textFieldExpression></textField>
+            <textField><reportElement x="350" y="75" width="185" height="25"/><textElement><font size="14" isBold="true"/></textElement><textFieldExpression><![CDATA["Total: " + $F{total_amount}]]></textFieldExpression></textField>
         </band>
     </summary>
 </jasperReport>

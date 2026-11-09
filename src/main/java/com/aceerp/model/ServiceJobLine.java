@@ -2,6 +2,7 @@ package com.aceerp.model;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import com.aceerp.util.DocumentDiscount;
 
 public class ServiceJobLine {
     private int id;
@@ -13,6 +14,9 @@ public class ServiceJobLine {
     private int quantity = 1;
     private BigDecimal unitPrice = BigDecimal.ZERO;
     private BigDecimal discountPercent = BigDecimal.ZERO;
+    private String discountType = DocumentDiscount.PERCENT;
+    private BigDecimal discountValue = BigDecimal.ZERO;
+    private boolean packagePrice;
     private String notes;
     private BigDecimal lineTotal = BigDecimal.ZERO;
 
@@ -50,9 +54,28 @@ public class ServiceJobLine {
 
     public BigDecimal getDiscountPercent() { return discountPercent; }
     public void setDiscountPercent(BigDecimal discountPercent) {
-        this.discountPercent = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        this.discountType = DocumentDiscount.PERCENT;
+        this.discountValue = discountPercent != null ? discountPercent : BigDecimal.ZERO;
+        this.discountPercent = this.discountValue;
         recalculateTotal();
     }
+
+    public String getDiscountType() { return discountType; }
+    public void setDiscountType(String type) {
+        this.discountType = DocumentDiscount.normalizeType(type);
+        this.discountPercent = DocumentDiscount.PERCENT.equals(this.discountType) ? discountValue : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public BigDecimal getDiscountValue() { return discountValue; }
+    public void setDiscountValue(BigDecimal value) {
+        this.discountValue = value != null ? value.max(BigDecimal.ZERO) : BigDecimal.ZERO;
+        this.discountPercent = DocumentDiscount.PERCENT.equals(discountType) ? this.discountValue : BigDecimal.ZERO;
+        recalculateTotal();
+    }
+
+    public boolean isPackagePrice() { return packagePrice; }
+    public void setPackagePrice(boolean packagePrice) { this.packagePrice = packagePrice; recalculateTotal(); }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
@@ -61,13 +84,11 @@ public class ServiceJobLine {
     public void setLineTotal(BigDecimal lineTotal) { this.lineTotal = lineTotal; }
 
     public void recalculateTotal() {
-        BigDecimal gross = (unitPrice != null ? unitPrice : BigDecimal.ZERO).multiply(BigDecimal.valueOf(quantity));
-        BigDecimal disc = discountPercent != null ? discountPercent : BigDecimal.ZERO;
-        if (disc.compareTo(BigDecimal.ZERO) < 0) disc = BigDecimal.ZERO;
-        if (disc.compareTo(BigDecimal.valueOf(100)) > 0) disc = BigDecimal.valueOf(100);
-        this.discountPercent = disc;
-
-        BigDecimal discountAmt = gross.multiply(disc).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        this.lineTotal = gross.subtract(discountAmt);
+        BigDecimal price = unitPrice != null ? unitPrice : BigDecimal.ZERO;
+        BigDecimal gross = packagePrice ? price : price.multiply(BigDecimal.valueOf(quantity));
+        this.discountValue = discountValue != null ? discountValue.max(BigDecimal.ZERO) : BigDecimal.ZERO;
+        this.discountPercent = DocumentDiscount.PERCENT.equals(discountType) ? discountValue : BigDecimal.ZERO;
+        BigDecimal discountAmt = DocumentDiscount.calculateAmount(gross, discountType, discountValue);
+        this.lineTotal = gross.subtract(discountAmt).max(BigDecimal.ZERO);
     }
 }
