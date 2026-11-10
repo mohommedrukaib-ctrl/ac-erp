@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PurchaseReturn {
+public class PurchaseReturn implements PackagePriceDocument {
     private int id;
     private String returnNumber;
     private int supplierId;
@@ -16,6 +16,8 @@ public class PurchaseReturn {
     private LocalDate returnDate = LocalDate.now();
     private String status = "COMPLETED";
     private BigDecimal totalAmount = BigDecimal.ZERO;
+    private boolean packagePriceEnabled;
+    private BigDecimal packagePriceAmount = BigDecimal.ZERO;
     private String reason;
     private LocalDateTime createdAt;
     private List<PurchaseReturnLine> lines = new ArrayList<>();
@@ -31,6 +33,7 @@ public class PurchaseReturn {
                     totalAmount = totalAmount.add(line.getLineTotal());
                 }
             }
+            if (packagePriceEnabled) totalAmount = packagePriceAmount;
         }
     }
 
@@ -60,6 +63,10 @@ public class PurchaseReturn {
 
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+    @Override public boolean isPackagePriceEnabled() { return packagePriceEnabled; }
+    @Override public void setPackagePriceEnabled(boolean enabled) { packagePriceEnabled = enabled; }
+    @Override public BigDecimal getPackagePriceAmount() { return packagePriceAmount; }
+    @Override public void setPackagePriceAmount(BigDecimal amount) { packagePriceAmount = amount != null ? amount : BigDecimal.ZERO; }
 
     public String getReason() { return reason; }
     public void setReason(String reason) { this.reason = reason; }

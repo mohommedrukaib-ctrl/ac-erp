@@ -89,17 +89,21 @@
                             <Button fx:id="btnAddPart" text="+ Add Product" onAction="#handleAddPart" styleClass="btn-secondary"/>
                             <Button fx:id="btnAddEmptyLine" text="+ Empty Line" onAction="#handleAddEmptyLine" styleClass="btn-secondary"/>
                         </HBox>
+                        <HBox spacing="8" alignment="CENTER_LEFT">
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <CheckBox fx:id="chkDocumentPackagePrice" text="Pkg Price"/>
+                            <Label text="Rs."/>
+                            <TextField fx:id="txtDocumentPackagePrice" text="0" prefWidth="90"/>
+                        </HBox>
 
                         <TableView fx:id="linesTable" prefHeight="200">
                             <columns>
                                 <TableColumn fx:id="colPartCode" text="Part Code" prefWidth="100"/>
                                 <TableColumn fx:id="colPartName" text="Part Name" prefWidth="180"/>
                                 <TableColumn fx:id="colQty" text="Qty" prefWidth="60"/>
-                                <TableColumn fx:id="colUnitPrice" text="Unit Price" prefWidth="90"/>
-                                <TableColumn fx:id="colSetPrice" text="Whole Set Price" prefWidth="115"/>
+                                <TableColumn fx:id="colUnitPrice" text="Unit / Pkg Price" prefWidth="105"/>
                                 <TableColumn fx:id="colDiscountType" text="Disc Mode" prefWidth="85"/>
                                 <TableColumn fx:id="colDisc" text="Discount Value" prefWidth="95"/>
-                                <TableColumn fx:id="colPackagePrice" text="Whole Set" prefWidth="75"/>
                                 <TableColumn fx:id="colNotes" text="Notes" prefWidth="140"/>
                                 <TableColumn fx:id="colLineTotal" text="Total" prefWidth="95"/>
                                 <TableColumn fx:id="colAction" text="" prefWidth="50"/>

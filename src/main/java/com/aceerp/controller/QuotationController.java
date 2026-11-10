@@ -48,10 +48,8 @@ public class QuotationController {
     @FXML private TableColumn<QuotationLine, String> colProduct;
     @FXML private TableColumn<QuotationLine, BigDecimal> colQty;
     @FXML private TableColumn<QuotationLine, BigDecimal> colPrice;
-    @FXML private TableColumn<QuotationLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<QuotationLine, String> colDiscountType;
     @FXML private TableColumn<QuotationLine, BigDecimal> colDiscount;
-    @FXML private TableColumn<QuotationLine, Boolean> colPackagePrice;
     @FXML private TableColumn<QuotationLine, Boolean> colTaxable;
     @FXML private TableColumn<QuotationLine, String> colNotes;
     @FXML private TableColumn<QuotationLine, BigDecimal> colTotal;
@@ -61,6 +59,8 @@ public class QuotationController {
     @FXML private Label lblTaxTitle;
     @FXML private ComboBox<String> cmbDocumentDiscountType;
     @FXML private TextField txtDocumentDiscountValue;
+    @FXML private CheckBox chkDocumentPackagePrice;
+    @FXML private TextField txtDocumentPackagePrice;
     @FXML private Label lblDocumentDiscountAmount;
     @FXML private CheckBox globalTaxCheck;
     @FXML private VBox detailsPane;
@@ -75,6 +75,7 @@ public class QuotationController {
     private Quotation currentQuotation;
     
     private boolean editMode = false;
+    private com.aceerp.util.DocumentPackagePrice packagePriceControl;
 
     @FXML
     public void initialize() {
@@ -82,6 +83,9 @@ public class QuotationController {
                 () -> { if (editMode) updateTotal(); });
         setupSmartSearch();
         setupTable();
+        packagePriceControl = com.aceerp.util.DocumentPackagePrice.configure(
+                chkDocumentPackagePrice, txtDocumentPackagePrice, () -> currentQuotation,
+                () -> editMode, this::updateTotal);
         setupListView();
         com.aceerp.util.QuickBooksContextMenus.installListView(quotationListView, quotation -> java.util.List.of(
             com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
@@ -172,6 +176,7 @@ public class QuotationController {
         customerSearchField.setDisable(!editable);
         cmbDocumentDiscountType.setDisable(!editable);
         txtDocumentDiscountValue.setDisable(!editable);
+        packagePriceControl.setControlsDisabled(!editable);
         quoteDatePicker.setDisable(!editable);
         statusCombo.setDisable(!editable);
         linesTable.setEditable(editable);
@@ -198,7 +203,8 @@ public class QuotationController {
             customerPhoneField.clear();
         }
         
-        lines.setAll(q.getLines());
+        lines.setAll(q.getLines() != null ? q.getLines() : List.of());
+        packagePriceControl.setControls(q);
         
         if (globalTaxCheck != null && !lines.isEmpty()) {
             boolean allTaxable = lines.stream().allMatch(QuotationLine::isTaxable);
@@ -288,15 +294,13 @@ public class QuotationController {
         colQty.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colQty.setOnEditCommit(e -> { e.getRowValue().setQuantity(e.getNewValue()); updateTotal(); });
 
-        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
-                colPrice, colSetPrice, QuotationLine::getUnitPrice, QuotationLine::setUnitPrice,
-                QuotationLine::isPackagePrice, () -> editMode, this::updateTotal);
+        com.aceerp.util.LinePricingTableColumns.configurePrice(
+                colPrice, QuotationLine::getUnitPrice, QuotationLine::setUnitPrice,
+                () -> editMode, chkDocumentPackagePrice::isSelected, this::updateTotal);
 
         if (colDiscount != null) {
             com.aceerp.util.LinePricingTableColumns.configureDiscountType(
                     colDiscountType, QuotationLine::getDiscountType, QuotationLine::setDiscountType, this::updateTotal);
-            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
-                    colPackagePrice, QuotationLine::isPackagePrice, QuotationLine::setPackagePrice, this::updateTotal);
             colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDiscount.setOnEditCommit(e -> {
@@ -337,7 +341,8 @@ public class QuotationController {
             });
         }
 
-        colTotal.setCellValueFactory(new PropertyValueFactory<>("totalPrice"));
+        com.aceerp.util.LinePricingTableColumns.configureLineTotal(
+                colTotal, QuotationLine::getTotalPrice, chkDocumentPackagePrice::isSelected);
         linesTable.setItems(lines);
     }
 
@@ -495,6 +500,11 @@ public class QuotationController {
             }
         }
 
+        com.aceerp.util.PackagePriceTotals.Totals packageTotals = com.aceerp.util.PackagePriceTotals.apply(
+                subtotal, taxTotal, currentQuotation != null && currentQuotation.isPackagePriceEnabled(),
+                currentQuotation != null ? currentQuotation.getPackagePriceAmount() : BigDecimal.ZERO);
+        subtotal = packageTotals.subtotal();
+        taxTotal = packageTotals.tax();
         BigDecimal discountAmount = DocumentDiscount.calculateAmount(
                 subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
                 DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
@@ -616,7 +626,8 @@ public class QuotationController {
         statusCombo.setValue("DRAFT");
         DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
                 DocumentDiscount.PERCENT, BigDecimal.ZERO);
-        lines.clear(); 
+        lines.clear();
+        packagePriceControl.reset();
         customerSearchField.clear(); 
         customerPhoneField.clear(); 
         selectedCustomer = null;
@@ -694,6 +705,13 @@ public class QuotationController {
                             if (!rs.next()) throw new SQLException("Sales order insert returned no id");
                             newSoId = rs.getInt(1);
                         }
+                    }
+                    try (PreparedStatement stmt = conn.prepareStatement(
+                            "UPDATE sales_orders SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                        stmt.setBoolean(1, currentQuotation.isPackagePriceEnabled());
+                        stmt.setBigDecimal(2, currentQuotation.getPackagePriceAmount());
+                        stmt.setInt(3, newSoId);
+                        stmt.executeUpdate();
                     }
 
                     String copyLines =
@@ -776,6 +794,13 @@ public class QuotationController {
                             if (!rs.next()) throw new SQLException("Invoice insert returned no id");
                             newInvId = rs.getInt(1);
                         }
+                    }
+                    try (PreparedStatement stmt = conn.prepareStatement(
+                            "UPDATE invoices SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                        stmt.setBoolean(1, currentQuotation.isPackagePriceEnabled());
+                        stmt.setBigDecimal(2, currentQuotation.getPackagePriceAmount());
+                        stmt.setInt(3, newInvId);
+                        stmt.executeUpdate();
                     }
 
                     boolean hasTotalPrice = columnExists(conn, "invoice_lines", "total_price");

@@ -67,6 +67,13 @@ public class QuotationRepository {
                 } else {
                     updateQuotation(conn, quotation);
                 }
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE quotations SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                    ps.setBoolean(1, quotation.isPackagePriceEnabled());
+                    ps.setBigDecimal(2, quotation.getPackagePriceAmount());
+                    ps.setInt(3, quotation.getId());
+                    ps.executeUpdate();
+                }
                 saveLines(conn, quotation);
                 conn.commit();
             } catch (SQLException e) {
@@ -270,6 +277,8 @@ public class QuotationRepository {
         }
         q.setTotalAmount(total != null ? total : BigDecimal.ZERO);
         q.setDocumentDiscountType(rs.getString("document_discount_type"));
+        q.setPackagePriceEnabled(rs.getBoolean("package_price_enabled"));
+        q.setPackagePriceAmount(rs.getBigDecimal("package_price_amount"));
         q.setDocumentDiscountValue(rs.getBigDecimal("document_discount_value"));
         q.setDocumentDiscountAmount(rs.getBigDecimal("document_discount_amount"));
 

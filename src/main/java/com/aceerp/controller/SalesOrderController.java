@@ -45,15 +45,15 @@ public class SalesOrderController {
     @FXML private TableColumn<SalesOrderLine, String> colProduct;
     @FXML private TableColumn<SalesOrderLine, BigDecimal> colQty;
     @FXML private TableColumn<SalesOrderLine, BigDecimal> colPrice;
-    @FXML private TableColumn<SalesOrderLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<SalesOrderLine, String> colDiscountType;
     @FXML private TableColumn<SalesOrderLine, BigDecimal> colTotal;
-    @FXML private TableColumn<SalesOrderLine, Boolean> colPackagePrice;
     @FXML private Label totalLabel;
     @FXML private Label lblSubtotal;
     @FXML private Label lblTax;
     @FXML private ComboBox<String> cmbDocumentDiscountType;
     @FXML private TextField txtDocumentDiscountValue;
+    @FXML private CheckBox chkDocumentPackagePrice;
+    @FXML private TextField txtDocumentPackagePrice;
     @FXML private Label lblDocumentDiscountAmount;
     @FXML private VBox detailsPane;
 
@@ -70,6 +70,7 @@ public class SalesOrderController {
     private SalesOrder currentSalesOrder;
     private List<SalesOrder> allSalesOrders = List.of();
     private boolean editMode = false;
+    private com.aceerp.util.DocumentPackagePrice packagePriceControl;
 
     @FXML
     public void initialize() {
@@ -77,6 +78,9 @@ public class SalesOrderController {
                 () -> { if (editMode) updateTotal(); });
         setupSmartSearch();
         setupTable();
+        packagePriceControl = com.aceerp.util.DocumentPackagePrice.configure(
+                chkDocumentPackagePrice, txtDocumentPackagePrice, () -> currentSalesOrder,
+                () -> editMode, this::updateTotal);
         setupListAndSelection();
         com.aceerp.util.QuickBooksContextMenus.installListView(salesOrderListView, order -> java.util.List.of(
             com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
@@ -131,10 +135,8 @@ public class SalesOrderController {
             customerPhoneField.clear();
         }
 
-        lines.clear();
-        if (so.getLines() != null) {
-            lines.addAll(so.getLines());
-        }
+        lines.setAll(so.getLines() != null ? so.getLines() : List.of());
+        packagePriceControl.setControls(so);
         updateTotal();
         setFormEditable(false);
     }
@@ -158,6 +160,7 @@ public class SalesOrderController {
         customerSearchField.setDisable(!editable);
         cmbDocumentDiscountType.setDisable(!editable);
         txtDocumentDiscountValue.setDisable(!editable);
+        packagePriceControl.setControlsDisabled(!editable);
         orderDatePicker.setDisable(!editable);
         statusCombo.setDisable(!editable);
         linesTable.setEditable(editable);
@@ -269,14 +272,12 @@ public class SalesOrderController {
             updateTotal();
         });
 
-        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
-                colPrice, colSetPrice, SalesOrderLine::getUnitPrice, SalesOrderLine::setUnitPrice,
-                SalesOrderLine::isPackagePrice, () -> editMode, this::updateTotal);
+        com.aceerp.util.LinePricingTableColumns.configurePrice(
+                colPrice, SalesOrderLine::getUnitPrice, SalesOrderLine::setUnitPrice,
+                () -> editMode, chkDocumentPackagePrice::isSelected, this::updateTotal);
 
         com.aceerp.util.LinePricingTableColumns.configureDiscountType(
                 colDiscountType, SalesOrderLine::getDiscountType, SalesOrderLine::setDiscountType, this::updateTotal);
-        com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
-                colPackagePrice, SalesOrderLine::isPackagePrice, SalesOrderLine::setPackagePrice, this::updateTotal);
         colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
         colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colDiscount.setOnEditCommit(event -> {
@@ -285,7 +286,8 @@ public class SalesOrderController {
             updateTotal();
         });
 
-        colTotal.setCellValueFactory(new PropertyValueFactory<>("totalPrice"));
+        com.aceerp.util.LinePricingTableColumns.configureLineTotal(
+                colTotal, SalesOrderLine::getTotalPrice, chkDocumentPackagePrice::isSelected);
         linesTable.setItems(lines);
     }
 
@@ -383,6 +385,11 @@ public class SalesOrderController {
             if (line.getTaxAmount() != null) taxTotal = taxTotal.add(line.getTaxAmount());
         }
         linesTable.refresh();
+        com.aceerp.util.PackagePriceTotals.Totals packageTotals = com.aceerp.util.PackagePriceTotals.apply(
+                subtotal, taxTotal, currentSalesOrder != null && currentSalesOrder.isPackagePriceEnabled(),
+                currentSalesOrder != null ? currentSalesOrder.getPackagePriceAmount() : BigDecimal.ZERO);
+        subtotal = packageTotals.subtotal();
+        taxTotal = packageTotals.tax();
         BigDecimal discountAmount = DocumentDiscount.calculateAmount(
                 subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
                 DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
@@ -479,7 +486,7 @@ public class SalesOrderController {
         soNumberField.setText(currentSalesOrder.getSoNumber());
         orderDatePicker.setValue(LocalDate.now());
         statusCombo.setValue("DRAFT");
-        lines.clear(); customerSearchField.clear(); customerPhoneField.clear(); selectedCustomer = null;
+        lines.clear(); packagePriceControl.reset(); customerSearchField.clear(); customerPhoneField.clear(); selectedCustomer = null;
         salesOrderListView.getSelectionModel().clearSelection();
         setFormEditable(true);
         updateTotal();

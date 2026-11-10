@@ -1,13 +1,11 @@
 package com.aceerp.util;
 
-import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.util.converter.BigDecimalStringConverter;
 
@@ -15,58 +13,47 @@ import java.math.BigDecimal;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 public final class LinePricingTableColumns {
 
     private LinePricingTableColumns() {}
 
-    public static <S> void configureUnitAndSetPrice(
-            TableColumn<S, BigDecimal> unitPriceColumn,
-            TableColumn<S, BigDecimal> setPriceColumn,
+    public static <S> void configurePrice(
+            TableColumn<S, BigDecimal> priceColumn,
             Function<S, BigDecimal> priceGetter,
             BiConsumer<S, BigDecimal> priceSetter,
-            Predicate<S> packagePriceGetter,
             BooleanSupplier canEdit,
+            BooleanSupplier packagePriceEnabled,
             Runnable onChange) {
-        configurePriceColumn(unitPriceColumn, priceGetter, priceSetter, packagePriceGetter,
-                false, canEdit, onChange);
-        configurePriceColumn(setPriceColumn, priceGetter, priceSetter, packagePriceGetter,
-                true, canEdit, onChange);
-    }
-
-    private static <S> void configurePriceColumn(
-            TableColumn<S, BigDecimal> column,
-            Function<S, BigDecimal> priceGetter,
-            BiConsumer<S, BigDecimal> priceSetter,
-            Predicate<S> packagePriceGetter,
-            boolean setPrice,
-            BooleanSupplier canEdit,
-            Runnable onChange) {
-        Predicate<S> active = row -> packagePriceGetter.test(row) == setPrice;
-        column.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(
-                active.test(cell.getValue()) ? priceGetter.apply(cell.getValue()) : null));
-        column.setCellFactory(ignored -> new TextFieldTableCell<S, BigDecimal>(new BigDecimalStringConverter()) {
+        priceColumn.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(
+                packagePriceEnabled.getAsBoolean() ? BigDecimal.ZERO : priceGetter.apply(cell.getValue())));
+        priceColumn.setCellFactory(ignored -> new TextFieldTableCell<S, BigDecimal>(new BigDecimalStringConverter()) {
             @Override
             public void updateItem(BigDecimal item, boolean empty) {
                 super.updateItem(item, empty);
-                S row = getTableRow() == null ? null : getTableRow().getItem();
-                setDisable(empty || row == null || !active.test(row) || !canEdit.getAsBoolean());
+                setDisable(empty || !canEdit.getAsBoolean() || packagePriceEnabled.getAsBoolean());
             }
 
             @Override
             public void startEdit() {
-                S row = getTableRow() == null ? null : getTableRow().getItem();
-                if (row == null || !active.test(row) || !canEdit.getAsBoolean()) return;
+                if (!canEdit.getAsBoolean() || packagePriceEnabled.getAsBoolean()) return;
                 super.startEdit();
             }
         });
-        column.setOnEditCommit(event -> {
-            S row = event.getRowValue();
-            if (!canEdit.getAsBoolean() || !active.test(row)) return;
-            priceSetter.accept(row, event.getNewValue() != null ? event.getNewValue() : BigDecimal.ZERO);
+        priceColumn.setOnEditCommit(event -> {
+            if (!canEdit.getAsBoolean() || packagePriceEnabled.getAsBoolean()) return;
+            priceSetter.accept(event.getRowValue(),
+                    event.getNewValue() != null ? event.getNewValue() : BigDecimal.ZERO);
             onChange.run();
         });
+    }
+
+    public static <S> void configureLineTotal(
+            TableColumn<S, BigDecimal> totalColumn,
+            Function<S, BigDecimal> totalGetter,
+            BooleanSupplier packagePriceEnabled) {
+        totalColumn.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(
+                packagePriceEnabled.getAsBoolean() ? BigDecimal.ZERO : totalGetter.apply(cell.getValue())));
     }
 
     public static <S> void configureDiscountType(
@@ -111,20 +98,4 @@ public final class LinePricingTableColumns {
         });
     }
 
-    public static <S> void configurePackagePrice(
-            TableColumn<S, Boolean> column,
-            Predicate<S> getter,
-            BiConsumer<S, Boolean> setter,
-            Runnable onChange) {
-        column.setCellValueFactory(cell -> {
-            SimpleBooleanProperty value = new SimpleBooleanProperty(getter.test(cell.getValue()));
-            value.addListener((observable, oldValue, newValue) -> {
-                setter.accept(cell.getValue(), newValue);
-                column.getTableView().refresh();
-                onChange.run();
-            });
-            return value;
-        });
-        column.setCellFactory(CheckBoxTableCell.forTableColumn(column));
-    }
 }

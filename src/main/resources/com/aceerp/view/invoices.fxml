@@ -90,11 +90,17 @@
                         <Button text="Remove Line" onAction="#handleRemoveLine" styleClass="btn-danger"/>
                     </FlowPane>
 
-                    <FlowPane hgap="8" vgap="6" alignment="CENTER_LEFT">
+                    <HBox spacing="8" alignment="CENTER_LEFT">
                         <Label text="Document discount:"/>
                         <ComboBox fx:id="cmbDocumentDiscountType" prefWidth="135"/>
                         <TextField fx:id="txtDocumentDiscountValue" promptText="0.00" prefWidth="90"/>
-                    </FlowPane>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <CheckBox fx:id="chkDocumentPackagePrice" text="Invoice Package Price">
+                            <tooltip><Tooltip text="Use one package price for the entire invoice subtotal."/></tooltip>
+                        </CheckBox>
+                        <Label text="Rs."/>
+                        <TextField fx:id="txtDocumentPackagePrice" text="0" prefWidth="90"/>
+                    </HBox>
 
                     <!-- Table with Discount % and Line Notes -->
                     <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="260">
@@ -102,10 +108,8 @@
                             <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="220"/>
                             <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
                             <TableColumn fx:id="colPrice" text="Unit Price" prefWidth="90"/>
-                            <TableColumn fx:id="colSetPrice" text="Whole Set Price" prefWidth="110"/>
                             <TableColumn fx:id="colDiscountType" text="Disc Mode" prefWidth="85"/>
                             <TableColumn fx:id="colDiscount" text="Discount Value" prefWidth="95"/>
-                            <TableColumn fx:id="colPackagePrice" text="Whole Set" prefWidth="75"/>
                             <TableColumn fx:id="colTaxable" text="Tax" prefWidth="55"/>
                             <TableColumn fx:id="colNotes" text="Line Notes" prefWidth="140"/>
                             <TableColumn fx:id="colTotal" text="Line Total" prefWidth="100"/>

@@ -94,8 +94,8 @@ public class InvoiceRepository {
 
     private void insertInvoice(Connection conn, Invoice inv) throws SQLException {
         String sql = "INSERT INTO invoices (invoice_number, customer_id, invoice_date, due_date, status, subtotal, tax_amount, total_amount, " +
-                     "document_discount_type, document_discount_value, document_discount_amount, paid_amount, notes) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+                     "document_discount_type, document_discount_value, document_discount_amount, package_price_enabled, package_price_amount, paid_amount, notes) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, inv.getInvoiceNumber());
             if (inv.getCustomerId() > 0) ps.setInt(2, inv.getCustomerId()); else ps.setNull(2, Types.INTEGER);
@@ -108,8 +108,10 @@ public class InvoiceRepository {
             ps.setString(9, inv.getDocumentDiscountType());
             ps.setBigDecimal(10, inv.getDocumentDiscountValue());
             ps.setBigDecimal(11, inv.getDocumentDiscountAmount());
-            ps.setBigDecimal(12, inv.getPaidAmount() != null ? inv.getPaidAmount() : BigDecimal.ZERO);
-            ps.setString(13, inv.getNotes());
+            ps.setBoolean(12, inv.isPackagePriceEnabled());
+            ps.setBigDecimal(13, inv.getPackagePriceAmount());
+            ps.setBigDecimal(14, inv.getPaidAmount() != null ? inv.getPaidAmount() : BigDecimal.ZERO);
+            ps.setString(15, inv.getNotes());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) inv.setId(rs.getInt(1));
             }
@@ -118,7 +120,7 @@ public class InvoiceRepository {
 
     private void updateInvoice(Connection conn, Invoice inv) throws SQLException {
         String sql = "UPDATE invoices SET customer_id=?, invoice_date=?, due_date=?, status=?, subtotal=?, tax_amount=?, total_amount=?, " +
-                     "document_discount_type=?, document_discount_value=?, document_discount_amount=?, paid_amount=?, notes=?, " +
+                     "document_discount_type=?, document_discount_value=?, document_discount_amount=?, package_price_enabled=?, package_price_amount=?, paid_amount=?, notes=?, " +
                      "updated_at=CURRENT_TIMESTAMP WHERE id=?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             if (inv.getCustomerId() > 0) ps.setInt(1, inv.getCustomerId()); else ps.setNull(1, Types.INTEGER);
@@ -131,9 +133,11 @@ public class InvoiceRepository {
             ps.setString(8, inv.getDocumentDiscountType());
             ps.setBigDecimal(9, inv.getDocumentDiscountValue());
             ps.setBigDecimal(10, inv.getDocumentDiscountAmount());
-            ps.setBigDecimal(11, inv.getPaidAmount() != null ? inv.getPaidAmount() : BigDecimal.ZERO);
-            ps.setString(12, inv.getNotes());
-            ps.setInt(13, inv.getId());
+            ps.setBoolean(11, inv.isPackagePriceEnabled());
+            ps.setBigDecimal(12, inv.getPackagePriceAmount());
+            ps.setBigDecimal(13, inv.getPaidAmount() != null ? inv.getPaidAmount() : BigDecimal.ZERO);
+            ps.setString(14, inv.getNotes());
+            ps.setInt(15, inv.getId());
             ps.executeUpdate();
         }
     }
@@ -239,6 +243,8 @@ public class InvoiceRepository {
         inv.setDocumentDiscountType(rs.getString("document_discount_type"));
         inv.setDocumentDiscountValue(rs.getBigDecimal("document_discount_value"));
         inv.setDocumentDiscountAmount(rs.getBigDecimal("document_discount_amount"));
+        inv.setPackagePriceEnabled(rs.getBoolean("package_price_enabled"));
+        inv.setPackagePriceAmount(rs.getBigDecimal("package_price_amount"));
         inv.setPaidAmount(rs.getBigDecimal("paid_amount"));
         inv.setNotes(rs.getString("notes"));
         return inv;

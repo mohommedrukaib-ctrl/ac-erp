@@ -63,6 +63,13 @@ public class SalesOrderRepository {
                 } else {
                     updateSalesOrder(conn, so);
                 }
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE sales_orders SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                    ps.setBoolean(1, so.isPackagePriceEnabled());
+                    ps.setBigDecimal(2, so.getPackagePriceAmount());
+                    ps.setInt(3, so.getId());
+                    ps.executeUpdate();
+                }
                 saveLines(conn, so);
                 conn.commit();
             } catch (SQLException e) {
@@ -256,6 +263,8 @@ public class SalesOrderRepository {
         so.setTaxAmount(rs.getBigDecimal("tax_amount"));
         so.setTotalAmount(rs.getBigDecimal("total_amount"));
         so.setDocumentDiscountType(rs.getString("document_discount_type"));
+        so.setPackagePriceEnabled(rs.getBoolean("package_price_enabled"));
+        so.setPackagePriceAmount(rs.getBigDecimal("package_price_amount"));
         so.setDocumentDiscountValue(rs.getBigDecimal("document_discount_value"));
         so.setDocumentDiscountAmount(rs.getBigDecimal("document_discount_amount"));
         so.setNotes(rs.getString("notes"));

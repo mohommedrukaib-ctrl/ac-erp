@@ -6,10 +6,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import com.aceerp.util.DocumentDiscount;
+import com.aceerp.util.PackagePriceTotals;
 
 
 
-public class SalesOrder {
+public class SalesOrder implements PackagePriceDocument {
     private int id;
     private String soNumber;
     private Integer quotationId;
@@ -25,6 +26,8 @@ public class SalesOrder {
     private String documentDiscountType = DocumentDiscount.PERCENT;
     private BigDecimal documentDiscountValue = BigDecimal.ZERO;
     private BigDecimal documentDiscountAmount = BigDecimal.ZERO;
+    private boolean packagePriceEnabled;
+    private BigDecimal packagePriceAmount = BigDecimal.ZERO;
     private String notes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -82,6 +85,10 @@ public class SalesOrder {
 
     public BigDecimal getDocumentDiscountAmount() { return documentDiscountAmount; }
     public void setDocumentDiscountAmount(BigDecimal amount) { this.documentDiscountAmount = amount != null ? amount : BigDecimal.ZERO; }
+    @Override public boolean isPackagePriceEnabled() { return packagePriceEnabled; }
+    @Override public void setPackagePriceEnabled(boolean enabled) { packagePriceEnabled = enabled; }
+    @Override public BigDecimal getPackagePriceAmount() { return packagePriceAmount; }
+    @Override public void setPackagePriceAmount(BigDecimal amount) { packagePriceAmount = amount != null ? amount : BigDecimal.ZERO; }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
@@ -107,10 +114,12 @@ public class SalesOrder {
         if (line.getTotalPrice() != null) sumExTax = sumExTax.add(line.getTotalPrice());
         if (line.getTaxAmount() != null) sumTax = sumTax.add(line.getTaxAmount());
     }
-    this.subtotal = sumExTax;
-    this.documentDiscountAmount = DocumentDiscount.calculateAmount(sumExTax, documentDiscountType, documentDiscountValue);
-    this.taxAmount = DocumentDiscount.calculateTaxAfterDiscount(sumExTax, sumTax, documentDiscountAmount);
-    this.totalAmount = sumExTax.subtract(documentDiscountAmount).add(taxAmount);
+    PackagePriceTotals.Totals packageTotals = PackagePriceTotals.apply(
+            sumExTax, sumTax, packagePriceEnabled, packagePriceAmount);
+    this.subtotal = packageTotals.subtotal();
+    this.documentDiscountAmount = DocumentDiscount.calculateAmount(subtotal, documentDiscountType, documentDiscountValue);
+    this.taxAmount = DocumentDiscount.calculateTaxAfterDiscount(subtotal, packageTotals.tax(), documentDiscountAmount);
+    this.totalAmount = subtotal.subtract(documentDiscountAmount).add(taxAmount);
 }
 
 

@@ -51,10 +51,8 @@ public class InvoiceController {
     @FXML private TableColumn<InvoiceLine, String> colProduct;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colQty;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colPrice;
-    @FXML private TableColumn<InvoiceLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<InvoiceLine, String> colDiscountType;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colDiscount;
-    @FXML private TableColumn<InvoiceLine, Boolean> colPackagePrice;
     @FXML private TableColumn<InvoiceLine, Boolean> colTaxable;
     @FXML private TableColumn<InvoiceLine, String> colNotes;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colTotal;
@@ -64,6 +62,8 @@ public class InvoiceController {
     @FXML private Label lblTaxTitle;
     @FXML private ComboBox<String> cmbDocumentDiscountType;
     @FXML private TextField txtDocumentDiscountValue;
+    @FXML private CheckBox chkDocumentPackagePrice;
+    @FXML private TextField txtDocumentPackagePrice;
     @FXML private Label lblDocumentDiscountAmount;
     @FXML private CheckBox globalTaxCheck;
     @FXML private VBox detailsPane;
@@ -77,11 +77,13 @@ public class InvoiceController {
     private Invoice currentInvoice;
     private List<Invoice> allInvoices = List.of();
     private boolean editMode = false;
+    private boolean syncingPackagePriceControls;
 
     @FXML
     public void initialize() {
         DocumentDiscount.configureControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
                 () -> { if (editMode) updateTotal(); });
+        setupPackagePriceControls();
         setupSmartSearch();
         setupTable();
         setupListAndSelection();
@@ -130,6 +132,42 @@ public class InvoiceController {
         }
     }
 
+    private void setupPackagePriceControls() {
+        txtDocumentPackagePrice.setTextFormatter(new TextFormatter<String>(change ->
+                change.getControlNewText().matches("\\d*(\\.\\d{0,2})?") ? change : null));
+        chkDocumentPackagePrice.selectedProperty().addListener((observable, oldValue, newValue) -> {
+            if (syncingPackagePriceControls || !editMode) return;
+            if (currentInvoice != null) {
+                currentInvoice.setPackagePriceEnabled(newValue);
+            }
+            updateTotal();
+        });
+        txtDocumentPackagePrice.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (syncingPackagePriceControls || !editMode) return;
+            if (currentInvoice != null) {
+                currentInvoice.setPackagePriceAmount(parsePackagePrice(newValue));
+            }
+            if (chkDocumentPackagePrice.isSelected()) {
+                updateTotal();
+            }
+        });
+    }
+
+    private void setPackagePriceControls(boolean enabled, BigDecimal amount) {
+        syncingPackagePriceControls = true;
+        try {
+            chkDocumentPackagePrice.setSelected(enabled);
+            txtDocumentPackagePrice.setText(amount == null ? "0" : amount.stripTrailingZeros().toPlainString());
+        } finally {
+            syncingPackagePriceControls = false;
+        }
+    }
+
+    private BigDecimal parsePackagePrice(String value) {
+        if (value == null || value.isBlank() || ".".equals(value)) return BigDecimal.ZERO;
+        return new BigDecimal(value);
+    }
+
     private void loadInvoiceToForm(Invoice inv) {
         currentInvoice = inv;
         setFormEditable(false);
@@ -172,10 +210,8 @@ public class InvoiceController {
             customerPhoneField.clear();
         }
 
-        lines.clear();
-        if (inv.getLines() != null) {
-            lines.addAll(inv.getLines());
-        }
+        lines.setAll(inv.getLines() != null ? inv.getLines() : List.of());
+        setPackagePriceControls(inv.isPackagePriceEnabled(), inv.getPackagePriceAmount());
         
         if (globalTaxCheck != null && !lines.isEmpty()) {
             boolean allTaxable = lines.stream().allMatch(InvoiceLine::isTaxable);
@@ -204,6 +240,8 @@ public class InvoiceController {
         customerSearchField.setDisable(!editMode);
         cmbDocumentDiscountType.setDisable(!editMode);
         txtDocumentDiscountValue.setDisable(!editMode);
+        chkDocumentPackagePrice.setDisable(!editMode);
+        txtDocumentPackagePrice.setDisable(!editMode);
         invoiceDatePicker.setDisable(!editMode);
         statusCombo.setDisable(!editMode);
         linesTable.setEditable(editMode);
@@ -341,15 +379,13 @@ public class InvoiceController {
             updateTotal();
         });
 
-        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
-                colPrice, colSetPrice, InvoiceLine::getUnitPrice, InvoiceLine::setUnitPrice,
-                InvoiceLine::isPackagePrice, () -> editMode, this::updateTotal);
+        com.aceerp.util.LinePricingTableColumns.configurePrice(
+                colPrice, InvoiceLine::getUnitPrice, InvoiceLine::setUnitPrice,
+                () -> editMode, chkDocumentPackagePrice::isSelected, this::updateTotal);
 
         if (colDiscount != null) {
             com.aceerp.util.LinePricingTableColumns.configureDiscountType(
                     colDiscountType, InvoiceLine::getDiscountType, InvoiceLine::setDiscountType, this::updateTotal);
-            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
-                    colPackagePrice, InvoiceLine::isPackagePrice, InvoiceLine::setPackagePrice, this::updateTotal);
             colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDiscount.setOnEditCommit(e -> {
@@ -387,7 +423,8 @@ public class InvoiceController {
             colTaxable.setEditable(true);
         }
 
-        colTotal.setCellValueFactory(new PropertyValueFactory<>("totalPrice"));
+        com.aceerp.util.LinePricingTableColumns.configureLineTotal(
+                colTotal, InvoiceLine::getTotalPrice, chkDocumentPackagePrice::isSelected);
         linesTable.setItems(lines);
     }
 
@@ -528,24 +565,17 @@ public class InvoiceController {
     }
 
     private void updateTotal() {
-        BigDecimal subtotal = BigDecimal.ZERO;
-        BigDecimal taxTotal = BigDecimal.ZERO;
-
-        for (InvoiceLine line : lines) {
-            line.recalculateTotal();
-            if (line.getTotalPrice() != null) {
-                subtotal = subtotal.add(line.getTotalPrice());
-            }
-            if (line.getTaxAmount() != null) {
-                taxTotal = taxTotal.add(line.getTaxAmount());
-            }
-        }
-
-        BigDecimal discountAmount = DocumentDiscount.calculateAmount(
-                subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
-                DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
-        taxTotal = DocumentDiscount.calculateTaxAfterDiscount(subtotal, taxTotal, discountAmount);
-        BigDecimal grand = subtotal.subtract(discountAmount).add(taxTotal);
+        if (currentInvoice == null) return;
+        currentInvoice.setLines(lines);
+        currentInvoice.setPackagePriceEnabled(chkDocumentPackagePrice.isSelected());
+        currentInvoice.setPackagePriceAmount(parsePackagePrice(txtDocumentPackagePrice.getText()));
+        currentInvoice.setDocumentDiscountType(DocumentDiscount.selectedType(cmbDocumentDiscountType));
+        currentInvoice.setDocumentDiscountValue(DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
+        invoiceService.recalculateAmounts(currentInvoice);
+        BigDecimal subtotal = currentInvoice.getSubtotal();
+        BigDecimal taxTotal = currentInvoice.getTaxAmount();
+        BigDecimal discountAmount = currentInvoice.getDocumentDiscountAmount();
+        BigDecimal grand = currentInvoice.getTotalAmount();
         linesTable.refresh();
 
         if (lblSubtotal != null) lblSubtotal.setText(CurrencyFormatter.format(subtotal));
@@ -554,14 +584,6 @@ public class InvoiceController {
         if (lblTaxTitle != null) lblTaxTitle.setText(TaxUtil.getTaxName() + ":");
         if (totalLabel != null) totalLabel.setText("Total: " + CurrencyFormatter.format(grand));
 
-        if (currentInvoice != null) {
-            currentInvoice.setSubtotal(subtotal);
-            currentInvoice.setDocumentDiscountType(DocumentDiscount.selectedType(cmbDocumentDiscountType));
-            currentInvoice.setDocumentDiscountValue(DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
-            currentInvoice.setDocumentDiscountAmount(discountAmount);
-            currentInvoice.setTaxAmount(taxTotal);
-            currentInvoice.setTotalAmount(grand);
-        }
     }
 
     @FXML
@@ -689,7 +711,9 @@ public class InvoiceController {
         statusCombo.setValue("DRAFT");
         DocumentDiscount.setControls(cmbDocumentDiscountType, txtDocumentDiscountValue,
                 DocumentDiscount.PERCENT, BigDecimal.ZERO);
-        lines.clear(); customerSearchField.clear(); customerPhoneField.clear(); selectedCustomer = null;
+        lines.clear();
+        setPackagePriceControls(false, BigDecimal.ZERO);
+        customerSearchField.clear(); customerPhoneField.clear(); selectedCustomer = null;
         invoiceListView.getSelectionModel().clearSelection();
         
         if (globalTaxCheck != null) {

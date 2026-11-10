@@ -226,6 +226,13 @@ public class ServiceJobService {
                         stmt.executeUpdate();
                     }
                 }
+                try (PreparedStatement stmt = conn.prepareStatement(
+                        "UPDATE service_jobs SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                    stmt.setBoolean(1, job.isPackagePriceEnabled());
+                    stmt.setBigDecimal(2, job.getPackagePriceAmount());
+                    stmt.setInt(3, job.getId());
+                    stmt.executeUpdate();
+                }
 
                 // Insert lines in current list order (supports ↑↓ reordering)
                 for (ServiceJobLine line : job.getLines()) {
@@ -371,6 +378,8 @@ public class ServiceJobService {
         job.setLaborCost(rs.getBigDecimal("labor_cost"));
         job.setPartsTotal(rs.getBigDecimal("parts_total"));
         job.setGrandTotal(rs.getBigDecimal("grand_total"));
+        job.setPackagePriceEnabled(rs.getBoolean("package_price_enabled"));
+        job.setPackagePriceAmount(rs.getBigDecimal("package_price_amount"));
         return job;
     }
 

@@ -25,6 +25,8 @@ public class Invoice {
     private String documentDiscountType = DocumentDiscount.PERCENT;
     private BigDecimal documentDiscountValue = BigDecimal.ZERO;
     private BigDecimal documentDiscountAmount = BigDecimal.ZERO;
+    private boolean packagePriceEnabled;
+    private BigDecimal packagePriceAmount = BigDecimal.ZERO;
     private BigDecimal paidAmount = BigDecimal.ZERO;
     private String notes;
     private int createdBy;
@@ -99,6 +101,14 @@ public class Invoice {
 
     public BigDecimal getDocumentDiscountAmount() { return documentDiscountAmount; }
     public void setDocumentDiscountAmount(BigDecimal amount) { this.documentDiscountAmount = amount != null ? amount : BigDecimal.ZERO; }
+
+    public boolean isPackagePriceEnabled() { return packagePriceEnabled; }
+    public void setPackagePriceEnabled(boolean packagePriceEnabled) { this.packagePriceEnabled = packagePriceEnabled; }
+
+    public BigDecimal getPackagePriceAmount() { return packagePriceAmount; }
+    public void setPackagePriceAmount(BigDecimal packagePriceAmount) {
+        this.packagePriceAmount = packagePriceAmount != null ? packagePriceAmount : BigDecimal.ZERO;
+    }
 
     public BigDecimal getPaidAmount() { return paidAmount; }
     public void setPaidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; }

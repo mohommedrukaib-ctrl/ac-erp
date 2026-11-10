@@ -55,10 +55,8 @@ public class CreditMemoController {
     @FXML private TableColumn<CreditMemoLine, String> colProduct;
     @FXML private TableColumn<CreditMemoLine, BigDecimal> colQty;
     @FXML private TableColumn<CreditMemoLine, BigDecimal> colPrice;
-    @FXML private TableColumn<CreditMemoLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<CreditMemoLine, String> colDiscountType;
     @FXML private TableColumn<CreditMemoLine, BigDecimal> colDiscount;
-    @FXML private TableColumn<CreditMemoLine, Boolean> colPackagePrice;
     @FXML private TableColumn<CreditMemoLine, BigDecimal> colTaxRate;
     @FXML private TableColumn<CreditMemoLine, BigDecimal> colTotal;
 
@@ -66,6 +64,8 @@ public class CreditMemoController {
     @FXML private Label lblTax;
     @FXML private Label lblTotal;
     @FXML private Label lblRemaining;
+    @FXML private CheckBox chkDocumentPackagePrice;
+    @FXML private TextField txtDocumentPackagePrice;
 
     private final CreditService creditService = new CreditService();
     private final ProductService productService = new ProductService();
@@ -75,11 +75,15 @@ public class CreditMemoController {
 
     private CustomerCreditMemo currentMemo;
     private SimpleCustomer selectedCustomer;
+    private com.aceerp.util.DocumentPackagePrice packagePriceControl;
 
     @FXML
     public void initialize() {
         setupSmartSearch();
         setupTable();
+        packagePriceControl = com.aceerp.util.DocumentPackagePrice.configure(
+                chkDocumentPackagePrice, txtDocumentPackagePrice, () -> currentMemo,
+                () -> linesTable.isEditable(), this::recalculateTotals);
         setupListView();
         loadCreditMemos();
         handleNewMemo();
@@ -156,14 +160,12 @@ public class CreditMemoController {
         colQty.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colQty.setOnEditCommit(e -> { e.getRowValue().setQuantity(e.getNewValue()); recalculateTotals(); });
 
-        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
-                colPrice, colSetPrice, CreditMemoLine::getUnitPrice, CreditMemoLine::setUnitPrice,
-                CreditMemoLine::isPackagePrice, () -> linesTable.isEditable(), this::recalculateTotals);
+        com.aceerp.util.LinePricingTableColumns.configurePrice(
+                colPrice, CreditMemoLine::getUnitPrice, CreditMemoLine::setUnitPrice,
+                () -> linesTable.isEditable(), chkDocumentPackagePrice::isSelected, this::recalculateTotals);
 
         com.aceerp.util.LinePricingTableColumns.configureDiscountType(
                 colDiscountType, CreditMemoLine::getDiscountType, CreditMemoLine::setDiscountType, this::recalculateTotals);
-        com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
-                colPackagePrice, CreditMemoLine::isPackagePrice, CreditMemoLine::setPackagePrice, this::recalculateTotals);
         colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
         colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colDiscount.setOnEditCommit(e -> { e.getRowValue().setDiscountValue(e.getNewValue()); recalculateTotals(); });
@@ -172,7 +174,8 @@ public class CreditMemoController {
         colTaxRate.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colTaxRate.setOnEditCommit(e -> { e.getRowValue().setTaxRate(e.getNewValue()); recalculateTotals(); });
 
-        colTotal.setCellValueFactory(new PropertyValueFactory<>("totalAmount"));
+        com.aceerp.util.LinePricingTableColumns.configureLineTotal(
+                colTotal, CreditMemoLine::getTotalAmount, chkDocumentPackagePrice::isSelected);
         linesTable.setItems(lines);
     }
 
@@ -181,6 +184,7 @@ public class CreditMemoController {
         String sql = """
             SELECT m.id, m.credit_memo_number, m.customer_id, m.issue_date, m.status,
                    m.subtotal, m.tax_amount, m.total_amount, m.remaining_amount, m.memo,
+                   m.package_price_enabled, m.package_price_amount,
                    c.name AS customer_name
             FROM customer_credit_memos m
             JOIN customers c ON m.customer_id = c.id
@@ -201,6 +205,8 @@ public class CreditMemoController {
                 cm.setTaxAmount(rs.getBigDecimal("tax_amount"));
                 cm.setTotalAmount(rs.getBigDecimal("total_amount"));
                 cm.setRemainingAmount(rs.getBigDecimal("remaining_amount"));
+                cm.setPackagePriceEnabled(rs.getBoolean("package_price_enabled"));
+                cm.setPackagePriceAmount(rs.getBigDecimal("package_price_amount"));
                 cm.setMemo(rs.getString("memo"));
                 allMemos.add(cm);
             }
@@ -217,7 +223,7 @@ public class CreditMemoController {
         memoNotesField.setText(memo.getMemo() != null ? memo.getMemo() : "");
 
         selectedCustomer = new SimpleCustomer(memo.getCustomerId(), memo.getCustomerName());
-        lines.clear();
+        List<CreditMemoLine> loadedLines = new ArrayList<>();
 
         // Load Lines
         String sql = "SELECT * FROM credit_memo_lines WHERE credit_memo_id = ? ORDER BY line_no ASC";
@@ -239,10 +245,12 @@ public class CreditMemoController {
                     l.setTaxRate(rs.getBigDecimal("tax_rate"));
                     l.setTaxAmount(rs.getBigDecimal("tax_amount"));
                     l.setTotalAmount(rs.getBigDecimal("total_amount"));
-                    lines.add(l);
+                    loadedLines.add(l);
                 }
             }
         } catch (Exception ignored) {}
+        lines.setAll(loadedLines);
+        packagePriceControl.setControls(memo);
         recalculateTotals();
     }
 
@@ -256,6 +264,7 @@ public class CreditMemoController {
         memoNotesField.clear();
         selectedCustomer = null;
         lines.clear();
+        packagePriceControl.reset();
         creditMemoListView.getSelectionModel().clearSelection();
         recalculateTotals();
     }
@@ -286,6 +295,11 @@ public class CreditMemoController {
             sub = sub.add(l.getTotalAmount().subtract(l.getTaxAmount()));
             tax = tax.add(l.getTaxAmount());
         }
+        com.aceerp.util.PackagePriceTotals.Totals packageTotals = com.aceerp.util.PackagePriceTotals.apply(
+                sub, tax, currentMemo != null && currentMemo.isPackagePriceEnabled(),
+                currentMemo != null ? currentMemo.getPackagePriceAmount() : BigDecimal.ZERO);
+        sub = packageTotals.subtotal();
+        tax = packageTotals.tax();
         BigDecimal tot = sub.add(tax);
         lblSubtotal.setText(CurrencyFormatter.format(sub));
         lblTax.setText(CurrencyFormatter.format(tax));

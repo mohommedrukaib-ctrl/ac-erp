@@ -82,6 +82,13 @@ public class SupplierBillRepository {
                 } else {
                     updateBill(conn, bill);
                 }
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE supplier_bills SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                    ps.setBoolean(1, bill.isPackagePriceEnabled());
+                    ps.setBigDecimal(2, bill.getPackagePriceAmount());
+                    ps.setInt(3, bill.getId());
+                    ps.executeUpdate();
+                }
                 saveLines(conn, bill);
 
                 conn.commit();
@@ -241,6 +248,8 @@ public class SupplierBillRepository {
         bill.setSupplierInvoiceRef(rs.getString("supplier_invoice_ref"));
         bill.setStatus(rs.getString("status"));
         bill.setSubtotal(nz(rs.getBigDecimal("subtotal")));
+        bill.setPackagePriceEnabled(rs.getBoolean("package_price_enabled"));
+        bill.setPackagePriceAmount(nz(rs.getBigDecimal("package_price_amount")));
         bill.setTaxAmount(nz(rs.getBigDecimal("tax_amount")));
         bill.setTotalAmount(nz(rs.getBigDecimal("total_amount")));
         bill.setPaidAmount(nz(rs.getBigDecimal("paid_amount")));

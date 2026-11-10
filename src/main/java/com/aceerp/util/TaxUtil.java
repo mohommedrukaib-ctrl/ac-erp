@@ -7,7 +7,7 @@ public class TaxUtil {
 
     /**
      * Reads the default tax rate directly from Settings cache.
-     * Checks "tax.default_rate", "tax_rate", and "tax.rate".
+     * Checks the settings UI key first, then legacy keys.
      */
     public static BigDecimal getDefaultTaxRate() {
         if (!isTaxEnabled()) {
@@ -16,7 +16,10 @@ public class TaxUtil {
 
         SettingsService settings = SettingsService.getInstance();
         
-        String val = settings.get("tax.default_rate");
+        String val = settings.get("tax_default_rate");
+        if (val == null || val.isBlank()) {
+            val = settings.get("tax.default_rate");
+        }
         if (val == null || val.isBlank()) {
             val = settings.get("tax_rate");
         }
@@ -30,17 +33,17 @@ public class TaxUtil {
             } catch (NumberFormatException ignored) {}
         }
         
-        return BigDecimal.ZERO;
+        return new BigDecimal("18.00");
     }
 
     /**
-     * Reads if tax is enabled from Settings ("tax.enabled" or "tax_enabled").
+     * Reads the settings UI key first, then its legacy equivalent.
      */
     public static boolean isTaxEnabled() {
         SettingsService settings = SettingsService.getInstance();
-        String enabled = settings.get("tax.enabled");
+        String enabled = settings.get("tax_enabled");
         if (enabled == null || enabled.isBlank()) {
-            enabled = settings.get("tax_enabled");
+            enabled = settings.get("tax.enabled");
         }
         if (enabled == null || enabled.isBlank()) {
             return true;
@@ -53,9 +56,9 @@ public class TaxUtil {
      */
     public static String getTaxName() {
         SettingsService settings = SettingsService.getInstance();
-        String name = settings.get("tax.name");
+        String name = settings.get("tax_name");
         if (name == null || name.isBlank()) {
-            name = settings.get("tax_name");
+            name = settings.get("tax.name");
         }
         return (name != null && !name.isBlank()) ? name : "VAT";
     }

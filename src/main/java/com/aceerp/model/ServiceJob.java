@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ServiceJob {
+public class ServiceJob implements PackagePriceDocument {
     private int id;
     private String jobNumber;
     private int customerId;
@@ -25,6 +25,8 @@ public class ServiceJob {
     private BigDecimal laborCost = BigDecimal.ZERO;
     private BigDecimal partsTotal = BigDecimal.ZERO;
     private BigDecimal grandTotal = BigDecimal.ZERO;
+    private boolean packagePriceEnabled;
+    private BigDecimal packagePriceAmount = BigDecimal.ZERO;
     private LocalDateTime createdAt;
     private Integer createdBy;
     private List<ServiceJobLine> lines = new ArrayList<>();
@@ -87,6 +89,10 @@ public class ServiceJob {
 
     public BigDecimal getGrandTotal() { return grandTotal; }
     public void setGrandTotal(BigDecimal grandTotal) { this.grandTotal = grandTotal; }
+    @Override public boolean isPackagePriceEnabled() { return packagePriceEnabled; }
+    @Override public void setPackagePriceEnabled(boolean enabled) { packagePriceEnabled = enabled; recalculateTotal(); }
+    @Override public BigDecimal getPackagePriceAmount() { return packagePriceAmount; }
+    @Override public void setPackagePriceAmount(BigDecimal amount) { packagePriceAmount = amount != null ? amount : BigDecimal.ZERO; recalculateTotal(); }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
@@ -108,7 +114,7 @@ public class ServiceJob {
                 partsSum = partsSum.add(line.getLineTotal());
             }
         }
-        this.partsTotal = partsSum;
-        this.grandTotal = this.laborCost.add(this.partsTotal);
+        this.partsTotal = packagePriceEnabled ? packagePriceAmount : partsSum;
+        this.grandTotal = packagePriceEnabled ? packagePriceAmount : this.laborCost.add(this.partsTotal);
     }
 }

@@ -51,10 +51,8 @@ public class VendorCreditController {
     @FXML private TableColumn<VendorCreditLine, String> colProduct;
     @FXML private TableColumn<VendorCreditLine, BigDecimal> colQty;
     @FXML private TableColumn<VendorCreditLine, BigDecimal> colCost;
-    @FXML private TableColumn<VendorCreditLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<VendorCreditLine, String> colDiscountType;
     @FXML private TableColumn<VendorCreditLine, BigDecimal> colDiscount;
-    @FXML private TableColumn<VendorCreditLine, Boolean> colPackagePrice;
     @FXML private TableColumn<VendorCreditLine, BigDecimal> colTaxRate;
     @FXML private TableColumn<VendorCreditLine, BigDecimal> colTotal;
 
@@ -62,6 +60,8 @@ public class VendorCreditController {
     @FXML private Label lblTax;
     @FXML private Label lblTotal;
     @FXML private Label lblRemaining;
+    @FXML private CheckBox chkDocumentPackagePrice;
+    @FXML private TextField txtDocumentPackagePrice;
 
     private final CreditService creditService = new CreditService();
 
@@ -70,11 +70,15 @@ public class VendorCreditController {
 
     private VendorCredit currentCredit;
     private SimpleSupplier selectedSupplier;
+    private com.aceerp.util.DocumentPackagePrice packagePriceControl;
 
     @FXML
     public void initialize() {
         setupSmartSearch();
         setupTable();
+        packagePriceControl = com.aceerp.util.DocumentPackagePrice.configure(
+                chkDocumentPackagePrice, txtDocumentPackagePrice, () -> currentCredit,
+                () -> linesTable.isEditable(), this::recalculateTotals);
         setupListView();
         loadVendorCredits();
         handleNewCredit();
@@ -151,14 +155,12 @@ public class VendorCreditController {
         colQty.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colQty.setOnEditCommit(e -> { e.getRowValue().setQuantity(e.getNewValue()); recalculateTotals(); });
 
-        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
-                colCost, colSetPrice, VendorCreditLine::getUnitCost, VendorCreditLine::setUnitCost,
-                VendorCreditLine::isPackagePrice, () -> linesTable.isEditable(), this::recalculateTotals);
+        com.aceerp.util.LinePricingTableColumns.configurePrice(
+                colCost, VendorCreditLine::getUnitCost, VendorCreditLine::setUnitCost,
+                () -> linesTable.isEditable(), chkDocumentPackagePrice::isSelected, this::recalculateTotals);
 
         com.aceerp.util.LinePricingTableColumns.configureDiscountType(
                 colDiscountType, VendorCreditLine::getDiscountType, VendorCreditLine::setDiscountType, this::recalculateTotals);
-        com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
-                colPackagePrice, VendorCreditLine::isPackagePrice, VendorCreditLine::setPackagePrice, this::recalculateTotals);
         colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
         colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colDiscount.setOnEditCommit(e -> { e.getRowValue().setDiscountValue(e.getNewValue()); recalculateTotals(); });
@@ -167,7 +169,8 @@ public class VendorCreditController {
         colTaxRate.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colTaxRate.setOnEditCommit(e -> { e.getRowValue().setTaxRate(e.getNewValue()); recalculateTotals(); });
 
-        colTotal.setCellValueFactory(new PropertyValueFactory<>("totalAmount"));
+        com.aceerp.util.LinePricingTableColumns.configureLineTotal(
+                colTotal, VendorCreditLine::getTotalAmount, chkDocumentPackagePrice::isSelected);
         linesTable.setItems(lines);
     }
 
@@ -176,6 +179,7 @@ public class VendorCreditController {
         String sql = """
             SELECT v.id, v.vendor_credit_number, v.supplier_id, v.issue_date, v.status,
                    v.subtotal, v.tax_amount, v.total_amount, v.remaining_amount, v.memo,
+                   v.package_price_enabled, v.package_price_amount,
                    s.name AS supplier_name
             FROM vendor_credits v
             JOIN suppliers s ON v.supplier_id = s.id
@@ -196,6 +200,8 @@ public class VendorCreditController {
                 vc.setTaxAmount(rs.getBigDecimal("tax_amount"));
                 vc.setTotalAmount(rs.getBigDecimal("total_amount"));
                 vc.setRemainingAmount(rs.getBigDecimal("remaining_amount"));
+                vc.setPackagePriceEnabled(rs.getBoolean("package_price_enabled"));
+                vc.setPackagePriceAmount(rs.getBigDecimal("package_price_amount"));
                 vc.setMemo(rs.getString("memo"));
                 allCredits.add(vc);
             }
@@ -212,7 +218,7 @@ public class VendorCreditController {
         memoNotesField.setText(credit.getMemo() != null ? credit.getMemo() : "");
 
         selectedSupplier = new SimpleSupplier(credit.getSupplierId(), credit.getSupplierName());
-        lines.clear();
+        List<VendorCreditLine> loadedLines = new ArrayList<>();
 
         // Load Lines
         String sql = "SELECT * FROM vendor_credit_lines WHERE vendor_credit_id = ? ORDER BY line_no ASC";
@@ -235,10 +241,12 @@ public class VendorCreditController {
                     l.setTaxRate(rs.getBigDecimal("tax_rate"));
                     l.setTaxAmount(rs.getBigDecimal("tax_amount"));
                     l.setTotalAmount(rs.getBigDecimal("total_amount"));
-                    lines.add(l);
+                    loadedLines.add(l);
                 }
             }
         } catch (Exception ignored) {}
+        lines.setAll(loadedLines);
+        packagePriceControl.setControls(credit);
         recalculateTotals();
     }
 
@@ -252,6 +260,7 @@ public class VendorCreditController {
         memoNotesField.clear();
         selectedSupplier = null;
         lines.clear();
+        packagePriceControl.reset();
         vendorCreditListView.getSelectionModel().clearSelection();
         recalculateTotals();
     }
@@ -282,6 +291,11 @@ public class VendorCreditController {
             sub = sub.add(l.getTotalAmount().subtract(l.getTaxAmount()));
             tax = tax.add(l.getTaxAmount());
         }
+        com.aceerp.util.PackagePriceTotals.Totals packageTotals = com.aceerp.util.PackagePriceTotals.apply(
+                sub, tax, currentCredit != null && currentCredit.isPackagePriceEnabled(),
+                currentCredit != null ? currentCredit.getPackagePriceAmount() : BigDecimal.ZERO);
+        sub = packageTotals.subtotal();
+        tax = packageTotals.tax();
         BigDecimal tot = sub.add(tax);
         lblSubtotal.setText(CurrencyFormatter.format(sub));
         lblTax.setText(CurrencyFormatter.format(tax));

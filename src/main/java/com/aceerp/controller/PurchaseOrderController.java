@@ -43,10 +43,8 @@ public class PurchaseOrderController {
     @FXML private TableColumn<PurchaseOrderLine, String> colProduct;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colQty;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colPrice;
-    @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<PurchaseOrderLine, String> colDiscountType;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colDiscount;
-    @FXML private TableColumn<PurchaseOrderLine, Boolean> colPackagePrice;
     @FXML private TableColumn<PurchaseOrderLine, Boolean> colTaxable;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colTaxRate;
     @FXML private TableColumn<PurchaseOrderLine, BigDecimal> colTaxAmt;
@@ -58,6 +56,8 @@ public class PurchaseOrderController {
     @FXML private Label totalLabel;
     @FXML private ComboBox<String> cmbDocumentDiscountType;
     @FXML private TextField txtDocumentDiscountValue;
+    @FXML private CheckBox chkDocumentPackagePrice;
+    @FXML private TextField txtDocumentPackagePrice;
     @FXML private Label documentDiscountLabel;
 
     private final PurchaseOrderService poService = new PurchaseOrderService();
@@ -72,6 +72,7 @@ public class PurchaseOrderController {
     private PurchaseOrder currentPO;
     
     private boolean editMode = false;
+    private com.aceerp.util.DocumentPackagePrice packagePriceControl;
 
     @FXML
     public void initialize() {
@@ -79,6 +80,9 @@ public class PurchaseOrderController {
         DocumentDiscount.configureControls(cmbDocumentDiscountType, txtDocumentDiscountValue, this::updateTotals);
         setupSmartSearch();
         setupTable();
+        packagePriceControl = com.aceerp.util.DocumentPackagePrice.configure(
+                chkDocumentPackagePrice, txtDocumentPackagePrice, () -> currentPO,
+                () -> editMode, this::updateTotals);
         setupListView();
         com.aceerp.util.QuickBooksContextMenus.installListView(poListView, order -> java.util.List.of(
             com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
@@ -91,16 +95,7 @@ public class PurchaseOrderController {
     }
 
     private void loadDefaultTaxRate() {
-        String rateStr = SettingsService.getInstance().get("tax.default_rate");
-        if (rateStr != null && !rateStr.isBlank()) {
-            try {
-                defaultTaxRate = new BigDecimal(rateStr.trim());
-            } catch (Exception e) {
-                defaultTaxRate = new BigDecimal("15.00");
-            }
-        } else {
-            defaultTaxRate = new BigDecimal("15.00");
-        }
+        defaultTaxRate = com.aceerp.util.TaxUtil.getDefaultTaxRate();
     }
 
     private void setupListView() {
@@ -170,15 +165,13 @@ public class PurchaseOrderController {
             updateTotals();
         });
 
-        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
-                colPrice, colSetPrice, PurchaseOrderLine::getUnitPrice, PurchaseOrderLine::setUnitPrice,
-                PurchaseOrderLine::isPackagePrice, () -> editMode, this::updateTotals);
+        com.aceerp.util.LinePricingTableColumns.configurePrice(
+                colPrice, PurchaseOrderLine::getUnitPrice, PurchaseOrderLine::setUnitPrice,
+                () -> editMode, chkDocumentPackagePrice::isSelected, this::updateTotals);
 
         if (colDiscount != null) {
             com.aceerp.util.LinePricingTableColumns.configureDiscountType(
                     colDiscountType, PurchaseOrderLine::getDiscountType, PurchaseOrderLine::setDiscountType, this::updateTotals);
-            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
-                    colPackagePrice, PurchaseOrderLine::isPackagePrice, PurchaseOrderLine::setPackagePrice, this::updateTotals);
             colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDiscount.setOnEditCommit(e -> {
@@ -214,7 +207,8 @@ public class PurchaseOrderController {
             });
         }
 
-        colTotal.setCellValueFactory(new PropertyValueFactory<>("lineTotal"));
+        com.aceerp.util.LinePricingTableColumns.configureLineTotal(
+                colTotal, PurchaseOrderLine::getLineTotal, chkDocumentPackagePrice::isSelected);
         
         linesTable.setItems(lines);
     }
@@ -275,6 +269,7 @@ public class PurchaseOrderController {
         globalTaxCheck.setDisable(!editable);
         cmbDocumentDiscountType.setDisable(!editable);
         txtDocumentDiscountValue.setDisable(!editable);
+        packagePriceControl.setControlsDisabled(!editable);
     }
 
     private void loadPOToForm(PurchaseOrder po) {
@@ -292,7 +287,8 @@ public class PurchaseOrderController {
         boolean allTaxed = po.getLines().stream().allMatch(PurchaseOrderLine::isTaxable);
         globalTaxCheck.setSelected(allTaxed);
 
-        lines.setAll(po.getLines());
+        lines.setAll(po.getLines() != null ? po.getLines() : List.of());
+        packagePriceControl.setControls(po);
         updateTotals();
         setFormEditable(false);
     }
@@ -322,6 +318,7 @@ public class PurchaseOrderController {
         selectedSupplier = null;
         globalTaxCheck.setSelected(true);
         lines.clear();
+        packagePriceControl.reset();
         updateTotals();
         
         setFormEditable(true);
@@ -408,6 +405,11 @@ public class PurchaseOrderController {
                     line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
         }
 
+        com.aceerp.util.PackagePriceTotals.Totals packageTotals = com.aceerp.util.PackagePriceTotals.apply(
+                subtotal, taxBeforeDocumentDiscount, currentPO != null && currentPO.isPackagePriceEnabled(),
+                currentPO != null ? currentPO.getPackagePriceAmount() : BigDecimal.ZERO);
+        subtotal = packageTotals.subtotal();
+        taxBeforeDocumentDiscount = packageTotals.tax();
         BigDecimal discountAmount = DocumentDiscount.calculateAmount(
                 subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
                 DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));

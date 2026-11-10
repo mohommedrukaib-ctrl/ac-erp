@@ -60,6 +60,13 @@ public class CreditService {
                     }
                 }
             }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE customer_credit_memos SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                ps.setBoolean(1, memo.isPackagePriceEnabled());
+                ps.setBigDecimal(2, memo.getPackagePriceAmount());
+                ps.setInt(3, memo.getId());
+                ps.executeUpdate();
+            }
 
             // Insert Lines
             String insertLine = """
@@ -268,6 +275,13 @@ public class CreditService {
                         if (rs.next()) credit.setId(rs.getInt(1));
                     }
                 }
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE vendor_credits SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                ps.setBoolean(1, credit.isPackagePriceEnabled());
+                ps.setBigDecimal(2, credit.getPackagePriceAmount());
+                ps.setInt(3, credit.getId());
+                ps.executeUpdate();
             }
 
             // Insert Lines

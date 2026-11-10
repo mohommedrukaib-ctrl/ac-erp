@@ -34,6 +34,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class ServiceJobController {
@@ -62,10 +63,10 @@ public class ServiceJobController {
     @FXML private TableColumn<ServiceJobLine, String> colPartName;
     @FXML private TableColumn<ServiceJobLine, Integer> colQty;
     @FXML private TableColumn<ServiceJobLine, BigDecimal> colUnitPrice;
-    @FXML private TableColumn<ServiceJobLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<ServiceJobLine, BigDecimal> colDisc;
     @FXML private TableColumn<ServiceJobLine, String> colDiscountType;
-    @FXML private TableColumn<ServiceJobLine, Boolean> colPackagePrice;
+    @FXML private CheckBox chkDocumentPackagePrice;
+    @FXML private TextField txtDocumentPackagePrice;
     @FXML private TableColumn<ServiceJobLine, String> colNotes;
     @FXML private TableColumn<ServiceJobLine, String> colLineTotal;
     @FXML private TableColumn<ServiceJobLine, Void> colAction;
@@ -126,6 +127,7 @@ public class ServiceJobController {
     private Customer selectedCustomer;
     private JobBudget currentBudget;
     private boolean editMode = false;
+    private com.aceerp.util.DocumentPackagePrice packagePriceControl;
 
     @FXML
     public void initialize() {
@@ -148,6 +150,12 @@ public class ServiceJobController {
         ));
         setupComboBoxes();
         setupTable();
+        packagePriceControl = com.aceerp.util.DocumentPackagePrice.configure(
+                chkDocumentPackagePrice, txtDocumentPackagePrice, () -> currentJob,
+                () -> editMode, () -> {
+                    recalculateTotals();
+                    linesTable.refresh();
+                });
         setupCostingTable();
         setupBudgetListeners();
         loadInitialData();
@@ -245,17 +253,18 @@ public class ServiceJobController {
             });
         }
 
-        if (colUnitPrice != null && colSetPrice != null) {
-            com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
-                    colUnitPrice, colSetPrice, ServiceJobLine::getUnitPrice, ServiceJobLine::setUnitPrice,
-                    ServiceJobLine::isPackagePrice, () -> editMode, this::recalculateTotals);
+        if (colUnitPrice != null) {
+            com.aceerp.util.LinePricingTableColumns.configurePrice(
+                    colUnitPrice, ServiceJobLine::getUnitPrice, ServiceJobLine::setUnitPrice,
+                    () -> editMode, chkDocumentPackagePrice::isSelected, () -> {
+                        recalculateTotals();
+                        linesTable.refresh();
+                    });
         }
 
         if (colDisc != null) {
             com.aceerp.util.LinePricingTableColumns.configureDiscountType(
                     colDiscountType, ServiceJobLine::getDiscountType, ServiceJobLine::setDiscountType, this::recalculateTotals);
-            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
-                    colPackagePrice, ServiceJobLine::isPackagePrice, ServiceJobLine::setPackagePrice, this::recalculateTotals);
             colDisc.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDisc.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDisc.setOnEditCommit(event -> {
@@ -279,7 +288,8 @@ public class ServiceJobController {
         }
 
         if (colLineTotal != null) {
-            colLineTotal.setCellValueFactory(cell -> new SimpleStringProperty(CurrencyFormatter.format(cell.getValue().getLineTotal())));
+            colLineTotal.setCellValueFactory(cell -> new SimpleStringProperty(CurrencyFormatter.format(
+                    chkDocumentPackagePrice.isSelected() ? BigDecimal.ZERO : cell.getValue().getLineTotal())));
         }
 
         if (colAction != null) {
@@ -461,7 +471,9 @@ public class ServiceJobController {
             }
         }
 
-        lineList.setAll(job.getLines() != null ? job.getLines() : FXCollections.emptyObservableList());
+        lineList.setAll(job.getLines() != null ? job.getLines() : List.of());
+        packagePriceControl.setControls(job);
+        linesTable.refresh();
         recalculateTotals();
         setFormEditable(editMode);
         loadCostingData();
@@ -481,6 +493,7 @@ public class ServiceJobController {
         if (txtResolutionNotes != null) txtResolutionNotes.setEditable(editable);
         if (txtLaborCost != null) txtLaborCost.setEditable(editable);
         if (linesTable != null) linesTable.setEditable(editable);
+        if (packagePriceControl != null) packagePriceControl.setControlsDisabled(!editable);
         if (btnAddPart != null) btnAddPart.setDisable(!editable);
         if (btnAddEmptyLine != null) btnAddEmptyLine.setDisable(!editable);
         if (btnSave != null) btnSave.setDisable(!editable);
@@ -923,6 +936,7 @@ public class ServiceJobController {
         currentJob = new ServiceJob();
         editMode = true;
         lineList.clear();
+        packagePriceControl.reset();
         if (txtJobNumber != null) txtJobNumber.setText("Auto-Generated");
         if (cmbJobType != null) cmbJobType.setValue("REPAIR");
         if (cmbStatus != null) cmbStatus.setValue("PENDING");
@@ -1120,9 +1134,14 @@ public class ServiceJobController {
             line.recalculateTotal();
             partsSum = partsSum.add(line.getLineTotal());
         }
+        if (currentJob != null && currentJob.isPackagePriceEnabled()) {
+            partsSum = currentJob.getPackagePriceAmount();
+        }
 
         if (lblPartsTotal != null) lblPartsTotal.setText(CurrencyFormatter.format(partsSum));
-        if (lblGrandTotal != null) lblGrandTotal.setText(CurrencyFormatter.format(labor.add(partsSum)));
+        BigDecimal grandTotal = currentJob != null && currentJob.isPackagePriceEnabled()
+                ? currentJob.getPackagePriceAmount() : labor.add(partsSum);
+        if (lblGrandTotal != null) lblGrandTotal.setText(CurrencyFormatter.format(grandTotal));
     }
 
     private static BigDecimal parseDecimal(String text) {

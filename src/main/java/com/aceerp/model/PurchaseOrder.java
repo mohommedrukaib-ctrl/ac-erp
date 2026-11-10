@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import com.aceerp.util.DocumentDiscount;
 
-public class PurchaseOrder {
+public class PurchaseOrder implements PackagePriceDocument {
     private int id;
     private String poNumber;
     private Integer supplierId;
@@ -22,6 +22,8 @@ public class PurchaseOrder {
     private String documentDiscountType = DocumentDiscount.PERCENT;
     private BigDecimal documentDiscountValue = BigDecimal.ZERO;
     private BigDecimal documentDiscountAmount = BigDecimal.ZERO;
+    private boolean packagePriceEnabled;
+    private BigDecimal packagePriceAmount = BigDecimal.ZERO;
     private String notes;
     private LocalDateTime createdAt;
     
@@ -69,6 +71,10 @@ public class PurchaseOrder {
 
     public BigDecimal getDocumentDiscountAmount() { return documentDiscountAmount; }
     public void setDocumentDiscountAmount(BigDecimal amount) { this.documentDiscountAmount = amount != null ? amount : BigDecimal.ZERO; }
+    @Override public boolean isPackagePriceEnabled() { return packagePriceEnabled; }
+    @Override public void setPackagePriceEnabled(boolean enabled) { packagePriceEnabled = enabled; }
+    @Override public BigDecimal getPackagePriceAmount() { return packagePriceAmount; }
+    @Override public void setPackagePriceAmount(BigDecimal amount) { packagePriceAmount = amount != null ? amount : BigDecimal.ZERO; }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }

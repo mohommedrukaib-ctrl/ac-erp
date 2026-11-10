@@ -40,6 +40,8 @@ public class PurchaseReturnService {
 
                 pr.setStatus(rs.getString("status"));
                 pr.setTotalAmount(rs.getBigDecimal("total_amount"));
+                pr.setPackagePriceEnabled(rs.getBoolean("package_price_enabled"));
+                pr.setPackagePriceAmount(rs.getBigDecimal("package_price_amount"));
                 pr.setReason(rs.getString("reason"));
 
                 pr.setLines(getLinesForReturn(conn, pr.getId()));
@@ -78,6 +80,13 @@ public class PurchaseReturnService {
 
                     ResultSet rs = stmt.executeQuery();
                     if (rs.next()) pr.setId(rs.getInt(1));
+                }
+                try (PreparedStatement stmt = conn.prepareStatement(
+                        "UPDATE purchase_returns SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                    stmt.setBoolean(1, pr.isPackagePriceEnabled());
+                    stmt.setBigDecimal(2, pr.getPackagePriceAmount());
+                    stmt.setInt(3, pr.getId());
+                    stmt.executeUpdate();
                 }
 
                 // 2. Insert Lines & Deduct Inventory

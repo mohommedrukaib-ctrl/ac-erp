@@ -73,16 +73,38 @@ public class InvoiceService {
             if (line.getTaxAmount() != null) taxTotal = taxTotal.add(line.getTaxAmount());
         }
 
+        recalculateAmounts(invoice, subtotal, taxTotal);
+        updatePaymentStatus(invoice);
+    }
+
+    public void recalculateAmounts(Invoice invoice) {
+        BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal taxTotal = BigDecimal.ZERO;
+        for (InvoiceLine line : invoice.getLines()) {
+            line.recalculateTotal();
+            if (line.getTotalPrice() != null) subtotal = subtotal.add(line.getTotalPrice());
+            if (line.getTaxAmount() != null) taxTotal = taxTotal.add(line.getTaxAmount());
+        }
+        recalculateAmounts(invoice, subtotal, taxTotal);
+    }
+
+    private void recalculateAmounts(Invoice invoice, BigDecimal lineSubtotal, BigDecimal lineTax) {
+        BigDecimal subtotal = invoice.isPackagePriceEnabled()
+                ? (invoice.getPackagePriceAmount() != null ? invoice.getPackagePriceAmount() : BigDecimal.ZERO)
+                : lineSubtotal;
+        if (invoice.isPackagePriceEnabled() && lineSubtotal.signum() > 0) {
+            lineTax = lineTax.multiply(subtotal).divide(lineSubtotal, 2, RoundingMode.HALF_UP);
+        } else if (invoice.isPackagePriceEnabled()) {
+            lineTax = BigDecimal.ZERO;
+        }
         subtotal = subtotal.setScale(2, RoundingMode.HALF_UP);
         BigDecimal discountAmount = DocumentDiscount.calculateAmount(
                 subtotal, invoice.getDocumentDiscountType(), invoice.getDocumentDiscountValue());
-        BigDecimal adjustedTax = DocumentDiscount.calculateTaxAfterDiscount(subtotal, taxTotal, discountAmount);
+        BigDecimal adjustedTax = DocumentDiscount.calculateTaxAfterDiscount(subtotal, lineTax, discountAmount);
         invoice.setSubtotal(subtotal);
         invoice.setDocumentDiscountAmount(discountAmount);
         invoice.setTaxAmount(adjustedTax);
         invoice.setTotalAmount(subtotal.subtract(discountAmount).add(adjustedTax).setScale(2, RoundingMode.HALF_UP));
-
-        updatePaymentStatus(invoice);
     }
 
     public void recordPayment(Invoice invoice, BigDecimal paymentAmount) {

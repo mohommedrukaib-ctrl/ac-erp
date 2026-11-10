@@ -4,8 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import com.aceerp.util.PackagePriceTotals;
 
-public class CustomerCreditMemo {
+public class CustomerCreditMemo implements PackagePriceDocument {
     private int id;
     private String creditMemoNumber;
     private int customerId;
@@ -16,6 +17,8 @@ public class CustomerCreditMemo {
     private BigDecimal taxAmount = BigDecimal.ZERO;
     private BigDecimal totalAmount = BigDecimal.ZERO;
     private BigDecimal remainingAmount = BigDecimal.ZERO;
+    private boolean packagePriceEnabled;
+    private BigDecimal packagePriceAmount = BigDecimal.ZERO;
     private String memo;
     private Integer journalEntryId;
     private List<CreditMemoLine> lines = new ArrayList<>();
@@ -31,6 +34,11 @@ public class CustomerCreditMemo {
             taxAmount = taxAmount.add(l.getTaxAmount());
             totalAmount = totalAmount.add(l.getTotalAmount());
         }
+        PackagePriceTotals.Totals packageTotals = PackagePriceTotals.apply(
+                subtotal, taxAmount, packagePriceEnabled, packagePriceAmount);
+        subtotal = packageTotals.subtotal();
+        taxAmount = packageTotals.tax();
+        totalAmount = subtotal.add(taxAmount);
         if (id <= 0 && (remainingAmount == null || remainingAmount.compareTo(BigDecimal.ZERO) == 0)) {
             remainingAmount = totalAmount;
         }
@@ -65,6 +73,10 @@ public class CustomerCreditMemo {
 
     public BigDecimal getRemainingAmount() { return remainingAmount; }
     public void setRemainingAmount(BigDecimal remainingAmount) { this.remainingAmount = remainingAmount; }
+    @Override public boolean isPackagePriceEnabled() { return packagePriceEnabled; }
+    @Override public void setPackagePriceEnabled(boolean enabled) { packagePriceEnabled = enabled; }
+    @Override public BigDecimal getPackagePriceAmount() { return packagePriceAmount; }
+    @Override public void setPackagePriceAmount(BigDecimal amount) { packagePriceAmount = amount != null ? amount : BigDecimal.ZERO; }
 
     public String getMemo() { return memo; }
     public void setMemo(String memo) { this.memo = memo; }

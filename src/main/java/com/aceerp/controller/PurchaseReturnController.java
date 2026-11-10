@@ -48,11 +48,11 @@ public class PurchaseReturnController {
     @FXML private TableColumn<PurchaseReturnLine, String> colDescription;
     @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colQty;
     @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colCost;
-    @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<PurchaseReturnLine, String> colDiscountType;
     @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colDiscount;
-    @FXML private TableColumn<PurchaseReturnLine, Boolean> colPackagePrice;
     @FXML private TableColumn<PurchaseReturnLine, BigDecimal> colTotal;
+    @FXML private CheckBox chkDocumentPackagePrice;
+    @FXML private TextField txtDocumentPackagePrice;
 
     private final PurchaseReturnService returnService = new PurchaseReturnService();
     private final ProductService productService = new ProductService();
@@ -62,10 +62,14 @@ public class PurchaseReturnController {
     private final ObservableList<PurchaseReturnLine> lines = FXCollections.observableArrayList();
     private PurchaseReturn currentReturn;
     private SimpleSupplier selectedSupplier;
+    private com.aceerp.util.DocumentPackagePrice packagePriceControl;
 
     @FXML
     public void initialize() {
         setupTable();
+        packagePriceControl = com.aceerp.util.DocumentPackagePrice.configure(
+                chkDocumentPackagePrice, txtDocumentPackagePrice, () -> currentReturn,
+                () -> linesTable.isEditable(), this::updateTotal);
         setupListView();
         setupSupplierSearch();
         loadReturns();
@@ -114,14 +118,12 @@ public class PurchaseReturnController {
             updateTotal();
         });
 
-        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
-                colCost, colSetPrice, PurchaseReturnLine::getUnitCost, PurchaseReturnLine::setUnitCost,
-                PurchaseReturnLine::isPackagePrice, () -> linesTable.isEditable(), this::updateTotal);
+        com.aceerp.util.LinePricingTableColumns.configurePrice(
+                colCost, PurchaseReturnLine::getUnitCost, PurchaseReturnLine::setUnitCost,
+                () -> linesTable.isEditable(), chkDocumentPackagePrice::isSelected, this::updateTotal);
 
         com.aceerp.util.LinePricingTableColumns.configureDiscountType(
                 colDiscountType, PurchaseReturnLine::getDiscountType, PurchaseReturnLine::setDiscountType, this::updateTotal);
-        com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
-                colPackagePrice, PurchaseReturnLine::isPackagePrice, PurchaseReturnLine::setPackagePrice, this::updateTotal);
         colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
         colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
         colDiscount.setOnEditCommit(e -> {
@@ -129,7 +131,8 @@ public class PurchaseReturnController {
             updateTotal();
         });
 
-        colTotal.setCellValueFactory(new PropertyValueFactory<>("lineTotal"));
+        com.aceerp.util.LinePricingTableColumns.configureLineTotal(
+                colTotal, PurchaseReturnLine::getLineTotal, chkDocumentPackagePrice::isSelected);
         linesTable.setItems(lines);
     }
 
@@ -185,13 +188,12 @@ public class PurchaseReturnController {
         supplierSearchField.setText(pr.getSupplierName() != null ? pr.getSupplierName() : "");
         selectedSupplier = new SimpleSupplier(pr.getSupplierId(), pr.getSupplierName());
 
-        lines.clear();
-        if (pr.getLines() != null) {
-            lines.addAll(pr.getLines());
-        }
+        lines.setAll(pr.getLines() != null ? pr.getLines() : List.of());
+        packagePriceControl.setControls(pr);
 
         updateTotal();
         linesTable.setEditable(false);
+        packagePriceControl.setControlsDisabled(true);
         supplierSearchField.setDisable(true);
     }
 
@@ -205,8 +207,10 @@ public class PurchaseReturnController {
         supplierSearchField.clear();
         selectedSupplier = null;
         lines.clear();
+        packagePriceControl.reset();
 
         linesTable.setEditable(true);
+        packagePriceControl.setControlsDisabled(false);
         supplierSearchField.setDisable(false);
         returnListView.getSelectionModel().clearSelection();
 
@@ -280,6 +284,9 @@ public class PurchaseReturnController {
             line.recalculateTotal();
             if (line.getLineTotal() != null) {
                 total = total.add(line.getLineTotal());
+            }
+            if (currentReturn != null && currentReturn.isPackagePriceEnabled()) {
+                total = currentReturn.getPackagePriceAmount();
             }
         }
         linesTable.refresh();

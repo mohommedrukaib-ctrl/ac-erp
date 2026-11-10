@@ -43,6 +43,13 @@ public class PurchaseOrderRepository {
                 } else {
                     updatePO(conn, po);
                 }
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE purchase_orders SET package_price_enabled=?, package_price_amount=? WHERE id=?")) {
+                    ps.setBoolean(1, po.isPackagePriceEnabled());
+                    ps.setBigDecimal(2, po.getPackagePriceAmount());
+                    ps.setInt(3, po.getId());
+                    ps.executeUpdate();
+                }
                 saveLines(conn, po);
                 conn.commit();
             } catch (SQLException e) {
@@ -251,6 +258,8 @@ public class PurchaseOrderRepository {
         po.setTaxAmount(rs.getBigDecimal("tax_amount"));
         po.setTotalAmount(rs.getBigDecimal("total_amount"));
         po.setDocumentDiscountType(rs.getString("document_discount_type"));
+        po.setPackagePriceEnabled(rs.getBoolean("package_price_enabled"));
+        po.setPackagePriceAmount(rs.getBigDecimal("package_price_amount"));
         po.setDocumentDiscountValue(rs.getBigDecimal("document_discount_value"));
         po.setDocumentDiscountAmount(rs.getBigDecimal("document_discount_amount"));
         po.setNotes(rs.getString("notes"));

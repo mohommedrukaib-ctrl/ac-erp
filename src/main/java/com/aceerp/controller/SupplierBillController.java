@@ -77,10 +77,8 @@ public class SupplierBillController {
     @FXML private TableColumn<SupplierBillLine, String> colProduct;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colQty;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colPrice;
-    @FXML private TableColumn<SupplierBillLine, BigDecimal> colSetPrice;
     @FXML private TableColumn<SupplierBillLine, String> colDiscountType;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colDiscount;
-    @FXML private TableColumn<SupplierBillLine, Boolean> colPackagePrice;
     @FXML private TableColumn<SupplierBillLine, Boolean> colTaxable;
     @FXML private TableColumn<SupplierBillLine, String> colNotes;
     @FXML private TableColumn<SupplierBillLine, BigDecimal> colTotal;
@@ -91,6 +89,8 @@ public class SupplierBillController {
     @FXML private Label lblTaxTitle;
     @FXML private ComboBox<String> cmbDocumentDiscountType;
     @FXML private TextField txtDocumentDiscountValue;
+    @FXML private CheckBox chkDocumentPackagePrice;
+    @FXML private TextField txtDocumentPackagePrice;
     @FXML private Label lblDocumentDiscountAmount;
     @FXML private CheckBox globalTaxCheck;
     @FXML private VBox detailsPane;
@@ -105,6 +105,7 @@ public class SupplierBillController {
     private SupplierBill currentBill;
     private SimpleSupplier selectedSupplier;
     private boolean editMode = true;
+    private com.aceerp.util.DocumentPackagePrice packagePriceControl;
 
     @FXML
     public void initialize() {
@@ -112,6 +113,9 @@ public class SupplierBillController {
                 () -> { if (editMode) updateTotal(); });
         setupSmartSearch();
         setupTable();
+        packagePriceControl = com.aceerp.util.DocumentPackagePrice.configure(
+                chkDocumentPackagePrice, txtDocumentPackagePrice, () -> currentBill,
+                () -> editMode, this::updateTotal);
         setupListView();
         com.aceerp.util.QuickBooksContextMenus.installListView(supplierBillListView, bill -> java.util.List.of(
             com.aceerp.util.QuickBooksContextMenus.action("Edit", this::handleEdit),
@@ -231,15 +235,13 @@ public class SupplierBillController {
             updateTotal();
         });
 
-        com.aceerp.util.LinePricingTableColumns.configureUnitAndSetPrice(
-                colPrice, colSetPrice, SupplierBillLine::getUnitPrice, SupplierBillLine::setUnitPrice,
-                SupplierBillLine::isPackagePrice, () -> editMode, this::updateTotal);
+        com.aceerp.util.LinePricingTableColumns.configurePrice(
+                colPrice, SupplierBillLine::getUnitPrice, SupplierBillLine::setUnitPrice,
+                () -> editMode, chkDocumentPackagePrice::isSelected, this::updateTotal);
 
         if (colDiscount != null) {
             com.aceerp.util.LinePricingTableColumns.configureDiscountType(
                     colDiscountType, SupplierBillLine::getDiscountType, SupplierBillLine::setDiscountType, this::updateTotal);
-            com.aceerp.util.LinePricingTableColumns.configurePackagePrice(
-                    colPackagePrice, SupplierBillLine::isPackagePrice, SupplierBillLine::setPackagePrice, this::updateTotal);
             colDiscount.setCellValueFactory(new PropertyValueFactory<>("discountValue"));
             colDiscount.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
             colDiscount.setOnEditCommit(e -> {
@@ -280,7 +282,8 @@ public class SupplierBillController {
             });
         }
 
-        colTotal.setCellValueFactory(new PropertyValueFactory<>("totalPrice"));
+        com.aceerp.util.LinePricingTableColumns.configureLineTotal(
+                colTotal, SupplierBillLine::getTotalPrice, chkDocumentPackagePrice::isSelected);
         linesTable.setItems(lines);
     }
 
@@ -322,10 +325,8 @@ public class SupplierBillController {
             selectedSupplier = null;
         }
 
-        lines.clear();
-        if (bill.getLines() != null) {
-            lines.addAll(bill.getLines());
-        }
+        lines.setAll(bill.getLines() != null ? bill.getLines() : List.of());
+        packagePriceControl.setControls(bill);
 
         if (globalTaxCheck != null && !lines.isEmpty()) {
             boolean allTaxable = lines.stream().allMatch(SupplierBillLine::isTaxable);
@@ -354,6 +355,7 @@ public class SupplierBillController {
         supplierSearchField.setDisable(!editMode);
         cmbDocumentDiscountType.setDisable(!editMode);
         txtDocumentDiscountValue.setDisable(!editMode);
+        packagePriceControl.setControlsDisabled(!editMode);
         billDatePicker.setDisable(!editMode);
         dueDatePicker.setDisable(!editMode);
         supplierInvoiceRefField.setEditable(editMode);
@@ -383,6 +385,7 @@ public class SupplierBillController {
         selectedSupplier = null;
 
         lines.clear();
+        packagePriceControl.reset();
         supplierBillListView.getSelectionModel().clearSelection();
 
         if (globalTaxCheck != null) {
@@ -655,6 +658,11 @@ public class SupplierBillController {
             if (line.getTaxAmount() != null) taxTotal = taxTotal.add(line.getTaxAmount());
         }
 
+        com.aceerp.util.PackagePriceTotals.Totals packageTotals = com.aceerp.util.PackagePriceTotals.apply(
+                subtotal, taxTotal, currentBill != null && currentBill.isPackagePriceEnabled(),
+                currentBill != null ? currentBill.getPackagePriceAmount() : BigDecimal.ZERO);
+        subtotal = packageTotals.subtotal();
+        taxTotal = packageTotals.tax();
         BigDecimal discountAmount = DocumentDiscount.calculateAmount(
                 subtotal, DocumentDiscount.selectedType(cmbDocumentDiscountType),
                 DocumentDiscount.valueForCalculation(txtDocumentDiscountValue));
