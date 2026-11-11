@@ -219,6 +219,52 @@ public class ReportTemplateService {
     }
 
     public static String normalizeInvalidElementUuids(String jrxml) {
+        try {
+            Document document = parseJrxmlDom(jrxml);
+            NodeList elements = document.getElementsByTagName("*");
+            int repairedCount = 0;
+            Set<String> seen = new HashSet<>();
+
+            for (int i = 0; i < elements.getLength(); i++) {
+                Element element = (Element) elements.item(i);
+                String tagName = element.getTagName();
+                String localTagName = tagName.contains(":") ? tagName.substring(tagName.lastIndexOf(':') + 1) : tagName;
+                if ("reportElement".equalsIgnoreCase(localTagName) || element.hasAttribute("uuid")) {
+                    if (!element.hasAttribute("uuid")) {
+                        String generated = UUID.randomUUID().toString();
+                        element.setAttribute("uuid", generated);
+                        repairedCount++;
+                        seen.add(generated);
+                    } else {
+                        String value = element.getAttribute("uuid");
+                        boolean valid = false;
+                        try {
+                            valid = UUID.fromString(value).toString().equalsIgnoreCase(value) && !value.isBlank();
+                        } catch (IllegalArgumentException ignored) {
+                            // invalid UUID values must be regenerated
+                        }
+                        if (!valid) {
+                            String generated = UUID.randomUUID().toString();
+                            while (seen.contains(generated)) {
+                                generated = UUID.randomUUID().toString();
+                            }
+                            element.setAttribute("uuid", generated);
+                            seen.add(generated);
+                            repairedCount++;
+                        }
+                    }
+                }
+            }
+
+            if (repairedCount > 0) {
+                logger.warn("Normalized {} JRXML element UUID value(s).", repairedCount);
+                return serializeJrxmlDom(document);
+            }
+            return jrxml;
+        } catch (Exception ex) {
+            logger.warn("DOM-based JRXML UUID normalization failed; falling back to regex repair: {}", ex.getMessage());
+        }
+
         java.util.regex.Matcher matcher = java.util.regex.Pattern
                 .compile("(<[A-Za-z_][A-Za-z0-9:_.-]*\\b[^>]*?\\buuid\\s*=\\s*\")([^\"]*)(\")",
                         java.util.regex.Pattern.DOTALL)
@@ -362,7 +408,47 @@ public class ReportTemplateService {
 
     public static String normalizeJrxml(String jrxml) {
         return normalizeMissingSumVariables(
-                normalizePageGeometry(normalizeInvalidElementUuids(jrxml)));
+                normalizePageGeometry(normalizeNoDataPlacement(normalizeInvalidElementUuids(jrxml))));
+    }
+
+    private static String normalizeNoDataPlacement(String jrxml) {
+        try {
+            Document document = parseJrxmlDom(jrxml);
+            Element root = document.getDocumentElement();
+            Node noData = null;
+            boolean sectionAfterNoData = false;
+            NodeList children = root.getChildNodes();
+            for (int i = 0; i < children.getLength(); i++) {
+                Node child = children.item(i);
+                if (child instanceof Element element) {
+                    String name = element.getTagName();
+                    String localName = name.contains(":")
+                            ? name.substring(name.lastIndexOf(':') + 1)
+                            : name;
+                    if ("noData".equals(localName)) {
+                        noData = child;
+                    } else if (noData != null) {
+                        sectionAfterNoData = true;
+                    }
+                }
+            }
+            if (!sectionAfterNoData) {
+                return jrxml;
+            }
+
+            Node trailingWhitespace = root.getLastChild();
+            while (trailingWhitespace != null
+                    && trailingWhitespace.getNodeType() == Node.TEXT_NODE
+                    && trailingWhitespace.getTextContent().isBlank()) {
+                trailingWhitespace = trailingWhitespace.getPreviousSibling();
+            }
+            Node insertBefore = trailingWhitespace == null ? null : trailingWhitespace.getNextSibling();
+            root.insertBefore(noData, insertBefore);
+            logger.warn("Moved JRXML noData section after all report sections.");
+            return serializeJrxmlDom(document);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Could not normalize JRXML noData section: " + ex.getMessage(), ex);
+        }
     }
 
     private static String normalizeMissingSumVariables(String jrxml) {
