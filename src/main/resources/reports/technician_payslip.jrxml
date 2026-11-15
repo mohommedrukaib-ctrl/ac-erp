@@ -2,12 +2,15 @@
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" name="TechnicianPayslip" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="40" bottomMargin="40" uuid="3a3059ad-4ec5-578f-9b8b-189eb8bd5ada">
     <parameter name="TECH_ID" class="java.lang.Integer"/>
     <parameter name="COMPANY_NAME" class="java.lang.String"/>
+    <parameter name="COMMISSION_STATUS" class="java.lang.String">
+        <defaultValueExpression><![CDATA["PENDING"]]></defaultValueExpression>
+    </parameter>
     <queryString>
         <![CDATA[
             SELECT u.full_name, t.job_number, t.commission_amount, t.status, t.created_at
             FROM technician_commissions t
             JOIN users u ON t.technician_id = u.id
-            WHERE t.technician_id = $P{TECH_ID} AND t.status = 'PENDING'
+            WHERE t.technician_id = $P{TECH_ID} AND t.status = $P{COMMISSION_STATUS}
             ORDER BY t.created_at DESC
         ]]>
     </queryString>
@@ -21,12 +24,13 @@
     <title>
         <band height="80">
             <textField><reportElement x="0" y="0" width="535" height="30" uuid="9c777fe6-db82-5a98-9e29-7dad9334b87e"/><textElement textAlignment="Center"><font size="18" isBold="true"/></textElement><textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression></textField>
-            <staticText><reportElement x="0" y="30" width="535" height="30" uuid="1171bcf9-a9a9-5a6e-a329-7592a9c73787"/><textElement textAlignment="Center"><font size="14" isBold="true" isUnderline="true"/></textElement><text><![CDATA[TECHNICIAN COMMISSION PAYSLIP (PENDING)]]></text></staticText>
+            <staticText><reportElement x="0" y="30" width="535" height="30" uuid="1171bcf9-a9a9-5a6e-a329-7592a9c73787"/><textElement textAlignment="Center"><font size="14" isBold="true" isUnderline="true"/></textElement><text><![CDATA[TECHNICIAN COMMISSION PAYSLIP]]></text></staticText>
         </band>
     </title>
     <pageHeader>
         <band height="40">
             <textField><reportElement x="0" y="10" width="300" height="20" uuid="67c463a1-bf9c-57e6-8858-b7dc92f7b92f"/><textElement><font size="12" isBold="true"/></textElement><textFieldExpression><![CDATA["Technician: " + $F{full_name}]]></textFieldExpression></textField>
+            <textField><reportElement x="320" y="10" width="215" height="20" uuid="73615cc1-9210-4b24-a8a3-4f4ba1951c3e"/><textElement textAlignment="Right"/><textFieldExpression><![CDATA["Status: " + $P{COMMISSION_STATUS}]]></textFieldExpression></textField>
         </band>
     </pageHeader>
     <columnHeader>

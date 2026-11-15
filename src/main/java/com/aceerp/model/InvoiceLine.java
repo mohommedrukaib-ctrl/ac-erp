@@ -12,6 +12,8 @@ public class InvoiceLine {
     private Integer productId;
     private String productCode;
     private String description;
+    private String lineDescription;
+    private String warranty;
     private String notes;
     private BigDecimal quantity = BigDecimal.ONE;
     private BigDecimal unitPrice = BigDecimal.ZERO;
@@ -42,6 +44,12 @@ public class InvoiceLine {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getLineDescription() { return lineDescription; }
+    public void setLineDescription(String lineDescription) { this.lineDescription = lineDescription; }
+
+    public String getWarranty() { return warranty; }
+    public void setWarranty(String warranty) { this.warranty = warranty; }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }

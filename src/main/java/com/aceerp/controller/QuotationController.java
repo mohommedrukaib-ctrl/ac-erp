@@ -46,6 +46,8 @@ public class QuotationController {
     @FXML private ComboBox<String> statusCombo;
     @FXML private TableView<QuotationLine> linesTable;
     @FXML private TableColumn<QuotationLine, String> colProduct;
+    @FXML private TableColumn<QuotationLine, String> colLineDescription;
+    @FXML private TableColumn<QuotationLine, String> colWarranty;
     @FXML private TableColumn<QuotationLine, BigDecimal> colQty;
     @FXML private TableColumn<QuotationLine, BigDecimal> colPrice;
     @FXML private TableColumn<QuotationLine, String> colDiscountType;
@@ -63,6 +65,7 @@ public class QuotationController {
     @FXML private TextField txtDocumentPackagePrice;
     @FXML private Label lblDocumentDiscountAmount;
     @FXML private CheckBox globalTaxCheck;
+    @FXML private CheckBox chkShowLineDescription;
     @FXML private VBox detailsPane;
 
     private final QuotationService quotationService = new QuotationService();
@@ -287,6 +290,27 @@ public class QuotationController {
         com.aceerp.util.TableCellTextUtil.showFullTextOnHover(colProduct);
         colProduct.setOnEditCommit(e -> {
             e.getRowValue().setDescription(e.getNewValue());
+            linesTable.refresh();
+        });
+
+        colLineDescription.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+                d.getValue().getLineDescription() == null ? "" : d.getValue().getLineDescription()));
+        colLineDescription.setCellFactory(TextFieldTableCell.forTableColumn());
+        colLineDescription.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setLineDescription(e.getNewValue());
+            linesTable.refresh();
+        });
+        colLineDescription.setVisible(chkShowLineDescription.isSelected());
+        chkShowLineDescription.selectedProperty().addListener((obs, wasSelected, isSelected) ->
+                colLineDescription.setVisible(isSelected));
+
+        colWarranty.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+                d.getValue().getWarranty() == null ? "" : d.getValue().getWarranty()));
+        colWarranty.setCellFactory(TextFieldTableCell.forTableColumn());
+        colWarranty.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setWarranty(e.getNewValue());
             linesTable.refresh();
         });
 
@@ -806,8 +830,8 @@ public class QuotationController {
                     boolean hasTotalPrice = columnExists(conn, "invoice_lines", "total_price");
                     boolean hasLineTotal = columnExists(conn, "invoice_lines", "line_total");
                     
-                    String cols = "invoice_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, discount_type, discount_value, package_price";
-                    String vals = "?, product_id, description, quantity, unit_price, COALESCE(discount_percent, 0), notes, COALESCE(tax_rate, 0), COALESCE(tax_amount, 0), COALESCE(discount_type, 'PERCENT'), COALESCE(discount_value, discount_percent, 0), COALESCE(package_price, FALSE)";
+                    String cols = "invoice_id, product_id, description, line_description, warranty, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, discount_type, discount_value, package_price";
+                    String vals = "?, product_id, description, line_description, warranty, quantity, unit_price, COALESCE(discount_percent, 0), notes, COALESCE(tax_rate, 0), COALESCE(tax_amount, 0), COALESCE(discount_type, 'PERCENT'), COALESCE(discount_value, discount_percent, 0), COALESCE(package_price, FALSE)";
                     
                     if (hasLineTotal && hasTotalPrice) {
                         cols += ", line_total, total_price";

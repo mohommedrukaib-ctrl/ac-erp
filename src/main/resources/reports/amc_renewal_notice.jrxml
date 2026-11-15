@@ -2,6 +2,9 @@
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" name="AMCRenewal" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="40" bottomMargin="40" uuid="c342c564-680c-5013-909e-1110a1b0212e">
     <parameter name="CONTRACT_ID" class="java.lang.Integer"/>
     <parameter name="COMPANY_NAME" class="java.lang.String"/>
+    <parameter name="SHOW_AMOUNT_IN_WORDS" class="java.lang.Boolean">
+        <defaultValueExpression><![CDATA[Boolean.TRUE]]></defaultValueExpression>
+    </parameter>
     <queryString>
         <![CDATA[
             SELECT a.contract_number, c.name as customer_name, c.email, a.end_date, a.total_value
@@ -21,7 +24,7 @@
         </band>
     </title>
     <detail>
-        <band height="250">
+        <band height="280">
             <textField><reportElement x="30" y="20" width="470" height="40" uuid="684e93c6-ca68-527a-a37a-bbcdec3a8a21"/><textElement><font size="12"/></textElement><textFieldExpression><![CDATA["Dear " + $F{customer_name} + ",\n\nThis is a friendly reminder regarding your Annual Maintenance Contract."]]></textFieldExpression></textField>
             
             <staticText><reportElement x="30" y="80" width="150" height="20" uuid="aec3eb58-90fe-513e-bf74-f9f49212125a"/><text><![CDATA[Contract Number:]]></text></staticText>
@@ -33,7 +36,14 @@
             <staticText><reportElement x="30" y="140" width="150" height="20" uuid="c6b70f2c-a124-5b7a-beea-5165e5c70790"/><text><![CDATA[Renewal Amount Due:]]></text></staticText>
             <textField pattern="¤ #,##0.00"><reportElement x="180" y="140" width="200" height="20" uuid="715d44a3-0877-580e-8918-061dc2b99346"/><textElement><font isBold="true" size="12"/></textElement><textFieldExpression><![CDATA[$F{total_value}]]></textFieldExpression></textField>
 
-            <staticText><reportElement x="30" y="190" width="470" height="40" uuid="c46b72d7-07bb-57ed-988c-7f5855fa47f1"/><textElement><font size="11"/></textElement><text><![CDATA[Please contact us to process your renewal and ensure uninterrupted HVAC service.]]></text></staticText>
+            <textField isBlankWhenNull="true" textAdjust="StretchHeight">
+                <reportElement x="30" y="165" width="470" height="25">
+                    <printWhenExpression><![CDATA[$P{SHOW_AMOUNT_IN_WORDS}]]></printWhenExpression>
+                </reportElement>
+                <textElement><font size="9"/></textElement>
+                <textFieldExpression><![CDATA["Amount in words: " + com.aceerp.util.CurrencyFormatter.toWords($F{total_value})]]></textFieldExpression>
+            </textField>
+            <staticText><reportElement x="30" y="205" width="470" height="40" uuid="c46b72d7-07bb-57ed-988c-7f5855fa47f1"/><textElement><font size="11"/></textElement><text><![CDATA[Please contact us to process your renewal and ensure uninterrupted HVAC service.]]></text></staticText>
         </band>
     </detail>
 </jasperReport>

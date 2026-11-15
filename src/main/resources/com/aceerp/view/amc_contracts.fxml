@@ -30,6 +30,7 @@
 
     <HBox spacing="10">
         <Button text="Edit" onAction="#onEdit" styleClass="btn-secondary"/>
+        <Button text="Print Renewal Notice" onAction="#onPrintRenewalNotice" styleClass="btn-secondary"/>
         <Button text="+ Add Visit Schedule" onAction="#onAddSchedule" styleClass="btn-secondary"/>
         <Button text="Generate Quarterly Visits" onAction="#onGenerateQuarterly" styleClass="btn-secondary"/>
     </HBox>

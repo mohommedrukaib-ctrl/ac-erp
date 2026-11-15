@@ -142,6 +142,7 @@ public class ProductRepository {
         p.setTaxRate(tr != null ? tr : BigDecimal.ZERO);
         p.setStockQuantity(rs.getInt("stock_quantity"));
         p.setMinStockLevel(rs.getInt("min_stock_level"));
+        p.setWarrantyMonths(rs.getInt("warranty_months"));
         p.setActive(rs.getBoolean("is_active"));
       p.setCreatedAt(rs.getTimestamp("created_at"));
 p.setUpdatedAt(rs.getTimestamp("updated_at"));

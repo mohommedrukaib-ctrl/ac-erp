@@ -153,8 +153,8 @@ public class QuotationRepository {
 
         String insertSql =
                 "INSERT INTO quotation_lines " +
-                "(quotation_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, total_price, line_total, discount_type, discount_value, package_price) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "(quotation_id, product_id, description, line_description, warranty, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, total_price, line_total, discount_type, discount_value, package_price) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
             for (QuotationLine line : q.getLines()) {
                 line.recalculateTotal();
@@ -165,18 +165,20 @@ public class QuotationRepository {
                     ps.setNull(2, Types.INTEGER);
                 }
                 ps.setString(3, line.getDescription() != null ? line.getDescription() : "Custom Line Item");
-                ps.setBigDecimal(4, line.getQuantity() != null ? line.getQuantity() : BigDecimal.ONE);
-                ps.setBigDecimal(5, line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO);
-                ps.setBigDecimal(6, line.getDiscountPercent() != null ? line.getDiscountPercent() : BigDecimal.ZERO);
-                ps.setString(7, line.getNotes());
-                ps.setBigDecimal(8, line.getTaxRate() != null ? line.getTaxRate() : BigDecimal.ZERO);
-                ps.setBigDecimal(9, line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
+                ps.setString(4, line.getLineDescription());
+                ps.setString(5, line.getWarranty());
+                ps.setBigDecimal(6, line.getQuantity() != null ? line.getQuantity() : BigDecimal.ONE);
+                ps.setBigDecimal(7, line.getUnitPrice() != null ? line.getUnitPrice() : BigDecimal.ZERO);
+                ps.setBigDecimal(8, line.getDiscountPercent() != null ? line.getDiscountPercent() : BigDecimal.ZERO);
+                ps.setString(9, line.getNotes());
+                ps.setBigDecimal(10, line.getTaxRate() != null ? line.getTaxRate() : BigDecimal.ZERO);
+                ps.setBigDecimal(11, line.getTaxAmount() != null ? line.getTaxAmount() : BigDecimal.ZERO);
                 BigDecimal lt = line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO;
-                ps.setBigDecimal(10, lt);
-                ps.setBigDecimal(11, lt);
-                ps.setString(12, line.getDiscountType());
-                ps.setBigDecimal(13, line.getDiscountValue());
-                ps.setBoolean(14, line.isPackagePrice());
+                ps.setBigDecimal(12, lt);
+                ps.setBigDecimal(13, lt);
+                ps.setString(14, line.getDiscountType());
+                ps.setBigDecimal(15, line.getDiscountValue());
+                ps.setBoolean(16, line.isPackagePrice());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -202,6 +204,8 @@ public class QuotationRepository {
                         line.setProductCode(rs.getString("product_code"));
                     }
                     line.setDescription(rs.getString("description"));
+                    line.setLineDescription(rs.getString("line_description"));
+                    line.setWarranty(rs.getString("warranty"));
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
 

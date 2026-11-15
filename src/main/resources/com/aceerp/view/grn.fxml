@@ -102,10 +102,16 @@
                     </HBox>
 
                     <!-- Received Items Table -->
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <CheckBox fx:id="chkShowLineDescription" text="Show Description" selected="true"/>
+                    </HBox>
+
                     <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="260">
                         <columns>
                             <TableColumn fx:id="colProductCode" text="Item Code" prefWidth="120"/>
-                            <TableColumn fx:id="colDescription" text="Description" prefWidth="260"/>
+                            <TableColumn fx:id="colDescription" text="Item" prefWidth="180"/>
+                            <TableColumn fx:id="colLineDescription" text="Description" prefWidth="180"/>
+                            <TableColumn fx:id="colWarranty" text="Warranty" prefWidth="100"/>
                             <TableColumn fx:id="colQtyOrdered" text="Qty Ordered" prefWidth="90"/>
                             <TableColumn fx:id="colQtyReceived" text="Qty Received" prefWidth="100"/>
                             <TableColumn fx:id="colUnitCost" text="Unit Cost" prefWidth="100"/>

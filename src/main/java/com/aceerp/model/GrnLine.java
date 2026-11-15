@@ -12,6 +12,8 @@ public class GrnLine {
     private Product product;
     private String productCode;
     private String description;
+    private String lineDescription;
+    private String warranty;
     private BigDecimal quantityOrdered = BigDecimal.ZERO;
     private BigDecimal quantityReceived = BigDecimal.ZERO;
     private BigDecimal unitCost = BigDecimal.ZERO;
@@ -58,6 +60,12 @@ public class GrnLine {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getLineDescription() { return lineDescription; }
+    public void setLineDescription(String lineDescription) { this.lineDescription = lineDescription; }
+
+    public String getWarranty() { return warranty; }
+    public void setWarranty(String warranty) { this.warranty = warranty; }
 
     public BigDecimal getQuantityOrdered() { return quantityOrdered; }
     public void setQuantityOrdered(BigDecimal quantityOrdered) { this.quantityOrdered = quantityOrdered; }

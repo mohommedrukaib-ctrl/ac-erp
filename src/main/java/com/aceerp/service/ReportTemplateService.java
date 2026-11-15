@@ -36,6 +36,7 @@ public class ReportTemplateService {
             "quotation",
             "sales_order",
             "delivery_note",
+            "grn",
             "purchase_order",
             "job_note_a5",
             "supplier_bill",
@@ -44,30 +45,32 @@ public class ReportTemplateService {
             "technician_payslip"
     );
 
-    private static final Map<String, String> ID_PARAM = Map.of(
-            "invoice", "INVOICE_ID",
-            "quotation", "QUOTE_ID",
-            "sales_order", "ORDER_ID",
-            "delivery_note", "DN_ID",
-            "purchase_order", "PO_ID",
-            "job_note_a5", "JOB_ID",
-            "supplier_bill", "BILL_ID",
-            "warranty_certificate", "SERIAL_ID",
-            "amc_renewal_notice", "CONTRACT_ID",
-            "technician_payslip", "TECH_ID"
+    private static final Map<String, String> ID_PARAM = Map.ofEntries(
+            Map.entry("invoice", "INVOICE_ID"),
+            Map.entry("quotation", "QUOTE_ID"),
+            Map.entry("sales_order", "ORDER_ID"),
+            Map.entry("delivery_note", "DN_ID"),
+            Map.entry("grn", "GRN_ID"),
+            Map.entry("purchase_order", "PO_ID"),
+            Map.entry("job_note_a5", "JOB_ID"),
+            Map.entry("supplier_bill", "BILL_ID"),
+            Map.entry("warranty_certificate", "SERIAL_ID"),
+            Map.entry("amc_renewal_notice", "CONTRACT_ID"),
+            Map.entry("technician_payslip", "TECH_ID")
     );
 
-    private static final Map<String, String> LATEST_ID_SQL = Map.of(
-            "invoice", "SELECT id FROM invoices ORDER BY id DESC LIMIT 1",
-            "quotation", "SELECT id FROM quotations ORDER BY id DESC LIMIT 1",
-            "sales_order", "SELECT id FROM sales_orders ORDER BY id DESC LIMIT 1",
-            "delivery_note", "SELECT id FROM delivery_notes ORDER BY id DESC LIMIT 1",
-            "purchase_order", "SELECT id FROM purchase_orders ORDER BY id DESC LIMIT 1",
-            "job_note_a5", "SELECT id FROM service_jobs ORDER BY id DESC LIMIT 1",
-            "supplier_bill", "SELECT id FROM supplier_bills ORDER BY id DESC LIMIT 1",
-            "warranty_certificate", "SELECT id FROM product_serials ORDER BY id DESC LIMIT 1",
-            "amc_renewal_notice", "SELECT id FROM amc_contracts ORDER BY id DESC LIMIT 1",
-            "technician_payslip", "SELECT technician_id FROM technician_commissions WHERE status = 'PENDING' ORDER BY id DESC LIMIT 1"
+    private static final Map<String, String> LATEST_ID_SQL = Map.ofEntries(
+            Map.entry("invoice", "SELECT id FROM invoices ORDER BY id DESC LIMIT 1"),
+            Map.entry("quotation", "SELECT id FROM quotations ORDER BY id DESC LIMIT 1"),
+            Map.entry("sales_order", "SELECT id FROM sales_orders ORDER BY id DESC LIMIT 1"),
+            Map.entry("delivery_note", "SELECT id FROM delivery_notes ORDER BY id DESC LIMIT 1"),
+            Map.entry("grn", "SELECT id FROM goods_received_notes ORDER BY id DESC LIMIT 1"),
+            Map.entry("purchase_order", "SELECT id FROM purchase_orders ORDER BY id DESC LIMIT 1"),
+            Map.entry("job_note_a5", "SELECT id FROM service_jobs ORDER BY id DESC LIMIT 1"),
+            Map.entry("supplier_bill", "SELECT id FROM supplier_bills ORDER BY id DESC LIMIT 1"),
+            Map.entry("warranty_certificate", "SELECT id FROM product_serials ORDER BY id DESC LIMIT 1"),
+            Map.entry("amc_renewal_notice", "SELECT id FROM amc_contracts ORDER BY id DESC LIMIT 1"),
+            Map.entry("technician_payslip", "SELECT technician_id FROM technician_commissions WHERE status = 'PENDING' ORDER BY id DESC LIMIT 1")
     );
 
     private final CompanyProfileService companyProfileService = new CompanyProfileService();
@@ -407,8 +410,127 @@ public class ReportTemplateService {
     }
 
     public static String normalizeJrxml(String jrxml) {
-        return normalizeMissingSumVariables(
-                normalizePageGeometry(normalizeNoDataPlacement(normalizeInvalidElementUuids(jrxml))));
+        String normalized = normalizeInvalidElementUuids(jrxml);
+        normalized = normalizeStyleTextAlignment(normalized);
+        normalized = normalizeFontColors(normalized);
+        normalized = normalizeReportSectionOrder(normalized);
+        normalized = normalizeNoDataPlacement(normalized);
+        normalized = normalizePageGeometry(normalized);
+        return normalizeMissingSumVariables(normalized);
+    }
+
+    private static String normalizeStyleTextAlignment(String jrxml) {
+        try {
+            Document document = parseJrxmlDom(jrxml);
+            NodeList elements = document.getElementsByTagName("*");
+            int repairedCount = 0;
+            for (int i = 0; i < elements.getLength(); i++) {
+                if (!(elements.item(i) instanceof Element style)
+                        || !"style".equals(localTagName(style))) continue;
+
+                repairedCount += moveStyleAlignment(style, "textAlignment", "hTextAlign");
+                repairedCount += moveStyleAlignment(style, "verticalAlignment", "vTextAlign");
+            }
+            if (repairedCount == 0) return jrxml;
+
+            logger.warn("Normalized {} unsupported JRXML style alignment attribute(s).", repairedCount);
+            return serializeJrxmlDom(document);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException(
+                    "Could not normalize JRXML style alignment: " + ex.getMessage(), ex);
+        }
+    }
+
+    private static int moveStyleAlignment(Element style, String unsupportedName, String supportedName) {
+        if (!style.hasAttribute(unsupportedName)) return 0;
+
+        if (!style.hasAttribute(supportedName)) {
+            style.setAttribute(supportedName, style.getAttribute(unsupportedName));
+        }
+        style.removeAttribute(unsupportedName);
+        return 1;
+    }
+
+    private static String normalizeFontColors(String jrxml) {
+        try {
+            Document document = parseJrxmlDom(jrxml);
+            NodeList fonts = document.getElementsByTagName("font");
+            int repairedCount = 0;
+            for (int i = 0; i < fonts.getLength(); i++) {
+                Element font = (Element) fonts.item(i);
+                if (!font.hasAttribute("forecolor")) continue;
+                Node parent = font.getParentNode();
+                if (!(parent instanceof Element textElement)
+                        || !"textElement".equals(localTagName(textElement))
+                        || !(textElement.getParentNode() instanceof Element reportItem)) continue;
+
+                Element reportElement = null;
+                NodeList children = reportItem.getChildNodes();
+                for (int childIndex = 0; childIndex < children.getLength(); childIndex++) {
+                    Node child = children.item(childIndex);
+                    if (child instanceof Element element && "reportElement".equals(localTagName(element))) {
+                        reportElement = element;
+                        break;
+                    }
+                }
+                if (reportElement == null) continue;
+
+                String color = font.getAttribute("forecolor");
+                if (!reportElement.hasAttribute("forecolor")) {
+                    reportElement.setAttribute("forecolor", color);
+                }
+                font.removeAttribute("forecolor");
+                repairedCount++;
+            }
+            if (repairedCount == 0) return jrxml;
+
+            logger.warn("Moved {} unsupported JRXML font forecolor attribute(s) to reportElement.", repairedCount);
+            return serializeJrxmlDom(document);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Could not normalize JRXML font colors: " + ex.getMessage(), ex);
+        }
+    }
+
+    private static String localTagName(Element element) {
+        String name = element.getTagName();
+        int colon = name.lastIndexOf(':');
+        return colon < 0 ? name : name.substring(colon + 1);
+    }
+
+    private static String normalizeReportSectionOrder(String jrxml) {
+        List<String> sectionOrder = List.of(
+                "background", "title", "pageHeader", "columnHeader", "detail",
+                "columnFooter", "pageFooter", "lastPageFooter", "summary", "noData");
+        try {
+            Document document = parseJrxmlDom(jrxml);
+            Element root = document.getDocumentElement();
+            List<Element> sections = new ArrayList<>();
+            NodeList children = root.getChildNodes();
+            for (int i = 0; i < children.getLength(); i++) {
+                Node child = children.item(i);
+                if (child instanceof Element element && sectionOrder.contains(localTagName(element))) {
+                    sections.add(element);
+                }
+            }
+            if (sections.size() < 2) return jrxml;
+
+            List<Element> sorted = new ArrayList<>(sections);
+            sorted.sort(Comparator.comparingInt(section -> sectionOrder.indexOf(localTagName(section))));
+            if (sections.equals(sorted)) return jrxml;
+
+            Node insertionPoint = sections.getFirst().getNextSibling();
+            while (insertionPoint != null && insertionPoint instanceof Element element
+                    && sectionOrder.contains(localTagName(element))) {
+                insertionPoint = insertionPoint.getNextSibling();
+            }
+            for (Element section : sections) root.removeChild(section);
+            for (Element section : sorted) root.insertBefore(section, insertionPoint);
+
+            logger.warn("Reordered JRXML report sections to match JasperReports document order.");
+            return serializeJrxmlDom(document);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Could not normalize JRXML report sections: " + ex.getMessage(), ex);
+        }
     }
 
     private static String normalizeNoDataPlacement(String jrxml) {

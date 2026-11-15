@@ -119,10 +119,15 @@
                         <TextField fx:id="txtDocumentPackagePrice" text="0" prefWidth="90"/>
                     </HBox>
 
-                    <!-- Lines table -->
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <CheckBox fx:id="chkShowLineDescription" text="Show Description" selected="true"/>
+                    </HBox>
+
                     <TableView fx:id="linesTable" VBox.vgrow="ALWAYS" prefHeight="280">
                         <columns>
-                            <TableColumn fx:id="colProduct" text="Product / Description" prefWidth="200"/>
+                            <TableColumn fx:id="colProduct" text="Item" prefWidth="170"/>
+                            <TableColumn fx:id="colLineDescription" text="Description" prefWidth="170"/>
+                            <TableColumn fx:id="colWarranty" text="Warranty" prefWidth="100"/>
                             <TableColumn fx:id="colQty" text="Qty" prefWidth="70"/>
                             <TableColumn fx:id="colPrice" text="Unit / Pkg Price" prefWidth="105"/>
                             <TableColumn fx:id="colDiscountType" text="Disc Mode" prefWidth="85"/>

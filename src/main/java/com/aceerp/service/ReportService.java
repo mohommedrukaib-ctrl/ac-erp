@@ -43,8 +43,13 @@ public class ReportService {
     }
 
     private void printDocument(String docType, String idParamName, int id) {
+        printDocument(docType, idParamName, id, Map.of());
+    }
+
+    private void printDocument(String docType, String idParamName, int id,
+                               Map<String, Object> additionalParameters) {
         if (!Platform.isFxApplicationThread()) {
-            Platform.runLater(() -> printDocument(docType, idParamName, id));
+            Platform.runLater(() -> printDocument(docType, idParamName, id, additionalParameters));
             return;
         }
 
@@ -66,10 +71,11 @@ public class ReportService {
             return;
         }
 
-        printDocument(docType, idParamName, id, selectedTemplate.get());
+        printDocument(docType, idParamName, id, selectedTemplate.get(), additionalParameters);
     }
 
-    private void printDocument(String docType, String idParamName, int id, String templateKey) {
+    private void printDocument(String docType, String idParamName, int id, String templateKey,
+                               Map<String, Object> additionalParameters) {
         new Thread(() -> {
             try (Connection conn = DatabaseConfig.getInstance().getConnection();
                  InputStream stream = new ReportTemplateService().openTemplateStream(docType, templateKey)) {
@@ -77,6 +83,7 @@ public class ReportService {
 
                 Map<String, Object> parameters = buildCompanyParameters();
                 parameters.put(idParamName, id);
+                parameters.putAll(additionalParameters);
 
                 JasperPrint print = JasperFillManager.fillReport(report, parameters, conn);
                 JasperViewer.viewReport(print, false);
@@ -100,13 +107,17 @@ public class ReportService {
     public static void printInvoice(int invoiceId) { new ReportService().printDocument("invoice", "INVOICE_ID", invoiceId); }
     public static void printQuotation(int quotationId) { new ReportService().printDocument("quotation", "QUOTE_ID", quotationId); }
     public static void printSalesOrder(int orderId) { new ReportService().printDocument("sales_order", "ORDER_ID", orderId); }
+    public static void printGrn(int grnId) { new ReportService().printDocument("grn", "GRN_ID", grnId); }
     public static void printSupplierBill(int billId) { new ReportService().printDocument("supplier_bill", "BILL_ID", billId); }
     public static void printDeliveryNote(int dnId) { new ReportService().printDocument("delivery_note", "DN_ID", dnId); }
     public static void printPurchaseOrder(int poId) { new ReportService().printDocument("purchase_order", "PO_ID", poId); }
     public static void printJobNote(int jobId) { new ReportService().printDocument("job_note_a5", "JOB_ID", jobId); }
     public static void printWarrantyCertificate(int serialId) { new ReportService().printDocument("warranty_certificate", "SERIAL_ID", serialId); }
     public static void printAmcRenewalNotice(int contractId) { new ReportService().printDocument("amc_renewal_notice", "CONTRACT_ID", contractId); }
-    public static void printTechnicianPayslip(int technicianId) { new ReportService().printDocument("technician_payslip", "TECH_ID", technicianId); }
+    public static void printTechnicianPayslip(int technicianId, String commissionStatus) {
+        new ReportService().printDocument("technician_payslip", "TECH_ID", technicianId,
+                Map.of("COMMISSION_STATUS", commissionStatus));
+    }
 
     // ===================== Double-Entry Financial Statements =====================
 

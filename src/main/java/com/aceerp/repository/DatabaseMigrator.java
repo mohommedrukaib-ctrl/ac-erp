@@ -46,7 +46,8 @@ public class DatabaseMigrator {
         "V050__purchase_order_document_discounts.sql",
         "V051__line_discount_types_and_package_prices.sql",
         "V052__invoice_level_package_price.sql",
-        "V053__document_level_package_price.sql"
+        "V053__document_level_package_price.sql",
+        "V054__document_line_descriptions_and_warranty.sql"
     };
 
     public void migrate() throws SQLException {

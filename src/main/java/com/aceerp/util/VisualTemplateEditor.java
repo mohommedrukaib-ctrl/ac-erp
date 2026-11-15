@@ -18,12 +18,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXParseException;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.StringWriter;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -78,6 +85,8 @@ public class VisualTemplateEditor {
 
     private DraggableBox selectedBox = null;
     private Button btnDelete;
+    private CheckBox chkShowDescription;
+    private CheckBox chkShowAmountInWords;
 
     private TextField txtEditContent;
     private Button btnUpdateContent;
@@ -118,6 +127,8 @@ public class VisualTemplateEditor {
                     .normalizeJrxml(initialTemplateContent));
             btnSave.setDisable(false);
             String content = txtXml.getText();
+            syncDescriptionToggle(content);
+            syncAmountInWordsToggle(content);
             if (content.contains("pageWidth=\"420\"")) cbPageSize.setValue("A5 (420x595)");
             else if (content.contains("pageWidth=\"612\"")) cbPageSize.setValue("Letter (612x792)");
             else cbPageSize.setValue("A4 (595x842)");
@@ -236,6 +247,16 @@ public class VisualTemplateEditor {
         Button btnAddLabel = new Button("➕ Add Label / Note");
         Button btnAddField = new Button("➕ Add Field");
         Button btnAddLine = new Button("➕ Add Line");
+        chkShowDescription = new CheckBox("Show Description column");
+        chkShowDescription.setVisible(false);
+        chkShowDescription.setManaged(false);
+        chkShowDescription.setOnAction(e -> updateBooleanParameterDefault(
+                "SHOW_DESCRIPTION", chkShowDescription.isSelected()));
+        chkShowAmountInWords = new CheckBox("Show amount in words");
+        chkShowAmountInWords.setVisible(false);
+        chkShowAmountInWords.setManaged(false);
+        chkShowAmountInWords.setOnAction(e -> updateBooleanParameterDefault(
+                "SHOW_AMOUNT_IN_WORDS", chkShowAmountInWords.isSelected()));
         
         btnDelete = new Button("🗑️ Delete Selected");
         btnDelete.setStyle("-fx-background-color: #dc2626; -fx-text-fill: white;");
@@ -245,7 +266,9 @@ public class VisualTemplateEditor {
         btnAddField.setOnAction(e -> injectNewElement("Field"));
         btnAddLine.setOnAction(e -> injectNewElement("Line"));
         btnDelete.setOnAction(e -> deleteSelectedElement());
-        rowTools.getChildren().addAll(new Label("Add Tools:"), btnAddLabel, btnAddField, btnAddLine, new Region(), btnDelete);
+        rowTools.getChildren().addAll(
+                new Label("Add Tools:"), btnAddLabel, btnAddField, btnAddLine,
+                chkShowDescription, chkShowAmountInWords, new Region(), btnDelete);
 
         // Row 3: Live Box Text Content Editor
         HBox rowText = new HBox(10);
@@ -276,9 +299,9 @@ public class VisualTemplateEditor {
         
         // Standard built-in list
         List<String> standardTemplates = Arrays.asList(
-                "invoice.jrxml", "quotation.jrxml", "sales_order.jrxml",
-                "delivery_note.jrxml", "purchase_order.jrxml", "job_note_a5.jrxml",
-                "supplier_bill.jrxml", "warranty_certificate.jrxml",
+                "classic/invoice.jrxml", "classic/quotation.jrxml", "classic/sales_order.jrxml",
+                "classic/delivery_note.jrxml", "classic/purchase_order.jrxml", "classic/job_note_a5.jrxml",
+                "classic/supplier_bill.jrxml", "classic/grn.jrxml", "warranty_certificate.jrxml",
                 "amc_renewal_notice.jrxml", "technician_payslip.jrxml"
         );
         cbTemplates.getItems().addAll(standardTemplates);
@@ -287,16 +310,18 @@ public class VisualTemplateEditor {
         try {
             Path dir = Paths.get(TEMPLATE_DIR);
             if (Files.exists(dir)) {
-                try (Stream<Path> paths = Files.list(dir)) {
+                try (Stream<Path> paths = Files.walk(dir)) {
                     paths.filter(p -> p.toString().endsWith(".jrxml")).forEach(p -> {
-                        String fileName = p.getFileName().toString();
+                        String fileName = dir.relativize(p).toString().replace(File.separatorChar, '/');
                         if (!cbTemplates.getItems().contains(fileName)) {
                             cbTemplates.getItems().add(fileName);
                         }
                     });
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            logger.warn("Could not scan built-in report templates in {}", TEMPLATE_DIR, ex);
+        }
 
         // Scan user custom directory (~/.aceerp/templates/)
         try {
@@ -311,7 +336,9 @@ public class VisualTemplateEditor {
                     });
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            logger.warn("Could not scan user report templates in {}", USER_TEMPLATE_DIR, ex);
+        }
     }
 
     private SplitPane buildMainSplit() {
@@ -376,17 +403,17 @@ public class VisualTemplateEditor {
         }
     }
 
-    private String fetchTemplateContent(String fileName) {
+    private String fetchTemplateContent(String fileName) throws java.io.IOException {
         // 1. Try local project src/main/resources/reports/
-        Path srcPath = Paths.get(TEMPLATE_DIR + fileName);
+        Path srcPath = Paths.get(TEMPLATE_DIR).resolve(fileName);
         if (Files.exists(srcPath)) {
-            try { return Files.readString(srcPath, StandardCharsets.UTF_8); } catch (Exception ignored) {}
+            return Files.readString(srcPath, StandardCharsets.UTF_8);
         }
 
         // 2. Try user custom directory ~/.aceerp/templates/
-        Path userPath = Paths.get(USER_TEMPLATE_DIR + fileName);
+        Path userPath = Paths.get(USER_TEMPLATE_DIR).resolve(fileName);
         if (Files.exists(userPath)) {
-            try { return Files.readString(userPath, StandardCharsets.UTF_8); } catch (Exception ignored) {}
+            return Files.readString(userPath, StandardCharsets.UTF_8);
         }
 
         // 3. Try Classpath /reports/
@@ -394,7 +421,9 @@ public class VisualTemplateEditor {
             if (is != null) {
                 return new String(is.readAllBytes(), StandardCharsets.UTF_8);
             }
-        } catch (Exception ignored) {}
+        } catch (java.io.IOException ex) {
+            throw ex;
+        }
 
         return null; // Not found anywhere
     }
@@ -407,20 +436,30 @@ public class VisualTemplateEditor {
             selected += ".jrxml";
         }
 
-        String xml = fetchTemplateContent(selected);
+        final String xml;
+        try {
+            xml = fetchTemplateContent(selected);
+        } catch (java.io.IOException ex) {
+            logger.error("Could not read report template {}", selected, ex);
+            AlertHelper.error("Template Load Failed", "Could not read " + selected + ":\n" + ex.getMessage());
+            return;
+        }
         if (xml != null) {
-            txtXml.setText(com.aceerp.service.ReportTemplateService.normalizeJrxml(xml));
+            try {
+                txtXml.setText(com.aceerp.service.ReportTemplateService.normalizeJrxml(xml));
+            } catch (IllegalArgumentException ex) {
+                logger.error("Could not normalize report template {}", selected, ex);
+                AlertHelper.error("Template Load Failed", "Could not load " + selected + ":\n" + ex.getMessage());
+                return;
+            }
         } else {
-            // If template doesn't exist anywhere, create a starter A4 template
-            String blankTemplate = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                    "<jasperReport xmlns=\"http://jasperreports.sourceforge.net/jasperreports\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd\" name=\"New_Template\" pageWidth=\"595\" pageHeight=\"842\" columnWidth=\"555\" leftMargin=\"20\" rightMargin=\"20\" topMargin=\"20\" bottomMargin=\"20\" uuid=\"" + UUID.randomUUID() + "\">\n" +
-                    "\t<title>\n\t\t<band height=\"50\">\n\t\t\t<staticText>\n\t\t\t\t<reportElement x=\"0\" y=\"10\" width=\"300\" height=\"30\" uuid=\"" + UUID.randomUUID() + "\"/>\n\t\t\t\t<text><![CDATA[New Document Template]]></text>\n\t\t\t</staticText>\n\t\t</band>\n\t</title>\n" +
-                    "\t<detail>\n\t\t<band height=\"200\"/>\n\t</detail>\n" +
-                    "</jasperReport>";
-            txtXml.setText(blankTemplate);
+            AlertHelper.error("Template Not Found", "Could not find " + selected + " in the project resources or user template folder.");
+            return;
         }
 
         btnSave.setDisable(false);
+        syncDescriptionToggle(txtXml.getText());
+        syncAmountInWordsToggle(txtXml.getText());
         
         // Auto-detect page size
         String content = txtXml.getText();
@@ -459,18 +498,27 @@ public class VisualTemplateEditor {
         TextInputDialog dialog = new TextInputDialog(suggestedName);
         dialog.setHeaderText("Save edits as a NEW custom template file:");
         dialog.showAndWait().ifPresent(fileName -> {
-            if (!fileName.endsWith(".jrxml")) fileName += ".jrxml";
+            String safeFileName = fileName.trim();
+            if (!safeFileName.endsWith(".jrxml")) safeFileName += ".jrxml";
+            if (!safeFileName.matches("[A-Za-z0-9_-]+\\.jrxml")) {
+                AlertHelper.error("Save Error", "Template names may contain only letters, numbers, underscores, and hyphens.");
+                return;
+            }
             try {
                 try (InputStream in = new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))) {
                     JasperCompileManager.compileReport(in);
                 }
                 Path userDir = Paths.get(USER_TEMPLATE_DIR);
                 Files.createDirectories(userDir);
-                Path savePath = userDir.resolve(fileName);
-                Files.writeString(savePath, xml, StandardCharsets.UTF_8);
+                Path savePath = userDir.resolve(safeFileName).normalize();
+                if (!savePath.startsWith(userDir.normalize())) {
+                    throw new IllegalArgumentException("Template path must stay inside the user template folder.");
+                }
+                Files.writeString(savePath, xml, StandardCharsets.UTF_8,
+                        java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE);
                 AlertHelper.info("Saved", "Custom template saved to:\n" + savePath.toAbsolutePath());
                 loadAvailableTemplates();
-                cbTemplates.setValue(fileName);
+                cbTemplates.setValue(safeFileName);
             } catch (Exception ex) { 
                 logger.error("Save Error", ex);
                 AlertHelper.error("Save Error", ex.getMessage());
@@ -552,6 +600,8 @@ public class VisualTemplateEditor {
             }
             xml = com.aceerp.service.ReportTemplateService.normalizeJrxml(xml);
             txtXml.setText(xml);
+            syncDescriptionToggle(xml);
+            syncAmountInWordsToggle(xml);
             templateActions.update(xml);
             drawCanvas();
         } catch (Exception ex) {
@@ -588,11 +638,18 @@ public class VisualTemplateEditor {
 
         String xml = txtXml.getText();
         if (xml == null || xml.isBlank()) return;
+        syncDescriptionToggle(xml);
+        syncAmountInWordsToggle(xml);
 
         try {
             DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
             dbFactory.setValidating(false);
+            dbFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             dbFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            dbFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            dbFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            dbFactory.setXIncludeAware(false);
+            dbFactory.setExpandEntityReferences(false);
             DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
             Document doc = dBuilder.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
 
@@ -644,104 +701,170 @@ public class VisualTemplateEditor {
             logger.warn("Canvas XML parse error: {}", e.getMessage());
             AlertHelper.error("Malformed Template XML", 
                 "Syntax error in JRXML code.\nLine " + e.getLineNumber() + ": " + e.getMessage());
-        } catch (Exception e) { 
-            logger.warn("Canvas error", e); 
+        } catch (Exception e) {
+            logger.error("Could not render the visual template canvas", e);
+            AlertHelper.error("Canvas Refresh Failed", "Could not display the template canvas:\n" + e.getMessage());
         }
     }
 
-    private void injectNewElement(String type) {
+    private void syncDescriptionToggle(String xml) {
+        if (chkShowDescription == null) return;
+        java.util.regex.Matcher parameter = java.util.regex.Pattern.compile(
+                "(?s)(<parameter\\b(?=[^>]*\\bname\\s*=\\s*['\"]SHOW_DESCRIPTION['\"])[^>]*>)(.*?)(</parameter>)")
+                .matcher(xml);
+        boolean available = parameter.find();
+        chkShowDescription.setManaged(available);
+        chkShowDescription.setVisible(available);
+        if (!available) return;
+
+        java.util.regex.Matcher defaultValue = java.util.regex.Pattern.compile(
+                "(?s)<defaultValueExpression\\b[^>]*>\\s*<!\\[CDATA\\[(.*?)\\]\\]>\\s*</defaultValueExpression>")
+                .matcher(parameter.group(2));
+        chkShowDescription.setSelected(!defaultValue.find()
+                || "Boolean.TRUE".equals(defaultValue.group(1).trim()));
+    }
+
+    private void syncAmountInWordsToggle(String xml) {
+        if (chkShowAmountInWords == null) return;
+        java.util.regex.Matcher parameter = findBooleanParameter(xml, "SHOW_AMOUNT_IN_WORDS");
+        boolean available = parameter.find();
+        chkShowAmountInWords.setManaged(available);
+        chkShowAmountInWords.setVisible(available);
+        if (available) chkShowAmountInWords.setSelected(readBooleanDefault(parameter.group(2)));
+    }
+
+    private java.util.regex.Matcher findBooleanParameter(String xml, String name) {
+        return java.util.regex.Pattern.compile(
+                "(?s)(<parameter\\b(?=[^>]*\\bname\\s*=\\s*['\"]" +
+                        java.util.regex.Pattern.quote(name) + "['\"])[^>]*>)(.*?)(</parameter>)")
+                .matcher(xml);
+    }
+
+    private boolean readBooleanDefault(String parameterBody) {
+        java.util.regex.Matcher defaultValue = java.util.regex.Pattern.compile(
+                "(?s)<defaultValueExpression\\b[^>]*>\\s*<!\\[CDATA\\[(.*?)\\]\\]>\\s*</defaultValueExpression>")
+                .matcher(parameterBody);
+        return !defaultValue.find() || "Boolean.TRUE".equals(defaultValue.group(1).trim());
+    }
+
+    private void updateBooleanParameterDefault(String name, boolean value) {
         String xml = txtXml.getText();
-        int detailIdx = xml.indexOf("<detail>");
-        if (detailIdx == -1) { AlertHelper.error("Error", "Template missing <detail> band."); return; }
-        int bandIdx = xml.indexOf("<band", detailIdx);
-        int bandEnd = xml.indexOf(">", bandIdx);
-        if (bandEnd == -1) return;
+        java.util.regex.Pattern parameterPattern = java.util.regex.Pattern.compile(
+                "(?s)(<parameter\\b(?=[^>]*\\bname\\s*=\\s*['\"]" +
+                        java.util.regex.Pattern.quote(name) + "['\"])[^>]*>)(.*?)(</parameter>)");
+        java.util.regex.Matcher parameter = parameterPattern.matcher(xml);
+        if (!parameter.find()) return;
 
-        String uuid = UUID.randomUUID().toString();
-        String newElem = "";
+        String body = parameter.group(2);
+        String expression = "<defaultValueExpression><![CDATA[Boolean." +
+                (value ? "TRUE" : "FALSE") + "]]></defaultValueExpression>";
+        java.util.regex.Matcher existing = java.util.regex.Pattern.compile(
+                "(?s)<defaultValueExpression\\b[^>]*>.*?</defaultValueExpression>").matcher(body);
+        String updatedBody = existing.find()
+                ? existing.replaceFirst(java.util.regex.Matcher.quoteReplacement(expression))
+                : body + expression;
+        String updatedParameter = parameter.group(1) + updatedBody + parameter.group(3);
+        String updatedXml = xml.substring(0, parameter.start()) + updatedParameter + xml.substring(parameter.end());
+        txtXml.setText(updatedXml);
+        if (templateActions != null) templateActions.update(updatedXml);
+        btnSave.setDisable(false);
+    }
 
-        if ("Label".equals(type)) {
-            newElem = "\n\t\t\t<staticText>\n\t\t\t\t<reportElement x=\"0\" y=\"0\" width=\"250\" height=\"20\" uuid=\"" + uuid + "\"/>\n\t\t\t\t<text><![CDATA[Special Note: Free service warranty applied]]></text>\n\t\t\t</staticText>";
-        } else if ("Field".equals(type)) {
-            newElem = "\n\t\t\t<textField>\n\t\t\t\t<reportElement x=\"0\" y=\"0\" width=\"150\" height=\"20\" uuid=\"" + uuid + "\"/>\n\t\t\t\t<textFieldExpression><![CDATA[\"Dynamic Value\"]]></textFieldExpression>\n\t\t\t</textField>";
-        } else if ("Line".equals(type)) {
-            newElem = "\n\t\t\t<line>\n\t\t\t\t<reportElement x=\"0\" y=\"0\" width=\"300\" height=\"1\" uuid=\"" + uuid + "\"/>\n\t\t\t</line>";
+    private void injectNewElement(String type) {
+        try {
+            Document document = parseEditorDocument(txtXml.getText());
+            Element detail = findFirstElement(document, "detail");
+            Element band = detail == null ? null : findFirstElement(detail, "band");
+            if (band == null) {
+                AlertHelper.error("Cannot Add Element", "Template missing a <detail><band> section.");
+                return;
+            }
+
+            String tagName = switch (type) {
+                case "Label" -> "staticText";
+                case "Field" -> "textField";
+                case "Line" -> "line";
+                default -> throw new IllegalArgumentException("Unsupported element type: " + type);
+            };
+            Element newElement = document.createElement(tagName);
+            Element reportElement = document.createElement("reportElement");
+            reportElement.setAttribute("x", "0");
+            reportElement.setAttribute("y", "0");
+            reportElement.setAttribute("width", "Line".equals(type) ? "300" : "200");
+            reportElement.setAttribute("height", "Line".equals(type) ? "1" : "20");
+            reportElement.setAttribute("uuid", UUID.randomUUID().toString());
+            newElement.appendChild(reportElement);
+
+            if ("Label".equals(type)) {
+                Element text = document.createElement("text");
+                text.appendChild(document.createTextNode("New label"));
+                newElement.appendChild(text);
+            } else if ("Field".equals(type)) {
+                Element expression = document.createElement("textFieldExpression");
+                expression.appendChild(document.createCDATASection("\"Dynamic Value\""));
+                newElement.appendChild(expression);
+            }
+            band.appendChild(newElement);
+            txtXml.setText(serializeEditorDocument(document));
+            btnSave.setDisable(false);
+            drawCanvas();
+        } catch (Exception ex) {
+            logger.error("Could not add an element to the visual template", ex);
+            AlertHelper.error("Cannot Add Element", "Could not update the template:\n" + ex.getMessage());
         }
-
-        if (xml.charAt(bandEnd - 1) == '/') {
-            String bandTag = xml.substring(bandIdx, bandEnd);
-            int slash = bandTag.lastIndexOf('/');
-            String openBand = bandTag.substring(0, slash) + bandTag.substring(slash + 1);
-            xml = xml.substring(0, bandIdx) + openBand + ">" + newElem + "</band>" + xml.substring(bandEnd + 1);
-        } else {
-            xml = xml.substring(0, bandEnd + 1) + newElem + xml.substring(bandEnd + 1);
-        }
-        txtXml.setText(xml);
-        drawCanvas();
     }
 
     private void deleteSelectedElement() {
         if (selectedBox == null) return;
-        String xml = txtXml.getText();
-        int uuidIndex = xml.indexOf("uuid=\"" + selectedBox.uuid + "\"");
-        if (uuidIndex == -1) return;
-
-        int tagStart = xml.lastIndexOf("<", xml.lastIndexOf("<reportElement", uuidIndex) - 1);
-        int closeAngleIdx = xml.indexOf(">", tagStart);
-        int spaceIdx = xml.indexOf(" ", tagStart);
-        int nameEnd = (spaceIdx != -1 && spaceIdx < closeAngleIdx) ? spaceIdx : closeAngleIdx;
-        String tagName = xml.substring(tagStart + 1, nameEnd);
-
-        int tagEnd = xml.indexOf("</" + tagName + ">", uuidIndex);
-        if (tagEnd != -1) {
-            tagEnd += ("</" + tagName + ">").length();
-            txtXml.setText(xml.substring(0, tagStart) + xml.substring(tagEnd));
+        try {
+            Document document = parseEditorDocument(txtXml.getText());
+            Element reportElement = findReportElement(document, selectedBox.uuid);
+            if (reportElement == null || reportElement.getParentNode() == null) return;
+            reportElement.getParentNode().getParentNode().removeChild(reportElement.getParentNode());
+            txtXml.setText(serializeEditorDocument(document));
+            btnSave.setDisable(false);
             drawCanvas();
+        } catch (Exception ex) {
+            logger.error("Could not delete the selected visual template element", ex);
+            AlertHelper.error("Delete Failed", "Could not remove the selected element:\n" + ex.getMessage());
         }
     }
 
     private void loadTextFromXml(String uuid) {
-        String xml = txtXml.getText();
-        int uuidIdx = xml.indexOf("uuid=\"" + uuid + "\"");
-        if (uuidIdx == -1) return;
-
-        int tagStart = xml.lastIndexOf("<", xml.lastIndexOf("<reportElement", uuidIdx) - 1);
-        int nextElem = xml.indexOf("<reportElement", uuidIdx + 1);
-        if (nextElem == -1) nextElem = xml.length();
-
-        int cdataStart = xml.indexOf("<![CDATA[", tagStart);
-        if (cdataStart != -1 && cdataStart < nextElem) {
-            int cdataEnd = xml.indexOf("]]>", cdataStart);
-            if (cdataEnd != -1) {
-                txtEditContent.setText(xml.substring(cdataStart + 9, cdataEnd));
+        try {
+            Document document = parseEditorDocument(txtXml.getText());
+            Element reportElement = findReportElement(document, uuid);
+            Node content = reportElement == null ? null : findEditableContent(reportElement.getParentNode());
+            if (content != null) {
+                txtEditContent.setText(content.getTextContent());
                 btnUpdateContent.setDisable(false);
-                return;
+            } else {
+                txtEditContent.setText("");
+                btnUpdateContent.setDisable(true);
             }
+        } catch (Exception ex) {
+            logger.error("Could not read the selected element's text", ex);
+            AlertHelper.error("Text Read Failed", "Could not read the selected element:\n" + ex.getMessage());
         }
-        txtEditContent.setText("");
-        btnUpdateContent.setDisable(true);
     }
 
     private void applyTextToSelected() {
         if (selectedBox == null) return;
-        String xml = txtXml.getText();
-        int uuidIdx = xml.indexOf("uuid=\"" + selectedBox.uuid + "\"");
-        if (uuidIdx == -1) return;
-
-        int tagStart = xml.lastIndexOf("<", xml.lastIndexOf("<reportElement", uuidIdx) - 1);
-        int nextElem = xml.indexOf("<reportElement", uuidIdx + 1);
-        if (nextElem == -1) nextElem = xml.length();
-
-        int cdataStart = xml.indexOf("<![CDATA[", tagStart);
-        if (cdataStart != -1 && cdataStart < nextElem) {
-            int cdataEnd = xml.indexOf("]]>", cdataStart);
-            if (cdataEnd != -1) {
-                String safeCdata = txtEditContent.getText().replace("]]>", "]]]]><![CDATA[>");
-                String newXml = xml.substring(0, cdataStart + 9) + safeCdata + xml.substring(cdataEnd);
-                txtXml.setText(newXml);
-                AlertHelper.info("Updated", "Text content updated!");
-                drawCanvas();
+        try {
+            Document document = parseEditorDocument(txtXml.getText());
+            Element reportElement = findReportElement(document, selectedBox.uuid);
+            Node content = reportElement == null ? null : findEditableContent(reportElement.getParentNode());
+            if (content == null) {
+                AlertHelper.error("Text Update Failed", "The selected element does not contain editable text.");
+                return;
             }
+            content.setTextContent(txtEditContent.getText());
+            txtXml.setText(serializeEditorDocument(document));
+            btnSave.setDisable(false);
+            drawCanvas();
+        } catch (Exception ex) {
+            logger.error("Could not update the selected element's text", ex);
+            AlertHelper.error("Text Update Failed", "Could not update the selected element:\n" + ex.getMessage());
         }
     }
 
@@ -751,19 +874,81 @@ public class VisualTemplateEditor {
     }
 
     private void updateXmlCoordinates(String uuid, double newX, double newY) {
-        String xml = txtXml.getText();
-        int idx = xml.indexOf("uuid=\"" + uuid + "\"");
-        if (idx == -1) return;
+        try {
+            Document document = parseEditorDocument(txtXml.getText());
+            Element reportElement = findReportElement(document, uuid);
+            if (reportElement == null) return;
+            reportElement.setAttribute("x", Integer.toString((int) Math.round(newX)));
+            reportElement.setAttribute("y", Integer.toString((int) Math.round(newY)));
+            txtXml.setText(serializeEditorDocument(document));
+            btnSave.setDisable(false);
+        } catch (Exception ex) {
+            logger.error("Could not save the selected element's position", ex);
+            AlertHelper.error("Position Update Failed", "Could not save the element position:\n" + ex.getMessage());
+        }
+    }
 
-        int start = xml.lastIndexOf("<reportElement", idx);
-        int end = xml.indexOf(">", idx);
-        if (start == -1 || end == -1) return;
+    private Document parseEditorDocument(String xml) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(false);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
+        return factory.newDocumentBuilder().parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+    }
 
-        String tag = xml.substring(start, end + 1);
-        tag = setElementAttribute(tag, "x", (int) Math.round(newX));
-        tag = setElementAttribute(tag, "y", (int) Math.round(newY));
+    private String serializeEditorDocument(Document document) throws Exception {
+        var transformer = TransformerFactory.newInstance().newTransformer();
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+        StringWriter writer = new StringWriter();
+        transformer.transform(new DOMSource(document), new StreamResult(writer));
+        return writer.toString();
+    }
 
-        txtXml.setText(xml.substring(0, start) + tag + xml.substring(end + 1));
+    private Element findReportElement(Document document, String uuid) {
+        NodeList elements = document.getElementsByTagName("*");
+        for (int i = 0; i < elements.getLength(); i++) {
+            Node node = elements.item(i);
+            if (node instanceof Element element && "reportElement".equals(localName(element))
+                    && uuid.equals(element.getAttribute("uuid"))) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    private Element findFirstElement(Node parent, String name) {
+        if (parent instanceof Element element && name.equals(localName(element))) return element;
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Element found = findFirstElement(children.item(i), name);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private String localName(Element element) {
+        String name = element.getTagName();
+        int colon = name.lastIndexOf(':');
+        return colon < 0 ? name : name.substring(colon + 1);
+    }
+
+    private Node findEditableContent(Node parent) {
+        if (parent == null) return null;
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (child instanceof Element element
+                    && ("text".equals(localName(element)) || "textFieldExpression".equals(localName(element)))) {
+                return child;
+            }
+        }
+        return null;
     }
 
     private String setReportAttribute(String xml, String attribute, int value) {

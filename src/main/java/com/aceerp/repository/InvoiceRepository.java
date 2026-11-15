@@ -147,23 +147,25 @@ public class InvoiceRepository {
             ps.setInt(1, inv.getId());
             ps.executeUpdate();
         }
-        String sql = "INSERT INTO invoice_lines (invoice_id, product_id, description, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, discount_type, discount_value, package_price) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO invoice_lines (invoice_id, product_id, description, line_description, warranty, quantity, unit_price, discount_percent, notes, tax_rate, tax_amount, line_total, discount_type, discount_value, package_price) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (InvoiceLine line : inv.getLines()) {
                 ps.setInt(1, inv.getId());
                 if (line.getProductId() != null && line.getProductId() > 0) ps.setInt(2, line.getProductId()); else ps.setNull(2, Types.INTEGER);
                 ps.setString(3, line.getDescription());
-                ps.setBigDecimal(4, line.getQuantity());
-                ps.setBigDecimal(5, line.getUnitPrice());
-                ps.setBigDecimal(6, line.getDiscountPercent());
-                ps.setString(7, line.getNotes());
-                ps.setBigDecimal(8, line.getTaxRate());
-                ps.setBigDecimal(9, line.getTaxAmount());
-                ps.setBigDecimal(10, line.getLineTotal());
-                ps.setString(11, line.getDiscountType());
-                ps.setBigDecimal(12, line.getDiscountValue());
-                ps.setBoolean(13, line.isPackagePrice());
+                ps.setString(4, line.getLineDescription());
+                ps.setString(5, line.getWarranty());
+                ps.setBigDecimal(6, line.getQuantity());
+                ps.setBigDecimal(7, line.getUnitPrice());
+                ps.setBigDecimal(8, line.getDiscountPercent());
+                ps.setString(9, line.getNotes());
+                ps.setBigDecimal(10, line.getTaxRate());
+                ps.setBigDecimal(11, line.getTaxAmount());
+                ps.setBigDecimal(12, line.getLineTotal());
+                ps.setString(13, line.getDiscountType());
+                ps.setBigDecimal(14, line.getDiscountValue());
+                ps.setBoolean(15, line.isPackagePrice());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -197,6 +199,8 @@ public class InvoiceRepository {
                     int prodId = rs.getInt("product_id");
                     if (!rs.wasNull()) line.setProductId(prodId);
                     line.setDescription(rs.getString("description"));
+                    line.setLineDescription(rs.getString("line_description"));
+                    line.setWarranty(rs.getString("warranty"));
                     line.setQuantity(rs.getBigDecimal("quantity"));
                     line.setUnitPrice(rs.getBigDecimal("unit_price"));
                     line.setDiscountType(rs.getString("discount_type"));

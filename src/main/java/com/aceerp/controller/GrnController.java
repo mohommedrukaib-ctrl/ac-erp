@@ -45,6 +45,9 @@ public class GrnController {
     @FXML private TableView<GrnLine> linesTable;
     @FXML private TableColumn<GrnLine, String> colProductCode;
     @FXML private TableColumn<GrnLine, String> colDescription;
+    @FXML private TableColumn<GrnLine, String> colLineDescription;
+    @FXML private TableColumn<GrnLine, String> colWarranty;
+    @FXML private CheckBox chkShowLineDescription;
     @FXML private TableColumn<GrnLine, BigDecimal> colQtyOrdered;
     @FXML private TableColumn<GrnLine, BigDecimal> colQtyReceived;
     @FXML private TableColumn<GrnLine, BigDecimal> colUnitCost;
@@ -101,6 +104,24 @@ public class GrnController {
 
         colProductCode.setCellValueFactory(new PropertyValueFactory<>("productCode"));
         colDescription.setCellValueFactory(new PropertyValueFactory<>("description"));
+        colLineDescription.setCellValueFactory(new PropertyValueFactory<>("lineDescription"));
+        colLineDescription.setCellFactory(TextFieldTableCell.forTableColumn());
+        colLineDescription.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setLineDescription(e.getNewValue());
+            linesTable.refresh();
+        });
+        colLineDescription.setVisible(chkShowLineDescription.isSelected());
+        chkShowLineDescription.selectedProperty().addListener((obs, wasSelected, isSelected) ->
+                colLineDescription.setVisible(isSelected));
+
+        colWarranty.setCellValueFactory(new PropertyValueFactory<>("warranty"));
+        colWarranty.setCellFactory(TextFieldTableCell.forTableColumn());
+        colWarranty.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setWarranty(e.getNewValue());
+            linesTable.refresh();
+        });
 
         colQtyOrdered.setCellValueFactory(new PropertyValueFactory<>("quantityOrdered"));
         colQtyOrdered.setCellFactory(TextFieldTableCell.forTableColumn(new BigDecimalStringConverter()));
@@ -599,7 +620,7 @@ public class GrnController {
             showAlert(Alert.AlertType.WARNING, "Print Error", "Please select a saved, posted GRN to print.");
             return;
         }
-        showAlert(Alert.AlertType.INFORMATION, "Print Preview", "Printing Goods Received Note #" + currentGrn.getGrnNumber());
+        com.aceerp.service.ReportService.printGrn(currentGrn.getId());
     }
 
     private void updateTotals() {

@@ -14,6 +14,7 @@
         <Region HBox.hgrow="ALWAYS"/>
         <ComboBox fx:id="statusFilter" prefWidth="140"/>
         <Button text="⟳ Refresh" onAction="#onRefresh" styleClass="btn-secondary"/>
+        <Button text="Print Payslip" onAction="#onPrintPayslip" styleClass="btn-secondary"/>
         <Button text="Mark Paid" onAction="#onMarkPaid" styleClass="btn-primary"/>
     </HBox>
 

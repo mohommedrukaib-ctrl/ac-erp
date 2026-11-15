@@ -32,10 +32,16 @@ public class TemplateEditorDialog {
 
         ComboBox<String> cbTemplates = new ComboBox<>();
         cbTemplates.getItems().addAll(
+            "classic/invoice.jrxml",
+            "classic/quotation.jrxml",
+            "classic/grn.jrxml",
             "warranty_certificate.jrxml",
             "amc_renewal_notice.jrxml",
             "technician_payslip.jrxml",
-            "invoice.jrxml"
+            "classic/sales_order.jrxml",
+            "classic/delivery_note.jrxml",
+            "classic/purchase_order.jrxml",
+            "classic/supplier_bill.jrxml"
         );
         cbTemplates.setPromptText("Select a Template to Edit");
 

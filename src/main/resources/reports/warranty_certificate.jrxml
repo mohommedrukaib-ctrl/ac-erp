@@ -7,8 +7,8 @@
     <parameter name="COMPANY_NAME" class="java.lang.String"/>
     <queryString>
         <![CDATA[
-            SELECT ps.serial_number, p.name as product_name, p.code as product_code, 
-                   ps.warranty_expiry_date, c.name as customer_name
+            SELECT ps.serial_number, p.name as product_name, p.product_code,
+                   ps.warranty_expiry AS warranty_expiry_date, c.name as customer_name
             FROM product_serials ps
             JOIN products p ON ps.product_id = p.id
             JOIN customers c ON ps.customer_id = c.id
@@ -17,6 +17,7 @@
     </queryString>
     <field name="serial_number" class="java.lang.String"/>
     <field name="product_name" class="java.lang.String"/>
+    <field name="product_code" class="java.lang.String"/>
     <field name="warranty_expiry_date" class="java.sql.Date"/>
     <field name="customer_name" class="java.lang.String"/>
     <title>

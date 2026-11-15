@@ -3,6 +3,7 @@ package com.aceerp.controller;
 import com.aceerp.model.TechnicianCommission;
 import com.aceerp.service.AuditLogService;
 import com.aceerp.service.CommissionService;
+import com.aceerp.service.ReportService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.CurrencyFormatter;
 import javafx.beans.property.SimpleStringProperty;
@@ -90,5 +91,18 @@ public class CommissionController {
         } catch (Exception e) {
             AlertHelper.error("Error", e.getMessage());
         }
+    }
+
+    @FXML
+    private void onPrintPayslip() {
+        TechnicianCommission selected = commissionsTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            AlertHelper.warning("No Selection", "Select a technician commission to print.");
+            return;
+        }
+        ReportService.printTechnicianPayslip(selected.getTechnicianId(), selected.getStatus());
+        AuditLogService.log("PRINT", "TECHNICIAN_COMMISSION", selected.getId(),
+                "Printed " + selected.getStatus().toLowerCase() + " commission statement for "
+                        + selected.getTechnicianName());
     }
 }

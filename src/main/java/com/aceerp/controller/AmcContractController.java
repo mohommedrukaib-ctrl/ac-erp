@@ -6,6 +6,7 @@ import com.aceerp.model.Customer;
 import com.aceerp.service.AmcContractService;
 import com.aceerp.service.AuditLogService;
 import com.aceerp.service.CustomerService;
+import com.aceerp.service.ReportService;
 import com.aceerp.util.AlertHelper;
 import com.aceerp.util.InputValidation;
 import com.aceerp.util.CurrencyFormatter;
@@ -117,6 +118,18 @@ public class AmcContractController {
             return;
         }
         showDialog(sel);
+    }
+
+    @FXML
+    private void onPrintRenewalNotice() {
+        AmcContract selected = contractsTable.getSelectionModel().getSelectedItem();
+        if (selected == null || selected.getId() <= 0) {
+            AlertHelper.warning("No Selection", "Select a saved AMC contract to print its renewal notice.");
+            return;
+        }
+        ReportService.printAmcRenewalNotice(selected.getId());
+        AuditLogService.log("PRINT", "AMC_CONTRACT", selected.getId(),
+                "Printed renewal notice for " + selected.getContractNumber());
     }
 
     @FXML

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="GoodsReceivedNote" pageWidth="595" pageHeight="842" columnWidth="535"
+              leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30">
+    <parameter name="GRN_ID" class="java.lang.Integer"/>
+    <parameter name="SHOW_DESCRIPTION" class="java.lang.Boolean">
+        <defaultValueExpression><![CDATA[Boolean.TRUE]]></defaultValueExpression>
+    </parameter>
+    <parameter name="SHOW_AMOUNT_IN_WORDS" class="java.lang.Boolean">
+        <defaultValueExpression><![CDATA[Boolean.TRUE]]></defaultValueExpression>
+    </parameter>
+    <parameter name="COMPANY_NAME" class="java.lang.String"/>
+    <parameter name="COMPANY_TAGLINE" class="java.lang.String"/>
+    <parameter name="COMPANY_ADDRESS" class="java.lang.String"/>
+    <parameter name="COMPANY_PHONE" class="java.lang.String"/>
+    <parameter name="COMPANY_EMAIL" class="java.lang.String"/>
+    <parameter name="COMPANY_WEBSITE" class="java.lang.String"/>
+    <parameter name="COMPANY_TAX_NO" class="java.lang.String"/>
+    <parameter name="COMPANY_FOOTER" class="java.lang.String"/>
+    <parameter name="COMPANY_LOGO" class="java.lang.String"/>
+    <queryString>
+        <![CDATA[
+            SELECT g.grn_number, g.received_date, g.delivery_note_ref,
+                   s.name AS supplier_name, gl.product_id, p.product_code,
+                   gl.description, gl.line_description, gl.warranty,
+                   gl.quantity_ordered, gl.quantity_received, gl.unit_cost, gl.line_total
+            FROM goods_received_notes g
+            JOIN suppliers s ON s.id = g.supplier_id
+            JOIN grn_lines gl ON gl.grn_id = g.id
+            LEFT JOIN products p ON p.id = gl.product_id
+            WHERE g.id = $P{GRN_ID}
+            ORDER BY gl.id
+        ]]>
+    </queryString>
+    <field name="grn_number" class="java.lang.String"/>
+    <field name="received_date" class="java.sql.Date"/>
+    <field name="delivery_note_ref" class="java.lang.String"/>
+    <field name="supplier_name" class="java.lang.String"/>
+    <field name="product_code" class="java.lang.String"/>
+    <field name="description" class="java.lang.String"/>
+    <field name="line_description" class="java.lang.String"/>
+    <field name="warranty" class="java.lang.String"/>
+    <field name="quantity_ordered" class="java.math.BigDecimal"/>
+    <field name="quantity_received" class="java.math.BigDecimal"/>
+    <field name="unit_cost" class="java.math.BigDecimal"/>
+    <field name="line_total" class="java.math.BigDecimal"/>
+    <variable name="GRN_TOTAL" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{line_total}]]></variableExpression>
+    </variable>
+    <title>
+        <band height="110">
+            <image onErrorType="Blank">
+                <reportElement x="0" y="0" width="120" height="55"/>
+                <imageExpression><![CDATA[$P{COMPANY_LOGO}]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="130" y="0" width="260" height="24"/>
+                <textElement><font size="16" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COMPANY_NAME}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="130" y="28" width="260" height="34"/>
+                <textElement><font size="9"/></textElement>
+                <textFieldExpression><![CDATA[$P{COMPANY_ADDRESS} + "\n" + $P{COMPANY_PHONE}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="400" y="0" width="135" height="24"/>
+                <textElement><font size="15" isBold="true"/></textElement>
+                <text><![CDATA[GOODS RECEIVED]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="400" y="30" width="135" height="20"/>
+                <textFieldExpression><![CDATA["GRN: " + $F{grn_number}]]></textFieldExpression>
+            </textField>
+            <textField pattern="yyyy-MM-dd">
+                <reportElement x="400" y="52" width="135" height="20"/>
+                <textFieldExpression><![CDATA[$F{received_date}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="78" width="300" height="20"/>
+                <textFieldExpression><![CDATA["Supplier: " + $F{supplier_name}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="310" y="78" width="225" height="20"/>
+                <textFieldExpression><![CDATA["Delivery Ref: " + ($F{delivery_note_ref} == null ? "" : $F{delivery_note_ref})]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+    <columnHeader>
+        <band height="27">
+            <staticText><reportElement x="0" y="2" width="65" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Code]]></text></staticText>
+            <staticText><reportElement x="67" y="2" width="100" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Item]]></text></staticText>
+            <staticText><reportElement x="169" y="2" width="110" height="20"><printWhenExpression><![CDATA[$P{SHOW_DESCRIPTION}]]></printWhenExpression></reportElement><textElement><font isBold="true"/></textElement><text><![CDATA[Description]]></text></staticText>
+            <staticText><reportElement x="281" y="2" width="70" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Warranty]]></text></staticText>
+            <staticText><reportElement x="353" y="2" width="50" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Qty]]></text></staticText>
+            <staticText><reportElement x="405" y="2" width="65" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Unit Cost]]></text></staticText>
+            <staticText><reportElement x="472" y="2" width="63" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Total]]></text></staticText>
+            <line><reportElement x="0" y="24" width="535" height="1"/></line>
+        </band>
+    </columnHeader>
+    <detail>
+        <band height="25" splitType="Stretch">
+            <textField><reportElement x="0" y="2" width="65" height="20"/><textFieldExpression><![CDATA[$F{product_code}]]></textFieldExpression></textField>
+            <textField textAdjust="StretchHeight"><reportElement x="67" y="2" width="100" height="20"/><textFieldExpression><![CDATA[$F{description}]]></textFieldExpression></textField>
+            <textField textAdjust="StretchHeight"><reportElement x="169" y="2" width="110" height="20"><printWhenExpression><![CDATA[$P{SHOW_DESCRIPTION}]]></printWhenExpression></reportElement><textFieldExpression><![CDATA[$F{line_description}]]></textFieldExpression></textField>
+            <textField textAdjust="StretchHeight"><reportElement x="281" y="2" width="70" height="20"/><textFieldExpression><![CDATA[$F{warranty}]]></textFieldExpression></textField>
+            <textField><reportElement x="353" y="2" width="50" height="20"/><textFieldExpression><![CDATA[$F{quantity_received}]]></textFieldExpression></textField>
+            <textField><reportElement x="405" y="2" width="65" height="20"/><textFieldExpression><![CDATA[$F{unit_cost}]]></textFieldExpression></textField>
+            <textField><reportElement x="472" y="2" width="63" height="20"/><textFieldExpression><![CDATA[$F{line_total}]]></textFieldExpression></textField>
+        </band>
+    </detail>
+    <summary>
+        <band height="55">
+            <line><reportElement x="405" y="2" width="130" height="1"/></line>
+            <textField isBlankWhenNull="true" textAdjust="StretchHeight">
+                <reportElement x="0" y="8" width="395" height="35">
+                    <printWhenExpression><![CDATA[$P{SHOW_AMOUNT_IN_WORDS}]]></printWhenExpression>
+                </reportElement>
+                <textElement><font size="8"/></textElement>
+                <textFieldExpression><![CDATA["Amount in words: " + com.aceerp.util.CurrencyFormatter.toWords($V{GRN_TOTAL})]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="405" y="8" width="130" height="20"/>
+                <textElement textAlignment="Right"><font isBold="true"/></textElement>
+                <textFieldExpression><![CDATA["Total: " + $V{GRN_TOTAL}]]></textFieldExpression>
+            </textField>
+        </band>
+    </summary>
+</jasperReport>

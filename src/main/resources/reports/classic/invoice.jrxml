@@ -5,6 +5,12 @@
               name="Invoice" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30">
     
     <parameter name="INVOICE_ID" class="java.lang.Integer"/>
+    <parameter name="SHOW_DESCRIPTION" class="java.lang.Boolean">
+        <defaultValueExpression><![CDATA[Boolean.TRUE]]></defaultValueExpression>
+    </parameter>
+    <parameter name="SHOW_AMOUNT_IN_WORDS" class="java.lang.Boolean">
+        <defaultValueExpression><![CDATA[Boolean.TRUE]]></defaultValueExpression>
+    </parameter>
         <!-- Company Branding Parameters -->
     <parameter name="COMPANY_NAME" class="java.lang.String"/>
     <parameter name="COMPANY_TAGLINE" class="java.lang.String"/>
@@ -23,7 +29,7 @@
             SELECT i.invoice_number, i.invoice_date, i.subtotal, i.tax_amount, i.total_amount,
                    i.document_discount_type, i.document_discount_value, i.document_discount_amount,
                    c.name AS customer_name, c.phone,
-                   il.description, il.quantity, il.unit_price, il.line_total,
+                   il.description, il.line_description, il.warranty, il.quantity, il.unit_price, il.line_total,
                    il.discount_type, il.discount_value, il.package_price
             FROM invoices i
             JOIN customers c ON i.customer_id = c.id
@@ -42,6 +48,8 @@
     <field name="document_discount_amount" class="java.math.BigDecimal"/>
     <field name="customer_name" class="java.lang.String"/>
     <field name="description" class="java.lang.String"/>
+    <field name="line_description" class="java.lang.String"/>
+    <field name="warranty" class="java.lang.String"/>
     <field name="quantity" class="java.math.BigDecimal"/>
     <field name="unit_price" class="java.math.BigDecimal"/>
     <field name="line_total" class="java.math.BigDecimal"/>
@@ -80,27 +88,31 @@
     
     <columnHeader>
         <band height="30">
-            <staticText><reportElement x="0" y="5" width="215" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Item Description]]></text></staticText>
-            <staticText><reportElement x="220" y="5" width="50" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Qty]]></text></staticText>
-            <staticText><reportElement x="275" y="5" width="80" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Price]]></text></staticText>
-            <staticText><reportElement x="360" y="5" width="75" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Discount]]></text></staticText>
-            <staticText><reportElement x="450" y="5" width="85" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Total]]></text></staticText>
+            <staticText><reportElement x="0" y="5" width="128" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Item]]></text></staticText>
+            <staticText><reportElement x="130" y="5" width="108" height="20"><printWhenExpression><![CDATA[$P{SHOW_DESCRIPTION}]]></printWhenExpression></reportElement><textElement><font isBold="true"/></textElement><text><![CDATA[Description]]></text></staticText>
+            <staticText><reportElement x="240" y="5" width="62" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Warranty]]></text></staticText>
+            <staticText><reportElement x="304" y="5" width="40" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Qty]]></text></staticText>
+            <staticText><reportElement x="346" y="5" width="62" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Price]]></text></staticText>
+            <staticText><reportElement x="410" y="5" width="58" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Discount]]></text></staticText>
+            <staticText><reportElement x="470" y="5" width="65" height="20"/><textElement><font isBold="true"/></textElement><text><![CDATA[Total]]></text></staticText>
             <line><reportElement x="0" y="25" width="535" height="1"/></line>
         </band>
     </columnHeader>
     
     <detail>
         <band height="25" splitType="Stretch">
-            <textField textAdjust="StretchHeight"><reportElement x="0" y="2" width="215" height="20"/><textFieldExpression><![CDATA[$F{description}]]></textFieldExpression></textField>
-            <textField><reportElement x="220" y="2" width="50" height="20"/><textFieldExpression><![CDATA[$F{quantity}]]></textFieldExpression></textField>
-            <textField><reportElement x="275" y="2" width="80" height="20"/><textFieldExpression><![CDATA[($F{package_price} ? "Pkg " : "") + $F{unit_price}]]></textFieldExpression></textField>
-            <textField><reportElement x="360" y="2" width="75" height="20"/><textFieldExpression><![CDATA[$F{discount_value} == null ? "" : ("AMOUNT".equals($F{discount_type}) ? $F{discount_value}.toPlainString() : $F{discount_value}.stripTrailingZeros().toPlainString() + "%")]]></textFieldExpression></textField>
-            <textField><reportElement x="450" y="2" width="85" height="20"/><textFieldExpression><![CDATA[$F{line_total}]]></textFieldExpression></textField>
+            <textField textAdjust="StretchHeight"><reportElement x="0" y="2" width="128" height="20"/><textFieldExpression><![CDATA[$F{description}]]></textFieldExpression></textField>
+            <textField textAdjust="StretchHeight"><reportElement x="130" y="2" width="108" height="20"><printWhenExpression><![CDATA[$P{SHOW_DESCRIPTION}]]></printWhenExpression></reportElement><textFieldExpression><![CDATA[$F{line_description}]]></textFieldExpression></textField>
+            <textField textAdjust="StretchHeight"><reportElement x="240" y="2" width="62" height="20"/><textFieldExpression><![CDATA[$F{warranty}]]></textFieldExpression></textField>
+            <textField><reportElement x="304" y="2" width="40" height="20"/><textFieldExpression><![CDATA[$F{quantity}]]></textFieldExpression></textField>
+            <textField><reportElement x="346" y="2" width="62" height="20"/><textFieldExpression><![CDATA[($F{package_price} ? "Pkg " : "") + $F{unit_price}]]></textFieldExpression></textField>
+            <textField><reportElement x="410" y="2" width="58" height="20"/><textFieldExpression><![CDATA[$F{discount_value} == null ? "" : ("AMOUNT".equals($F{discount_type}) ? $F{discount_value}.toPlainString() : $F{discount_value}.stripTrailingZeros().toPlainString() + "%")]]></textFieldExpression></textField>
+            <textField><reportElement x="470" y="2" width="65" height="20"/><textFieldExpression><![CDATA[$F{line_total}]]></textFieldExpression></textField>
         </band>
     </detail>
     
     <summary>
-        <band height="100">
+        <band height="120">
             <line><reportElement x="300" y="10" width="235" height="1"/></line>
             <textField><reportElement x="350" y="15" width="185" height="18"/><textElement textAlignment="Right"/><textFieldExpression><![CDATA["Subtotal: " + $F{subtotal}]]></textFieldExpression></textField>
             <textField><reportElement x="350" y="35" width="185" height="18"/><textElement textAlignment="Right"/><textFieldExpression><![CDATA["Tax: " + $F{tax_amount}]]></textFieldExpression></textField>
@@ -109,6 +121,13 @@
                 <reportElement x="350" y="75" width="185" height="25"/>
                 <textElement><font size="14" isBold="true"/></textElement>
                 <textFieldExpression><![CDATA["Total: " + $F{total_amount}]]></textFieldExpression>
+            </textField>
+            <textField isBlankWhenNull="true" textAdjust="StretchHeight">
+                <reportElement x="0" y="78" width="340" height="30">
+                    <printWhenExpression><![CDATA[$P{SHOW_AMOUNT_IN_WORDS}]]></printWhenExpression>
+                </reportElement>
+                <textElement><font size="8"/></textElement>
+                <textFieldExpression><![CDATA["Amount in words: " + com.aceerp.util.CurrencyFormatter.toWords($F{total_amount})]]></textFieldExpression>
             </textField>
         </band>
     </summary>

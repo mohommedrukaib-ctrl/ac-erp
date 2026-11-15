@@ -13,6 +13,8 @@ public class QuotationLine {
     private String productCode;
     private Product product;
     private String description;
+    private String lineDescription;
+    private String warranty;
     private BigDecimal quantity = BigDecimal.ONE;
     private BigDecimal unitPrice = BigDecimal.ZERO;
     
@@ -60,6 +62,12 @@ public class QuotationLine {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getLineDescription() { return lineDescription; }
+    public void setLineDescription(String lineDescription) { this.lineDescription = lineDescription; }
+
+    public String getWarranty() { return warranty; }
+    public void setWarranty(String warranty) { this.warranty = warranty; }
 
     public BigDecimal getQuantity() { return quantity; }
     public void setQuantity(BigDecimal quantity) {

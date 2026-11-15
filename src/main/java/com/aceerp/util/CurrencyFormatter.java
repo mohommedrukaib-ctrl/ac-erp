@@ -5,14 +5,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class CurrencyFormatter {
 
     private static final Logger log = LoggerFactory.getLogger(CurrencyFormatter.class);
+    private static final String[] SMALL_NUMBER_WORDS = {
+            "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+            "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+            "Seventeen", "Eighteen", "Nineteen"
+    };
+    private static final String[] TENS_NUMBER_WORDS = {
+            "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
+    };
+    private static final String[] NUMBER_GROUPS = {
+            "", "Thousand", "Million", "Billion", "Trillion", "Quadrillion"
+    };
 
     private CurrencyFormatter() {}
 
@@ -132,6 +146,78 @@ public class CurrencyFormatter {
             return symbol + " " + formattedNumber;
         }
     }
+
+    public static String toWords(BigDecimal amount) {
+        if (amount == null) return "";
+        BigDecimal rounded = amount.setScale(2, RoundingMode.HALF_UP);
+        BigInteger minorUnits = rounded.abs().movePointRight(2).toBigIntegerExact();
+        BigInteger[] parts = minorUnits.divideAndRemainder(BigInteger.valueOf(100));
+        String[] currencyWords = currencyWords();
+
+        StringBuilder words = new StringBuilder();
+        if (rounded.signum() < 0) words.append("Minus ");
+        words.append(numberToWords(parts[0])).append(' ').append(currencyWords[0]);
+        if (parts[1].signum() != 0) {
+            words.append(" and ").append(numberToWords(parts[1])).append(' ').append(currencyWords[1]);
+        }
+        return words.append(" Only").toString();
+    }
+
+    private static String[] currencyWords() {
+        SettingsService settings = SettingsService.getInstance();
+        String code = settings.get("currency_code");
+        if (code == null || code.isBlank()) code = settings.get("currency.code", "LKR");
+        String normalizedCode = code == null || code.isBlank() ? "LKR" : code.trim().toUpperCase(Locale.ROOT);
+        return switch (normalizedCode) {
+            case "LKR" -> new String[]{"Rupees", "Cents"};
+            case "INR" -> new String[]{"Rupees", "Paise"};
+            case "PKR" -> new String[]{"Rupees", "Paisa"};
+            case "USD" -> new String[]{"Dollars", "Cents"};
+            case "EUR" -> new String[]{"Euros", "Cents"};
+            case "GBP" -> new String[]{"Pounds", "Pence"};
+            case "AED" -> new String[]{"Dirhams", "Fils"};
+            case "SAR" -> new String[]{"Riyals", "Halalas"};
+            case "BDT" -> new String[]{"Taka", "Paisa"};
+            default -> new String[]{normalizedCode + " Units", "Minor Units"};
+        };
+    }
+
+    private static String numberToWords(BigInteger number) {
+        if (number.signum() == 0) return SMALL_NUMBER_WORDS[0];
+        List<String> groups = new ArrayList<>();
+        BigInteger thousand = BigInteger.valueOf(1000);
+        int groupIndex = 0;
+        while (number.signum() > 0) {
+            BigInteger[] part = number.divideAndRemainder(thousand);
+            int groupValue = part[1].intValueExact();
+            if (groupValue > 0) {
+                if (groupIndex >= NUMBER_GROUPS.length) {
+                    throw new IllegalArgumentException("Amount is too large to spell out.");
+                }
+                String groupWords = underOneThousand(groupValue);
+                if (!NUMBER_GROUPS[groupIndex].isEmpty()) groupWords += " " + NUMBER_GROUPS[groupIndex];
+                groups.add(0, groupWords);
+            }
+            number = part[0];
+            groupIndex++;
+        }
+        return String.join(" ", groups);
+    }
+
+    private static String underOneThousand(int number) {
+        List<String> words = new ArrayList<>();
+        if (number >= 100) {
+            words.add(SMALL_NUMBER_WORDS[number / 100]);
+            words.add("Hundred");
+            number %= 100;
+        }
+        if (number >= 20) {
+            words.add(TENS_NUMBER_WORDS[number / 10]);
+            number %= 10;
+        }
+        if (number > 0) words.add(SMALL_NUMBER_WORDS[number]);
+        return String.join(" ", words);
+        }
 
     /**
      * Formats a primitive double value.

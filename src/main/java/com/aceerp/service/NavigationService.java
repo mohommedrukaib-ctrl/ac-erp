@@ -40,7 +40,8 @@ public class NavigationService {
 
         // Operations, Financials & Analytics
         navItems.put("services",         new NavItem("Services",          "🔧", "services.fxml",          UserRole.TECHNICIAN));
-         navItems.put("amc_contracts",       new NavItem("AMC Contracts",     "📅", "amc_contracts.fxml",       UserRole.USER));
+        navItems.put("amc_contracts",     new NavItem("AMC Contracts",    "📅", "amc_contracts.fxml",       UserRole.USER));
+        navItems.put("warranty_certificates", new NavItem("Warranty Certificates", "🛡️", "warranty_certificates.fxml", UserRole.USER));
         navItems.put("payroll_commissions", new NavItem("Commissions",       "💵", "payroll_commissions.fxml", UserRole.MANAGER));
         navItems.put("fixed_assets",     new NavItem("Fixed Assets",      "🚚", "fixed_assets.fxml",      UserRole.MANAGER));
         navItems.put("accounting",       new NavItem("Accounting",        "💰", "accounting.fxml",        UserRole.MANAGER));

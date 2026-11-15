@@ -49,6 +49,8 @@ public class InvoiceController {
     @FXML private ComboBox<String> statusCombo;
     @FXML private TableView<InvoiceLine> linesTable;
     @FXML private TableColumn<InvoiceLine, String> colProduct;
+    @FXML private TableColumn<InvoiceLine, String> colLineDescription;
+    @FXML private TableColumn<InvoiceLine, String> colWarranty;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colQty;
     @FXML private TableColumn<InvoiceLine, BigDecimal> colPrice;
     @FXML private TableColumn<InvoiceLine, String> colDiscountType;
@@ -66,6 +68,7 @@ public class InvoiceController {
     @FXML private TextField txtDocumentPackagePrice;
     @FXML private Label lblDocumentDiscountAmount;
     @FXML private CheckBox globalTaxCheck;
+    @FXML private CheckBox chkShowLineDescription;
     @FXML private VBox detailsPane;
 
     private final InvoiceService invoiceService = new InvoiceService();
@@ -368,6 +371,27 @@ public class InvoiceController {
         colProduct.setOnEditCommit(e -> {
             if (!editMode) { linesTable.refresh(); return; }
             e.getRowValue().setDescription(e.getNewValue());
+            linesTable.refresh();
+        });
+
+        colLineDescription.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+                d.getValue().getLineDescription() == null ? "" : d.getValue().getLineDescription()));
+        colLineDescription.setCellFactory(TextFieldTableCell.forTableColumn());
+        colLineDescription.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setLineDescription(e.getNewValue());
+            linesTable.refresh();
+        });
+        colLineDescription.setVisible(chkShowLineDescription.isSelected());
+        chkShowLineDescription.selectedProperty().addListener((obs, wasSelected, isSelected) ->
+                colLineDescription.setVisible(isSelected));
+
+        colWarranty.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+                d.getValue().getWarranty() == null ? "" : d.getValue().getWarranty()));
+        colWarranty.setCellFactory(TextFieldTableCell.forTableColumn());
+        colWarranty.setOnEditCommit(e -> {
+            if (!editMode) { linesTable.refresh(); return; }
+            e.getRowValue().setWarranty(e.getNewValue());
             linesTable.refresh();
         });
 

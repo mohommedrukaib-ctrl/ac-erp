@@ -79,8 +79,8 @@ public class GoodsReceivedNoteRepository {
 
         String insertLine = """
             INSERT INTO grn_lines
-                (grn_id, po_line_id, product_id, description, quantity_ordered, quantity_received, unit_cost, line_total)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (grn_id, po_line_id, product_id, description, line_description, warranty, quantity_ordered, quantity_received, unit_cost, line_total)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         String updateStock = """
@@ -146,13 +146,15 @@ public class GoodsReceivedNoteRepository {
                                 lineStmt.setNull(3, Types.INTEGER);
                             }
                             lineStmt.setString(4, line.getDescription());
-                            lineStmt.setBigDecimal(5,
-                                    line.getQuantityOrdered() != null ? line.getQuantityOrdered() : BigDecimal.ZERO);
-                            lineStmt.setBigDecimal(6,
-                                    line.getQuantityReceived() != null ? line.getQuantityReceived() : BigDecimal.ZERO);
+                            lineStmt.setString(5, line.getLineDescription());
+                            lineStmt.setString(6, line.getWarranty());
                             lineStmt.setBigDecimal(7,
-                                    line.getUnitCost() != null ? line.getUnitCost() : BigDecimal.ZERO);
+                                    line.getQuantityOrdered() != null ? line.getQuantityOrdered() : BigDecimal.ZERO);
                             lineStmt.setBigDecimal(8,
+                                    line.getQuantityReceived() != null ? line.getQuantityReceived() : BigDecimal.ZERO);
+                            lineStmt.setBigDecimal(9,
+                                    line.getUnitCost() != null ? line.getUnitCost() : BigDecimal.ZERO);
+                            lineStmt.setBigDecimal(10,
                                     line.getLineTotal() != null ? line.getLineTotal() : BigDecimal.ZERO);
                             lineStmt.addBatch();
 
@@ -213,6 +215,8 @@ public class GoodsReceivedNoteRepository {
                     line.setPoLineId((Integer) rs.getObject("po_line_id"));
                     line.setProductId((Integer) rs.getObject("product_id"));
                     line.setDescription(rs.getString("description"));
+                    line.setLineDescription(rs.getString("line_description"));
+                    line.setWarranty(rs.getString("warranty"));
                     line.setQuantityOrdered(rs.getBigDecimal("quantity_ordered"));
                     line.setQuantityReceived(rs.getBigDecimal("quantity_received"));
                     line.setUnitCost(rs.getBigDecimal("unit_cost"));
